@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Firebase — Activer les Push Notifications Android</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f8f9fa;
+      color: #1a1a2e;
+      padding: 40px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    header {
+      background: linear-gradient(135deg, #FF6F00, #F57C00);
+      color: white;
+      border-radius: 12px;
+      padding: 28px 36px;
+      margin-bottom: 32px;
+    }
+    header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    header p { font-size: 13px; opacity: 0.9; }
+
+    .context-box {
+      background: #fff8e1;
+      border-left: 4px solid #F57C00;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 28px;
+      font-size: 13px;
+      color: #5d4037;
+    }
+    .context-box strong { color: #e65100; }
+
+    section { margin-bottom: 28px; }
+    section h2 {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #FF6F00;
+      border-bottom: 2px solid #FF6F00;
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+    }
+
+    .step {
+      background: white;
+      border-radius: 10px;
+      border: 1px solid #e0e0e0;
+      padding: 16px 20px;
+      margin-bottom: 10px;
+    }
+    .step-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+    .step-num {
+      background: #FF6F00;
+      color: white;
+      border-radius: 50%;
+      width: 26px;
+      height: 26px;
+      min-width: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .step-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a2e;
+      padding-top: 3px;
+    }
+    .step-body {
+      margin-left: 40px;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+    }
+    .step-body a {
+      color: #FF6F00;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .step-body a:hover { text-decoration: underline; }
+
+    code {
+      display: inline-block;
+      background: #1e1e2e;
+      color: #a6e3a1;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    code.block {
+      display: block;
+      padding: 10px 14px;
+      margin: 8px 0;
+      font-size: 13px;
+    }
+
+    .file-tree {
+      background: #1e1e2e;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 8px 0;
+      font-family: 'Consolas', monospace;
+      font-size: 13px;
+      color: #cdd6f4;
+    }
+    .file-tree .highlight { color: #a6e3a1; font-weight: 700; }
+    .file-tree .dim { color: #6c7086; }
+
+    .note {
+      font-size: 12px;
+      color: #888;
+      margin-top: 6px;
+      font-style: italic;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .tag-optional { background: #e8f5e9; color: #2e7d32; }
+    .tag-important { background: #fff3e0; color: #e65100; }
+
+    .summary {
+      background: #fff8e1;
+      border-radius: 10px;
+      padding: 18px 22px;
+      border: 1px solid #ffe0b2;
+    }
+    .summary h3 { font-size: 14px; font-weight: 700; color: #e65100; margin-bottom: 10px; }
+    .summary ul { padding-left: 20px; }
+    .summary li { font-size: 13px; color: #5d4037; margin-bottom: 5px; }
+
+    @media print {
+      body { background: white; padding: 20px; }
+      header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .step-num { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .file-tree { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      code { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .context-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .summary { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🔔 Firebase — Activer les Push Notifications Android</h1>
+  <p>Application Salat Janaza · Package : fr.myjanaza.qabr · SDK Expo 52</p>
+</header>
+
+<div class="context-box">
+  <strong>Pourquoi cette étape ?</strong> Android utilise FCM (Firebase Cloud Messaging) pour recevoir les notifications push.
+  Sans le fichier <code>google-services.json</code>, l'app affiche l'erreur
+  <strong>"expo-notifications: Android Push notifications…"</strong> au démarrage.
+  Ce fichier n'est utilisé que pour les builds — pas pour le fonctionnement de l'app en elle-même.
+</div>
+
+<!-- ÉTAPE 1 -->
+<section>
+  <h2>Étape 1 — Créer le projet Firebase</h2>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <div class="step-title">Ouvrir la console Firebase</div>
+    </div>
+    <div class="step-body">
+      Va sur <a href="https://console.firebase.google.com">console.firebase.google.com</a>
+      et connecte-toi avec ton compte Google.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div class="step-title">Créer un nouveau projet</div>
+    </div>
+    <div class="step-body">
+      Clique sur <strong>"Créer un projet Firebase"</strong>.<br>
+      Nom du projet : <code>salat-janaza</code> (ou ce que tu veux).<br>
+      <span class="note">Note : les projets existants (janazaDB, etc.) ont un numéro de projet différent — il vaut mieux en créer un nouveau dédié.</span>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">3</div>
+      <div class="step-title">Google Analytics <span class="tag tag-optional">Optionnel</span></div>
+    </div>
+    <div class="step-body">
+      Tu peux <strong>désactiver Google Analytics</strong> — pas utile pour les push notifications.
+      Clique "Créer le projet" et attends quelques secondes.
+    </div>
+  </div>
+</section>
+
+<!-- ÉTAPE 2 -->
+<section>
+  <h2>Étape 2 — Ajouter l'application Android</h2>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">4</div>
+      <div class="step-title">Ajouter une application Android</div>
+    </div>
+    <div class="step-body">
+      Une fois le projet créé, clique sur l'icône Android <strong>(⚙ → "Ajouter une application")</strong>
+      ou sur le bouton Android sur la page d'accueil du projet.<br><br>
+      Remplis uniquement le <strong>nom du package Android</strong> :
+      <code class="block">fr.myjanaza.qabr</code>
+      Le surnom et la clé SHA-1 sont optionnels — laisse vide et clique <strong>"Enregistrer l'application"</strong>.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">5</div>
+      <div class="step-title">Télécharger google-services.json <span class="tag tag-important">Important</span></div>
+    </div>
+    <div class="step-body">
+      Clique sur <strong>"Télécharger google-services.json"</strong>.<br>
+      Clique "Suivant", "Suivant", "Continuer dans la console" — on n'a pas besoin d'ajouter le SDK Firebase dans le code.
+    </div>
+  </div>
+</section>
+
+<!-- ÉTAPE 3 -->
+<section>
+  <h2>Étape 3 — Placer le fichier dans le projet</h2>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">6</div>
+      <div class="step-title">Copier le fichier à la racine du projet</div>
+    </div>
+    <div class="step-body">
+      Place le fichier téléchargé ici (à côté de <code>app.json</code>) :
+      <div class="file-tree">
+        qabr_mobile/<br>
+        &nbsp;&nbsp;<span class="highlight">google-services.json</span>&nbsp;&nbsp;<span class="dim">← ici</span><br>
+        &nbsp;&nbsp;<span class="dim">app.json</span><br>
+        &nbsp;&nbsp;<span class="dim">package.json</span><br>
+        &nbsp;&nbsp;<span class="dim">index.js</span><br>
+        &nbsp;&nbsp;<span class="dim">src/</span>
+      </div>
+      <span class="note">Ce fichier ne doit pas être dans src/ ou android/ — uniquement à la racine.</span>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">7</div>
+      <div class="step-title">Vérifier app.json</div>
+    </div>
+    <div class="step-body">
+      La ligne suivante a déjà été ajoutée automatiquement dans <code>app.json</code> → section <code>android</code> :
+      <code class="block">"googleServicesFile": "./google-services.json"</code>
+      Rien à faire de ton côté ici.
+    </div>
+  </div>
+</section>
+
+<!-- ÉTAPE 4 -->
+<section>
+  <h2>Étape 4 — Rebuild l'application</h2>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">8</div>
+      <div class="step-title">Lancer le build EAS Android</div>
+    </div>
+    <div class="step-body">
+      Dans le terminal, à la racine de <code>qabr_mobile/</code> :
+      <code class="block">eas build --platform android --profile development</code>
+      Ce build inclura le <code>google-services.json</code> et configurera FCM automatiquement.
+      Le résultat est un <strong>.apk</strong> à installer directement sur le téléphone.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">9</div>
+      <div class="step-title">Tester les notifications</div>
+    </div>
+    <div class="step-body">
+      Installe le .apk sur Android, connecte-toi, déclare une janaza dans une mosquée
+      à laquelle tu es abonné → tu dois recevoir la notification push.<br>
+      L'erreur <em>"expo-notifications: Android Push notifications…"</em> doit avoir disparu.
+    </div>
+  </div>
+</section>
+
+<!-- RÉSUMÉ -->
+<section>
+  <div class="summary">
+    <h3>Résumé des fichiers et liens</h3>
+    <ul>
+      <li>Console Firebase : <a href="https://console.firebase.google.com">console.firebase.google.com</a></li>
+      <li>Package Android à utiliser : <strong>fr.myjanaza.qabr</strong></li>
+      <li>Fichier à télécharger : <strong>google-services.json</strong></li>
+      <li>Emplacement du fichier : <strong>qabr_mobile/google-services.json</strong> (racine)</li>
+      <li>Ligne dans app.json (déjà ajoutée) : <strong>"googleServicesFile": "./google-services.json"</strong></li>
+      <li>Commande rebuild : <strong>eas build --platform android --profile development</strong></li>
+    </ul>
+  </div>
+</section>
+
+</body>
+</html>

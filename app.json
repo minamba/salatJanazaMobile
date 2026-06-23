@@ -1,0 +1,103 @@
+{
+  "expo": {
+    "name": "Salat Janaza",
+    "slug": "qabr-mobile",
+    "owner": "minamba",
+    "extra": {
+      "eas": {
+        "projectId": "63750b9a-4f66-4b30-89e3-710b99b598d7"
+      }
+    },
+    "icon": "./assets/icons/icon2.png",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "qabr",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/icons/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "fr.myjanaza.qabr",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Qabr utilise votre position pour trouver les mosquées proches et vous envoyer des notifications de prière.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Qabr utilise votre position en arrière-plan pour vous notifier des prières funéraires sur votre chemin.",
+        "NSLocationAlwaysUsageDescription": "Qabr utilise votre position en arrière-plan pour vous notifier des prières funéraires sur votre chemin.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.174617961394-4kvqfhr46nc2mvtb8u3iu8pac2hm1nfr"
+            ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.174617961394-4kvqfhr46nc2mvtb8u3iu8pac2hm1nfr"
+            ]
+          }
+        ]
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
+    },
+    "android": {
+      "googleServicesFile": "./google-services.json",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBnuF6dRwxjqOVOQroMoaAIWibqdFHutks"
+        }
+      },
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icons/icAndroid.png",
+        "backgroundColor": "#F4FAF5"
+      },
+      "package": "fr.myjanaza.qabr",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "FOREGROUND_SERVICE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "FOREGROUND_SERVICE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "runtimeVersion": "1.0.0"
+    },
+    "plugins": [
+      "./plugins/withModularHeaders",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Qabr utilise votre position pour vous notifier des prières funéraires proches de vous."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icons/icon2.png",
+          "color": "#238636"
+        }
+      ],
+      "expo-web-browser",
+      "expo-apple-authentication",
+      "expo-localization",
+      "@react-native-google-signin/google-signin"
+    ],
+    "updates": {
+      "url": "https://u.expo.dev/63750b9a-4f66-4b30-89e3-710b99b598d7"
+    }
+  }
+}

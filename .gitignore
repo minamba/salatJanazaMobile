@@ -1,4 +1,5 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Claude Code
+.claude/
 
 # dependencies
 /node_modules
@@ -10,14 +11,26 @@
 
 # production
 /build
+/dist
 
-# misc
-.DS_Store
+# Expo
+/.expo
+/android/.gradle
+/android/app/google-services.json
+
+# Secrets — NE JAMAIS COMMITER
+.env
 .env.local
+.env.development
+.env.production
 .env.development.local
 .env.test.local
 .env.production.local
+google-services.json
+GoogleService-Info.plist
 
+# misc
+.DS_Store
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

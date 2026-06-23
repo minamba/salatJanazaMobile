@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../source/repos/QabrWebApp"
+		},
+		{
+			"path": "../qabr_web"
+		}
+	],
+	"settings": {}
+}

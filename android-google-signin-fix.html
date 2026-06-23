@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Android Google Sign-In — DEVELOPER_ERROR : Problème & Solution</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #1a1a2e;
+      background: #f8f9fa;
+      padding: 0;
+    }
+
+    .page {
+      max-width: 800px;
+      margin: 40px auto;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    .header {
+      background: linear-gradient(135deg, #4285F4 0%, #1a73e8 100%);
+      color: white;
+      padding: 40px 48px;
+    }
+
+    .header .tag {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      color: white;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+
+    .header .subtitle {
+      font-size: 14px;
+      opacity: 0.85;
+    }
+
+    .meta-bar {
+      background: #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 12px 48px;
+      display: flex;
+      gap: 32px;
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .meta-bar span strong {
+      color: #334155;
+    }
+
+    .body {
+      padding: 40px 48px;
+    }
+
+    h2 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 36px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h2:first-child { margin-top: 0; }
+
+    h2 .icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .icon-red { background: #fee2e2; }
+    .icon-orange { background: #ffedd5; }
+    .icon-green { background: #dcfce7; }
+    .icon-blue { background: #dbeafe; }
+    .icon-purple { background: #ede9fe; }
+
+    p { margin-bottom: 12px; color: #334155; }
+
+    .alert {
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 13.5px;
+    }
+
+    .alert-red {
+      background: #fef2f2;
+      border-left: 4px solid #ef4444;
+      color: #7f1d1d;
+    }
+
+    .alert-green {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      color: #14532d;
+    }
+
+    .alert-blue {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      color: #1e3a5f;
+    }
+
+    .alert-orange {
+      background: #fff7ed;
+      border-left: 4px solid #f97316;
+      color: #7c2d12;
+    }
+
+    .checklist {
+      list-style: none;
+      margin: 12px 0;
+    }
+
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 6px 0;
+      color: #334155;
+      font-size: 13.5px;
+    }
+
+    .check { color: #22c55e; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    .cross { color: #ef4444; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 20px 24px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+
+    .comment { color: #64748b; }
+    .keyword { color: #93c5fd; }
+    .string { color: #86efac; }
+    .key { color: #f9a8d4; }
+    .value { color: #fcd34d; }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .col-box {
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 13px;
+    }
+
+    .col-bad { background: #fef2f2; border: 1px solid #fca5a5; }
+    .col-good { background: #f0fdf4; border: 1px solid #86efac; }
+
+    .col-box h4 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 10px;
+    }
+
+    .col-bad h4 { color: #dc2626; }
+    .col-good h4 { color: #16a34a; }
+
+    .col-box pre {
+      background: #1e293b;
+      padding: 12px 16px;
+      font-size: 11.5px;
+      margin: 0;
+    }
+
+    .pill {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 12px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .summary-box {
+      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+      border: 1px solid #86efac;
+      border-radius: 10px;
+      padding: 24px 28px;
+      margin-top: 32px;
+    }
+
+    .summary-box h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #14532d;
+      margin-bottom: 12px;
+    }
+
+    .summary-box p { color: #166534; font-size: 13.5px; margin-bottom: 8px; }
+    .summary-box p:last-child { margin-bottom: 0; }
+
+    .footer {
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      padding: 20px 48px;
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+
+    th {
+      background: #f1f5f9;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: #475569;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-ok { background: #dcfce7; color: #15803d; }
+    .badge-fail { background: #fee2e2; color: #dc2626; }
+
+    @media print {
+      body { background: white; }
+      .page { margin: 0; box-shadow: none; border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="tag">React Native · Android · Google Sign-In</div>
+    <h1>DEVELOPER_ERROR (code 10)<br>sur Android — Analyse & Solution</h1>
+    <div class="subtitle">@react-native-google-signin v16+ · play-services-auth 21.x · Expo SDK 52</div>
+  </div>
+
+  <div class="meta-bar">
+    <span><strong>Librairie :</strong> @react-native-google-signin/google-signin v16.1.2</span>
+    <span><strong>Dépendance Android :</strong> play-services-auth:21.4.0</span>
+    <span><strong>Résolu le :</strong> juin 2026</span>
+  </div>
+
+  <div class="body">
+
+    <!-- SYMPTOME -->
+    <h2><span class="icon icon-red">🔴</span> Symptôme</h2>
+    <p>Sur un build Android production, la popup de sélection de compte Google s'affiche normalement. Dès qu'un compte est sélectionné, le SDK retourne immédiatement une erreur sans compléter la connexion :</p>
+
+    <div class="alert alert-red">
+      <strong>DEVELOPER_ERROR</strong> — code 10<br>
+      <small>com.google.android.gms.common.api.ApiException: 10</small>
+    </div>
+
+    <p>Ce bug n'apparaît <strong>que sur Android</strong>. iOS (via expo-auth-session) fonctionne normalement.</p>
+
+    <!-- DIAGNOSTIC -->
+    <h2><span class="icon icon-orange">🔍</span> Diagnostic — Ce qu'on a vérifié</h2>
+
+    <p>DEVELOPER_ERROR (code 10) pointe habituellement vers une mauvaise configuration. Voici tout ce qui a été vérifié et qui était <strong>correct</strong> :</p>
+
+    <table>
+      <tr>
+        <th>Point de vérification</th>
+        <th>Statut</th>
+      </tr>
+      <tr>
+        <td>SHA-1 du keystore EAS enregistré dans Firebase</td>
+        <td><span class="badge badge-ok">✓ Correct</span></td>
+      </tr>
+      <tr>
+        <td>Package name identique dans app.json et Google Cloud Console</td>
+        <td><span class="badge badge-ok">✓ Correct</span></td>
+      </tr>
+      <tr>
+        <td>Client Android (type 1) et Web (type 3) dans le même projet Firebase</td>
+        <td><span class="badge badge-ok">✓ Correct</span></td>
+      </tr>
+      <tr>
+        <td>google-services.json valide avec les deux clients</td>
+        <td><span class="badge badge-ok">✓ Correct</span></td>
+      </tr>
+      <tr>
+        <td><code>apply plugin: 'com.google.gms.google-services'</code> en dernière ligne du build.gradle</td>
+        <td><span class="badge badge-ok">✓ Correct</span></td>
+      </tr>
+      <tr>
+        <td>Propagation Google attendue (5h+)</td>
+        <td><span class="badge badge-ok">✓ Attendu</span></td>
+      </tr>
+      <tr>
+        <td><strong>webClientId dans GoogleSignin.configure()</strong></td>
+        <td><span class="badge badge-fail">✗ Coupable</span></td>
+      </tr>
+    </table>
+
+    <!-- CAUSE RACINE -->
+    <h2><span class="icon icon-purple">⚡</span> Cause racine</h2>
+
+    <p>
+      Depuis <strong>play-services-auth 21.x</strong>, le SDK Google valide plus strictement le <code>webClientId</code> passé dans <code>GoogleSignin.configure()</code>.
+      Le client web <strong>auto-créé par Firebase Authentication</strong> (type 3) est rejeté avec DEVELOPER_ERROR,
+      même s'il appartient au même projet que le client Android. L'erreur ne donne aucun détail — elle est silencieuse.
+    </p>
+
+    <div class="alert alert-orange">
+      <strong>Subtilité :</strong> Le client web Firebase (généré automatiquement quand on active Google Sign-In dans la console Firebase) a des restrictions internes qui le rendent incompatible en tant que <code>webClientId</code> dans le SDK natif Android avec play-services-auth 21.x.
+    </div>
+
+    <!-- SOLUTION -->
+    <h2><span class="icon icon-green">✅</span> Solution</h2>
+
+    <p>Supprimer le <code>webClientId</code> de <code>GoogleSignin.configure()</code>. Sans ce paramètre, le SDK effectue le Sign-In en mode standalone et retourne toujours un <code>accessToken</code> utilisable par le backend.</p>
+
+    <div class="two-col">
+      <div class="col-box col-bad">
+        <h4>❌ Avant — provoque DEVELOPER_ERROR</h4>
+        <pre><span class="comment">// play-services-auth 21.x rejette ça</span>
+GoogleSignin.configure({
+  <span class="key">webClientId</span>: <span class="string">'732343...apps.googleusercontent.com'</span>,
+  <span class="key">scopes</span>: [<span class="string">'openid'</span>, <span class="string">'email'</span>, <span class="string">'profile'</span>],
+});</pre>
+      </div>
+      <div class="col-box col-good">
+        <h4>✅ Après — fonctionne</h4>
+        <pre><span class="comment">// Sans webClientId = mode standalone</span>
+GoogleSignin.configure({
+  <span class="key">scopes</span>: [<span class="string">'email'</span>, <span class="string">'profile'</span>],
+});
+
+<span class="comment">// accessToken toujours disponible</span></pre>
+      </div>
+    </div>
+
+    <div class="alert alert-blue">
+      <strong>Impact sur le backend :</strong> Sans <code>webClientId</code>, le SDK ne retourne pas d'<code>idToken</code> mais l'<code>accessToken</code> reste disponible via <code>getTokens()</code>. Si ton backend utilise le flux OAuth2 standard avec <code>access_token</code>, aucun changement n'est nécessaire côté serveur.
+    </div>
+
+    <!-- CONFIGURATION COMPLETE -->
+    <h2><span class="icon icon-blue">📋</span> Configuration complète fonctionnelle</h2>
+
+    <p><strong>app.json</strong></p>
+    <pre>{
+  <span class="key">"plugins"</span>: [<span class="string">"@react-native-google-signin/google-signin"</span>],
+  <span class="key">"android"</span>: {
+    <span class="key">"googleServicesFile"</span>: <span class="string">"./google-services.json"</span>
+  }
+}</pre>
+
+    <p><strong>google-services.json</strong> — les deux clients du même projet Firebase :</p>
+    <pre>{
+  <span class="key">"oauth_client"</span>: [
+    {
+      <span class="key">"client_id"</span>: <span class="string">"PROJECT_NUMBER-xxxx.apps.googleusercontent.com"</span>,
+      <span class="key">"client_type"</span>: <span class="value">1</span>,         <span class="comment">// Android</span>
+      <span class="key">"android_info"</span>: {
+        <span class="key">"package_name"</span>: <span class="string">"fr.myjanaza.qabr"</span>,
+        <span class="key">"certificate_hash"</span>: <span class="string">"SHA-1_DU_KEYSTORE_EAS"</span>
+      }
+    },
+    {
+      <span class="key">"client_id"</span>: <span class="string">"PROJECT_NUMBER-yyyy.apps.googleusercontent.com"</span>,
+      <span class="key">"client_type"</span>: <span class="value">3</span>          <span class="comment">// Web (même projet)</span>
+    }
+  ]
+}</pre>
+
+    <p><strong>LoginScreen.js</strong> — configuration Android :</p>
+    <pre><span class="comment">// Lazy require pour compatibilité Expo Go</span>
+<span class="keyword">let</span> GoogleSignin = <span class="keyword">null</span>;
+<span class="keyword">if</span> (Platform.OS === <span class="string">'android'</span>) {
+  <span class="keyword">try</span> {
+    ({ GoogleSignin } = <span class="keyword">require</span>(<span class="string">'@react-native-google-signin/google-signin'</span>));
+  } <span class="keyword">catch</span> {}
+}
+
+<span class="comment">// Dans useEffect — PAS de webClientId</span>
+<span class="keyword">if</span> (Platform.OS === <span class="string">'android'</span> && GoogleSignin) {
+  GoogleSignin.configure({
+    <span class="key">scopes</span>: [<span class="string">'email'</span>, <span class="string">'profile'</span>],
+  });
+}
+
+<span class="comment">// Sign-In</span>
+<span class="keyword">await</span> GoogleSignin.hasPlayServices();
+<span class="keyword">await</span> GoogleSignin.signIn();
+<span class="keyword">const</span> tokens = <span class="keyword">await</span> GoogleSignin.getTokens();
+<span class="comment">// tokens.accessToken est disponible — tokens.idToken sera null</span></pre>
+
+    <!-- TEST RAPIDE -->
+    <h2><span class="icon icon-blue">🚀</span> Tester sans passer par le Play Store</h2>
+
+    <p>Pour éviter les validations Play Store (1h+), utiliser la distribution interne EAS qui génère un APK installable directement via QR code, signé avec le <strong>même keystore</strong> que la production :</p>
+
+    <p><strong>eas.json</strong> — ajouter le profil preview :</p>
+    <pre>{
+  <span class="key">"preview"</span>: {
+    <span class="key">"distribution"</span>: <span class="string">"internal"</span>,
+    <span class="key">"android"</span>: {
+      <span class="key">"buildType"</span>: <span class="string">"apk"</span>   <span class="comment">// APK direct, pas AAB</span>
+    }
+  }
+}</pre>
+
+    <pre>eas build --profile preview --platform android</pre>
+
+    <div class="alert alert-blue">
+      EAS fournit un QR code à scanner pour installer l'APK directement. Le SHA-1 du keystore est identique au build production — Google Sign-In fonctionne dans les mêmes conditions.
+    </div>
+
+    <!-- RESUME -->
+    <div class="summary-box">
+      <h3>Résumé en une phrase</h3>
+      <p>Avec <strong>@react-native-google-signin v16+</strong> et <strong>play-services-auth 21.x</strong>, ne jamais passer <code>webClientId</code> dans <code>GoogleSignin.configure()</code> — ça déclenche silencieusement DEVELOPER_ERROR (code 10) à cause d'une validation stricte du client web Firebase.</p>
+      <p>L'<code>accessToken</code> reste disponible sans <code>webClientId</code> et suffit pour les backends OAuth2 standard.</p>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    Projet qabr_mobile · Résolu juin 2026 · @react-native-google-signin v16.1.2 · Expo SDK 52 · play-services-auth 21.4.0
+  </div>
+
+</div>
+</body>
+</html>
