@@ -15,8 +15,7 @@
 
 # Expo
 /.expo
-/android/.gradle
-/android/app/google-services.json
+/android/
 
 # Secrets — NE JAMAIS COMMITER
 .env
@@ -26,7 +25,6 @@
 .env.development.local
 .env.test.local
 .env.production.local
-google-services.json
 GoogleService-Info.plist
 
 # misc

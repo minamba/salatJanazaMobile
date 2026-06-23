@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "732343395714",
+    "project_id": "salat-janaza-c2269",
+    "storage_bucket": "salat-janaza-c2269.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:732343395714:android:1c4d58b7f44d449f68db9b",
+        "android_client_info": {
+          "package_name": "fr.myjanaza.qabr"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "732343395714-8jsqmkmc0ofrc3d83okgri519hp2sabl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "fr.myjanaza.qabr",
+            "certificate_hash": "d4159990942f446ec2d1a067bc691f9bc9567360"
+          }
+        },
+        {
+          "client_id": "732343395714-gh4i6tha1pl9s2c737lq01n6jbpttr48.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "fr.myjanaza.qabr",
+            "certificate_hash": "e6a251a5859a88a81d3ec457eeb758e14b8f9bb5"
+          }
+        },
+        {
+          "client_id": "732343395714-ci6k0tov6ae769d83g2uqpvojcgj9k0b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9KJLmU5vAoN4oLD8WfmzlKFGeqcPF0y4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "732343395714-ci6k0tov6ae769d83g2uqpvojcgj9k0b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
