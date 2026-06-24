@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
-const AUTH_URL = process.env.EXPO_PUBLIC_AUTH_URL ?? 'http://localhost:5001';
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5167';
+const AUTH_URL = process.env.EXPO_PUBLIC_AUTH_URL ?? 'https://auth.salatjanaza.org';
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.salatjanaza.org';
 const CLIENT_ID = 'qabr-mobile';
 const SCOPES = 'openid email profile qabr-api offline_access';
 

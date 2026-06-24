@@ -173,7 +173,7 @@
     "add_subtitle": "Elle sera soumise à vérification et ajoutée à notre base de données.",
     "add_name_label": "Nom *",
     "add_name_placeholder": "Ex: Mosquée Al-Nour",
-    "add_name_error": "Le nom doit commencer par \"Mosquée\" ou \"Salle de prière\"",
+    "add_name_error": "Le nom doit commencer par \"Mosquée\", \"Grande Mosquée\", \"Petite Mosquée\", \"Salle de prière\" ou \"Centre\"",
     "add_address_label": "Adresse *",
     "add_address_placeholder": "Tapez et sélectionnez dans la liste...",
     "add_address_required": "L'adresse est obligatoire",

@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const MOVEMENT_TASK = 'MOVEMENT_JANAZA_TASK';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5167';
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.salatjanaza.org';
 const PROXIMITY_KM = 5; // 5 km
 
 function distKm(lat1, lon1, lat2, lon2) {

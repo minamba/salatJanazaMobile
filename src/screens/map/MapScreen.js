@@ -365,10 +365,56 @@ function looksLikeEnoughToGeocode(text) {
   return tokens.length >= 3;                                         // au moins 3 mots/parties
 }
 
-function formatNom(raw) {
+function formatNom(raw, lang) {
   const text = raw.trim();
   if (!text) return text;
+
+  if (lang === 'ar') {
+    return text; // pas de majuscules en arabe, on retourne tel quel
+  }
+
+  if (lang === 'en') {
+    const norm = normalizeAccents(text);
+    if (norm.startsWith('grand mosque')) {
+      const m = text.match(/^grand\s+mosque/i);
+      const rest = m ? text.slice(m[0].length) : text.slice(11);
+      return 'Grand Mosque' + rest;
+    }
+    if (norm.startsWith('small mosque')) {
+      const m = text.match(/^small\s+mosque/i);
+      const rest = m ? text.slice(m[0].length) : text.slice(11);
+      return 'Small Mosque' + rest;
+    }
+    if (norm.startsWith('mosque')) {
+      const m = text.match(/^mosque/i);
+      const rest = m ? text.slice(m[0].length) : text.slice(6);
+      return 'Mosque' + rest;
+    }
+    if (norm.startsWith('prayer hall')) {
+      const m = text.match(/^prayer\s+hall/i);
+      const rest = m ? text.slice(m[0].length) : text.slice(11);
+      return 'Prayer Hall' + rest;
+    }
+    if (norm.startsWith('centr')) {
+      const m = text.match(/^centr(?:e|er)/i);
+      const rest = m ? text.slice(m[0].length) : text.slice(6);
+      return 'Centre' + rest;
+    }
+    return text;
+  }
+
+  // Français (défaut)
   const norm = normalizeAccents(text);
+  if (norm.startsWith('grande mosquee')) {
+    const m = text.match(/^grande\s+mosqu[eéèê]{1,2}/i);
+    const rest = m ? text.slice(m[0].length) : text.slice(14);
+    return 'Grande Mosquée' + rest;
+  }
+  if (norm.startsWith('petite mosquee')) {
+    const m = text.match(/^petite\s+mosqu[eéèê]{1,2}/i);
+    const rest = m ? text.slice(m[0].length) : text.slice(14);
+    return 'Petite Mosquée' + rest;
+  }
   if (norm.startsWith('mosquee')) {
     const m = text.match(/^mosqu[eéèê]{1,2}/i);
     const rest = m ? text.slice(m[0].length) : text.slice(7);
@@ -379,16 +425,51 @@ function formatNom(raw) {
     const rest = m ? text.slice(m[0].length) : text.slice(15);
     return 'Salle de prière' + rest;
   }
+  if (norm.startsWith('centre')) {
+    const m = text.match(/^centr[eé]/i);
+    const rest = m ? text.slice(m[0].length) : text.slice(6);
+    return 'Centre' + rest;
+  }
   return text;
 }
 
-function hasValidPrefix(text) {
+function hasValidPrefix(text, lang) {
+  if (lang === 'ar') {
+    const t = text.trim();
+    return (
+      t.startsWith('مسجد صغير') ||
+      t.startsWith('جامع') ||
+      t.startsWith('مسجد') ||
+      t.startsWith('مصلى') ||
+      t.startsWith('قاعة صلاة') ||
+      t.startsWith('مركز')
+    );
+  }
+
+  if (lang === 'en') {
+    const norm = normalizeAccents(text.trim());
+    return (
+      norm.startsWith('grand mosque') ||
+      norm.startsWith('small mosque') ||
+      norm.startsWith('mosque') ||
+      norm.startsWith('prayer hall') ||
+      norm.startsWith('centr')
+    );
+  }
+
+  // Français (défaut)
   const norm = normalizeAccents(text.trim());
-  return norm.startsWith('mosquee') || norm.startsWith('salle de priere');
+  return (
+    norm.startsWith('grande mosquee') ||
+    norm.startsWith('petite mosquee') ||
+    norm.startsWith('mosquee') ||
+    norm.startsWith('salle de priere') ||
+    norm.startsWith('centre')
+  );
 }
 
 function AddMosqueModal({ onAdd, onClose }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [nom, setNom] = useState('');
   const [adresse, setAdresse] = useState('');
   const [coords, setCoords] = useState(null);
@@ -432,8 +513,8 @@ function AddMosqueModal({ onAdd, onClose }) {
     let hasError = false;
 
     // Validate + format nom
-    const formatted = formatNom(nom);
-    if (!formatted || !hasValidPrefix(formatted)) {
+    const formatted = formatNom(nom, i18n.language);
+    if (!formatted || !hasValidPrefix(formatted, i18n.language)) {
       setNomError(t('map.add_name_error'));
       hasError = true;
     } else {

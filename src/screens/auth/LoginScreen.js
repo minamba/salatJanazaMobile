@@ -38,10 +38,10 @@ export default function LoginScreen({ navigation }) {
 
   // On iOS expo-auth-session exige iosClientId — on utilise le même webClientId pour Expo Go.
   // Fallback non-vide pour éviter l'invariant si l'env var n'est pas encore configurée.
-  const _gWebId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'NOT_CONFIGURED';
-  const _gIosId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || 'NOT_CONFIGURED';
-  const _gAndroidId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || 'NOT_CONFIGURED';
-  const googleConfigured = !!process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID && !!process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+  const _gWebId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '732343395714-ci6k0tov6ae769d83g2uqpvojcgj9k0b.apps.googleusercontent.com';
+  const _gIosId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '174617961394-4kvqfhr46nc2mvtb8u3iu8pac2hm1nfr.apps.googleusercontent.com';
+  const _gAndroidId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '174617961394-6hescbb94kck78ipvc26d4v7ci7d2tl9.apps.googleusercontent.com';
+  const googleConfigured = !!_gWebId && !!_gIosId;
 
   const isExpoGo = Constants.appOwnership === 'expo';
   // iOS natif : reverse client ID = com.googleusercontent.apps.{id-sans-suffix}
