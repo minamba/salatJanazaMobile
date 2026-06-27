@@ -35,6 +35,7 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // On iOS expo-auth-session exige iosClientId — on utilise le même webClientId pour Expo Go.
   // Fallback non-vide pour éviter l'invariant si l'env var n'est pas encore configurée.
@@ -200,14 +201,19 @@ export default function LoginScreen({ navigation }) {
 
             <View style={styles.field}>
               <Text style={styles.label}>{t('login.password_label')}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder={t('login.password_placeholder')}
-                placeholderTextColor={colors.textMuted}
-                value={form.password}
-                onChangeText={set('password')}
-                secureTextEntry
-              />
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.inputFlex}
+                  placeholder={t('login.password_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                  value={form.password}
+                  onChangeText={set('password')}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <TouchableOpacity
@@ -301,6 +307,21 @@ const styles = StyleSheet.create({
   form: { gap: spacing.md },
   field: { gap: spacing.xs },
   label: { ...typography.label },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+  },
+  inputFlex: {
+    flex: 1,
+    padding: spacing.md,
+    color: colors.text,
+    fontSize: 15,
+  },
+  eyeBtn: { paddingHorizontal: spacing.md },
   input: {
     backgroundColor: colors.surface,
     borderWidth: 1,

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
+  StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography } from '../../utils/theme';
 import { register } from '../../lib/auth/authService';
 import { useTranslation } from 'react-i18next';
@@ -15,14 +16,14 @@ export default function RegisterScreen({ navigation }) {
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const FIELDS = [
     { key: 'firstName', label: t('register.first_name_label'), placeholder: t('register.first_name_placeholder'), autoComplete: 'given-name' },
     { key: 'lastName', label: t('register.last_name_label'), placeholder: t('register.last_name_placeholder'), autoComplete: 'family-name' },
     { key: 'email', label: t('register.email_label'), placeholder: t('register.email_placeholder'), keyboardType: 'email-address', autoComplete: 'email', autoCapitalize: 'none' },
     { key: 'phone', label: t('register.phone_label'), placeholder: t('register.phone_placeholder'), keyboardType: 'phone-pad', autoComplete: 'tel' },
-    { key: 'password', label: t('register.password_label'), placeholder: t('register.password_placeholder'), secureTextEntry: true },
-    { key: 'confirmPassword', label: t('register.confirm_label'), placeholder: t('register.confirm_placeholder'), secureTextEntry: true },
   ];
 
   function set(field) {
@@ -56,8 +57,8 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
-          {/* Header */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
             <Text style={styles.backText}>{t('register.back')}</Text>
           </TouchableOpacity>
@@ -83,10 +84,49 @@ export default function RegisterScreen({ navigation }) {
                   keyboardType={f.keyboardType ?? 'default'}
                   autoComplete={f.autoComplete}
                   autoCapitalize={f.autoCapitalize ?? 'words'}
-                  secureTextEntry={f.secureTextEntry ?? false}
                 />
               </View>
             ))}
+
+            {/* Mot de passe */}
+            <View style={styles.field}>
+              <Text style={styles.label}>{t('register.password_label')}</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.inputFlex}
+                  placeholder={t('register.password_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                  value={form.password ?? ''}
+                  onChangeText={set('password')}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoComplete="new-password"
+                />
+                <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Confirmer mot de passe */}
+            <View style={styles.field}>
+              <Text style={styles.label}>{t('register.confirm_label')}</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.inputFlex}
+                  placeholder={t('register.confirm_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                  value={form.confirmPassword ?? ''}
+                  onChangeText={set('confirmPassword')}
+                  secureTextEntry={!showConfirm}
+                  autoCapitalize="none"
+                  autoComplete="new-password"
+                />
+                <TouchableOpacity onPress={() => setShowConfirm(v => !v)} style={styles.eyeBtn} activeOpacity={0.7}>
+                  <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
 
             <TouchableOpacity
               style={[styles.btn, loading && styles.btnDisabled]}
@@ -94,7 +134,10 @@ export default function RegisterScreen({ navigation }) {
               disabled={loading}
               activeOpacity={0.8}
             >
-              <Text style={styles.btnText}>{loading ? t('register.loading') : t('register.submit')}</Text>
+              {loading
+                ? <ActivityIndicator color={colors.white} />
+                : <Text style={styles.btnText}>{t('register.submit')}</Text>
+              }
             </TouchableOpacity>
           </View>
 
@@ -105,13 +148,14 @@ export default function RegisterScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xxl },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 300 },
   back: { marginBottom: spacing.lg },
   backText: { ...typography.body, color: colors.primary },
   title: { ...typography.h1, marginBottom: spacing.xs },
@@ -137,6 +181,21 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
   },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+  },
+  inputFlex: {
+    flex: 1,
+    padding: spacing.md,
+    color: colors.text,
+    fontSize: 15,
+  },
+  eyeBtn: { paddingHorizontal: spacing.md },
   btn: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,

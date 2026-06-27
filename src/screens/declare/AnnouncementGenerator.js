@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback,
   FlatList, TextInput, ScrollView, ActivityIndicator, Image, ImageBackground, Switch,
-  KeyboardAvoidingView, Platform, useWindowDimensions,
+  KeyboardAvoidingView, Platform, useWindowDimensions, StatusBar, Keyboard,
 } from 'react-native';
 import { SafeAreaView, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
@@ -67,13 +67,11 @@ function CountryPickerModal({ visible, selected, onSelect, onClose }) {
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <View style={styles.cpOverlay}>
-        <TouchableWithoutFeedback onPress={onClose}>
-          <View style={StyleSheet.absoluteFillObject} />
-        </TouchableWithoutFeedback>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+        <View style={styles.cpOverlay}>
+          <TouchableWithoutFeedback onPress={onClose}>
+            <View style={StyleSheet.absoluteFillObject} />
+          </TouchableWithoutFeedback>
           <View style={styles.cpSheet}>
             <View style={styles.cpHandle} />
             <Text style={styles.cpTitle}>{t('announcement.country_picker_title')}</Text>
@@ -115,8 +113,8 @@ function CountryPickerModal({ visible, selected, onSelect, onClose }) {
               keyboardDismissMode="on-drag"
             />
           </View>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -310,8 +308,16 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   const [showDeath, setShowDeath] = useState(false);
   const [showCountry, setShowCountry] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [kbHeight, setKbHeight] = useState(0);
 
   const viewRef = useRef(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKbHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   useEffect(() => {
     if (!visible) {
@@ -373,7 +379,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
         {step === 'form' && (
           <KeyboardAvoidingView
             style={styles.formSheet}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
             <View style={styles.formHandle} />
             <View style={styles.formTopBar}>
@@ -385,7 +391,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
             </View>
             <Text style={styles.formSubtitle}>{t('announcement.subtitle')}</Text>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.xl }}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? kbHeight + spacing.xl : spacing.xl }}>
               {/* Toggle années */}
               <View style={styles.toggleRow}>
                 <View style={{ flex: 1 }}>
@@ -573,7 +579,7 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: topInset }}>
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: Platform.OS === 'ios' ? topInset : (StatusBar.currentHeight ?? 24) }}>
         <View style={styles.prevTopBar}>
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="close" size={24} color={colors.text} />
@@ -612,6 +618,14 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   const [showBirth, setShowBirth] = useState(false);
   const [showDeath, setShowDeath] = useState(false);
   const [showCountry, setShowCountry] = useState(false);
+  const [kbHeight, setKbHeight] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKbHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -631,21 +645,18 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
-          style={styles.formSheet}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View style={styles.formHandle} />
-          <View style={styles.formTopBar}>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={22} color={colors.text} />
-            </TouchableOpacity>
-            <Text style={styles.formTitle}>Informations complémentaires</Text>
-            <View style={{ width: 22 }} />
-          </View>
+      <View style={styles.container}>
+        <View style={styles.formSheet}>
+            <View style={styles.formHandle} />
+            <View style={styles.formTopBar}>
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.text} />
+              </TouchableOpacity>
+              <Text style={styles.formTitle}>Informations complémentaires</Text>
+              <View style={{ width: 22 }} />
+            </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.xl }}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? kbHeight + spacing.xl : spacing.xl }}>
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.toggleLabel}>{t('announcement.years_toggle')}</Text>
@@ -720,10 +731,10 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
               <Ionicons name="location-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
               <TextInput
                 style={styles.formInput}
-                placeholder={t('announcement.location_placeholder')}
-                placeholderTextColor={colors.textMuted}
                 value={locationFrance}
                 onChangeText={setLocationFrance}
+                placeholder={t('announcement.location_placeholder')}
+                placeholderTextColor={colors.textMuted}
               />
             </View>
 
@@ -735,9 +746,9 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
               <Ionicons name="megaphone-outline" size={18} color={colors.white} />
               <Text style={styles.formBtnText}>Publier la prière</Text>
             </TouchableOpacity>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+            </ScrollView>
+          </View>
+        </View>
 
       <YearPickerModal visible={showBirth} selected={birthYear} onSelect={setBirthYear} onClose={() => setShowBirth(false)} title={t('announcement.year_birth_title')} />
       <YearPickerModal visible={showDeath} selected={deathYear} onSelect={setDeathYear} onClose={() => setShowDeath(false)} title={t('announcement.year_death_title')} />

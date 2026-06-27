@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView,
   TextInput, Switch, Alert, FlatList, ActivityIndicator,
-  TouchableWithoutFeedback,
+  TouchableWithoutFeedback, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -298,6 +298,7 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
           </TouchableOpacity>
         </View>
 
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}>
         <ScrollView
           contentContainerStyle={styles.modalScroll}
           keyboardShouldPersistTaps="handled"
@@ -422,6 +423,7 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
             }
           </TouchableOpacity>
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
       <CalendarModal

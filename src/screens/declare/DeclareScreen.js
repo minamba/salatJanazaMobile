@@ -182,6 +182,7 @@ export default function DeclareScreen() {
     { key: 'enfant', label: t('declare.child') },
   ];
   const apiUser = useSelector((state) => state.auth.apiUser);
+  const janazaList = useSelector((state) => state.janazas.list);
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
@@ -342,6 +343,33 @@ export default function DeclareScreen() {
   async function doSubmit(extraData) {
     setError(null);
     setLoading(true);
+
+    // Duplicate detection
+    if (selectedDate) {
+      const norm = (s) => (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+      const proposedDay = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
+
+      const sameHourConflict = janazaList.find((j) => {
+        if (!j.dateHeure) return false;
+        const jDate = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
+        const jDay = `${jDate.getFullYear()}-${jDate.getMonth()}-${jDate.getDate()}`;
+        if (jDay !== proposedDay || jDate.getHours() !== selectedHour) return false;
+        if (form.mosqueeDbId) return String(j.mosqueeId) === String(form.mosqueeDbId);
+        return norm(j.mosquee) === norm(form.mosqueeNom);
+      });
+
+      if (sameHourConflict) {
+        const isExactDuplicate = !form.nomAnonyme && form.nomDefunt?.trim()
+          && norm(sameHourConflict.nomDefunt) === norm(form.nomDefunt);
+        setError(
+          isExactDuplicate
+            ? 'Une janaza a déjà été déclarée pour cette personne dans cette mosquée à cette heure.'
+            : 'Une salat janaza est déjà programmée pour cette heure dans cette mosquée.'
+        );
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
       const mosqueeApiId = await resolveMosqueeApiId();

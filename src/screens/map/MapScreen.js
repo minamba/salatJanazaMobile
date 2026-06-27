@@ -476,9 +476,38 @@ function AddMosqueModal({ onAdd, onClose }) {
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSugg, setLoadingSugg] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [nomError, setNomError] = useState('');
   const [adresseError, setAdresseError] = useState('');
   const debounceRef = useRef(null);
+
+  async function handleGeolocate() {
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(t('map.location_permission_title'), t('map.location_permission_message'));
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const { latitude, longitude } = pos.coords;
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+        { headers: { 'User-Agent': 'QabrApp/1.0' } },
+      );
+      const data = await res.json();
+      if (data?.display_name) {
+        setAdresse(data.display_name);
+        setCoords({ lat: latitude, lon: longitude });
+        setSuggestions([]);
+        setAdresseError('');
+      }
+    } catch {
+      Alert.alert(t('map.location_error_title'), t('map.location_error_message'));
+    } finally {
+      setLocating(false);
+    }
+  }
 
   function handleAdresseChange(text) {
     setAdresse(text);
@@ -618,7 +647,16 @@ function AddMosqueModal({ onAdd, onClose }) {
             />
           </View>
           {nomError ? <Text style={styles.fieldError}>{nomError}</Text> : null}
-          <Text style={[styles.addFieldLabel, { marginTop: spacing.xs }]}>{t('map.add_address_label')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: spacing.xs, marginBottom: spacing.xs }}>
+            <Text style={styles.addFieldLabel}>{t('map.add_address_label')}</Text>
+            <Text style={{ color: colors.error, fontSize: 11, marginLeft: spacing.xs, flexShrink: 1 }}>{t('map.add_address_geolocate_hint')}</Text>
+          </View>
+          <View style={styles.addressOptionalHint}>
+            <Ionicons name="information-circle-outline" size={14} color="#b45309" />
+            <Text style={styles.addressOptionalHintText}>
+              {t('map.add_address_autocomplete_hint')}
+            </Text>
+          </View>
           <View style={{ zIndex: 10 }}>
             <View style={[styles.addInputRow, adresseError ? styles.addInputRowError : null]}>
               <Ionicons name="location-outline" size={16} color={adresseError ? colors.error : colors.textMuted} style={styles.addInputIcon} />
@@ -629,12 +667,23 @@ function AddMosqueModal({ onAdd, onClose }) {
                 value={adresse}
                 onChangeText={handleAdresseChange}
               />
-              {loadingSugg
-                ? <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: spacing.sm }} />
+              <TouchableOpacity
+                onPress={handleGeolocate}
+                disabled={locating}
+                style={{ backgroundColor: colors.primary, borderRadius: 8, padding: 6, marginLeft: spacing.xs }}
+                activeOpacity={0.7}
+              >
+                {locating
+                  ? <ActivityIndicator size="small" color={colors.white} />
+                  : <Ionicons name="navigate" size={16} color={colors.white} />
+                }
+              </TouchableOpacity>
+              {!locating && (loadingSugg
+                ? <ActivityIndicator size="small" color={colors.textMuted} style={{ marginLeft: spacing.xs }} />
                 : coords
                   ? <Ionicons name="checkmark-circle" size={18} color={colors.success} style={{ marginLeft: spacing.xs }} />
                   : null
-              }
+              )}
             </View>
             {adresseError ? <Text style={styles.fieldError}>{adresseError}</Text> : null}
             {suggestions.length > 0 && (
@@ -1084,8 +1133,8 @@ export default function MapScreen() {
 
   useFocusEffect(useCallback(() => {
     const timer = setTimeout(() => {
-      if (activeCoords && mapRef.current) {
-        mapRef.current.animateToRegion(regionForRadius, 500);
+      if (activeCoordsRef.current && mapRef.current) {
+        mapRef.current.animateToRegion(regionForRadiusRef.current, 500);
       }
       if (Platform.OS === 'android') {
         refreshAndroidLabels();
@@ -1093,7 +1142,7 @@ export default function MapScreen() {
       }
     }, 600);
     return () => clearTimeout(timer);
-  }, [activeCoords, regionForRadius, refreshAndroidLabels]));
+  }, [refreshAndroidLabels]));
 
   function handlePressMosque(mosque) {
     // Resolve canonical mosque from allMosques so selectedMosque.id matches subscription ids
@@ -1128,8 +1177,12 @@ export default function MapScreen() {
     let lat = activeCoords?.latitude;
     let lon = activeCoords?.longitude;
     if (locationMode === 'gps') {
-      const fresh = await refreshGps();
-      if (fresh) { lat = fresh.latitude; lon = fresh.longitude; }
+      try {
+        const pos = Platform.OS === 'android'
+          ? await Location.getLastKnownPositionAsync()
+          : await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (pos) { lat = pos.coords.latitude; lon = pos.coords.longitude; setLocation(pos.coords); }
+      } catch {}
     }
     if (lat != null && lon != null && mapRef.current) {
       const delta = (notifRadius * 2 / 111) * 1.4;
@@ -1146,6 +1199,11 @@ export default function MapScreen() {
     const delta = (notifRadius * 2 / 111) * 1.4;
     return { latitude: lat, longitude: lon, latitudeDelta: delta, longitudeDelta: delta };
   }, [activeCoords?.latitude, activeCoords?.longitude, notifRadius]);
+
+  const activeCoordsRef = useRef(activeCoords);
+  const regionForRadiusRef = useRef(regionForRadius);
+  useEffect(() => { activeCoordsRef.current = activeCoords; }, [activeCoords]);
+  useEffect(() => { regionForRadiusRef.current = regionForRadius; }, [regionForRadius]);
 
   const hasHomeAddress = !!apiUser?.adresseDomicile;
 
@@ -1541,6 +1599,8 @@ const styles = StyleSheet.create({
   addModalTitle: { ...typography.h3, marginBottom: spacing.xs },
   addModalSubtitle: { ...typography.bodySmall, color: colors.textSecondary, marginBottom: spacing.lg },
   addFieldLabel: { ...typography.label, marginBottom: spacing.xs, color: colors.text },
+  addressOptionalHint: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs, backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fcd34d', borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.sm },
+  addressOptionalHintText: { ...typography.caption, color: '#b45309', flex: 1, lineHeight: 17 },
   addInputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, marginBottom: spacing.xs },
   addInputRowError: { borderColor: colors.error },
   fieldError: { ...typography.caption, color: colors.error, marginBottom: spacing.sm, marginLeft: spacing.xs },

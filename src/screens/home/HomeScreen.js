@@ -18,6 +18,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import * as Location from 'expo-location';
 import apiClient from '../../lib/api/apiClient';
 import * as Clipboard from 'expo-clipboard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadow } from '../../utils/theme';
 import { useTranslation } from 'react-i18next';
@@ -460,6 +461,17 @@ export default function HomeScreen() {
       .catch(() => {});
   }, [apiUserId]);
 
+  useEffect(() => {
+    AsyncStorage.getItem('home_info_seen').then(seen => {
+      if (seen) return;
+      const timer = setTimeout(() => {
+        Alert.alert(t('home.title'), t('home.subtitle'));
+        AsyncStorage.setItem('home_info_seen', '1');
+      }, 500);
+      return () => clearTimeout(timer);
+    });
+  }, []);
+
   // Polling toutes les 5 min quand l'app est au premier plan
   useEffect(() => {
     const POLL_MS = 5 * 60 * 1000;
@@ -580,23 +592,35 @@ export default function HomeScreen() {
     );
   }
 
+  const rayon = apiUser?.rayonNotification ?? 5;
+  const inRadiusCount = activeCoords
+    ? groups.filter(g => haversineKm(activeCoords.latitude, activeCoords.longitude, g.latitude, g.longitude) <= rayon).length
+    : groups.length;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('home.title')}</Text>
-        <View style={styles.headerBadge}>
-          <Text style={styles.headerBadgeText}>{groups.reduce((sum, g) => sum + g.janazas.length, 0)}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={styles.headerTitle}>{t('home.title')}</Text>
+          <TouchableOpacity onPress={() => Alert.alert(t('home.title'), t('home.subtitle'))} activeOpacity={0.7}>
+            <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
         </View>
+        {(() => { const count = groups.reduce((sum, g) => sum + g.janazas.length, 0); return (
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeText}>{count} {count <= 1 ? t('home.prayer_singular') : t('home.prayer_plural')}</Text>
+          </View>
+        ); })()}
       </View>
 
       {apiUser?.adresseDomicile ? (
         <View style={styles.radiusStrip}>
           <Ionicons name="location-outline" size={14} color={colors.primary} />
           <Text style={styles.radiusStripText} numberOfLines={1}>
-            {apiUser.adresseDomicile.split(',')[0]}
+            {inRadiusCount} {inRadiusCount <= 1 ? t('home.mosque_singular') : t('home.mosque_plural')}
           </Text>
           <View style={styles.radiusStripBadge}>
-            <Text style={styles.radiusStripBadgeText}>{apiUser.rayonNotification ?? 5} km</Text>
+            <Text style={styles.radiusStripBadgeText}>{rayon} km</Text>
           </View>
         </View>
       ) : (
@@ -709,10 +733,11 @@ const styles = StyleSheet.create({
   headerBadge: {
     backgroundColor: colors.primaryDim,
     borderRadius: radius.full,
-    width: 36, height: 36,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerBadgeText: { color: colors.primary, fontWeight: '700', fontSize: 16 },
+  headerBadgeText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
 
   list: { padding: spacing.lg, gap: spacing.md },
 

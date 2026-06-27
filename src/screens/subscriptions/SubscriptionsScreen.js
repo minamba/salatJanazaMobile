@@ -4,6 +4,7 @@ import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, Alert, Image,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MOSQUE_ICON_IMG = require('../../../assets/icons/mosquee_icon.png');
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -81,6 +82,17 @@ export default function SubscriptionsScreen() {
       .catch(() => {});
   }, [apiUser?.id]);
 
+  useEffect(() => {
+    AsyncStorage.getItem('subscriptions_info_seen').then(seen => {
+      if (seen) return;
+      const timer = setTimeout(() => {
+        Alert.alert(t('subscriptions.title'), t('subscriptions.subtitle'));
+        AsyncStorage.setItem('subscriptions_info_seen', '1');
+      }, 500);
+      return () => clearTimeout(timer);
+    });
+  }, []);
+
   const subs = subscriptions.map((s) => ({
     ...s,
     janazaCount: s.mosqueeId ? janazaList.filter((j) => String(j.mosqueeId) === s.mosqueeId).length : 0,
@@ -149,9 +161,14 @@ export default function SubscriptionsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>{t('subscriptions.title')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.headerTitle}>{t('subscriptions.title')}</Text>
+            <TouchableOpacity onPress={() => Alert.alert(t('subscriptions.title'), t('subscriptions.subtitle'))} activeOpacity={0.7}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
           <Text style={styles.headerSub}>
-            {subs.length} {t('subscriptions.mosque_singular')}
+            {subs.length} {subs.length <= 1 ? t('subscriptions.mosque_singular') : t('subscriptions.mosque_plural')}
           </Text>
         </View>
       </View>
