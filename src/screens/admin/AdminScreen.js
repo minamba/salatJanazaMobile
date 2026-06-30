@@ -140,6 +140,9 @@ export default function AdminScreen() {
 
   const [tab, setTab] = useState(0);
   const [mosqueSubTab, setMosqueSubTab] = useState(0); // 0=Toutes 1=En attente
+  const [declSubTab, setDeclSubTab] = useState(0); // 0=Déclarations 1=Importation
+  const [importSearchUser, setImportSearchUser] = useState('');
+  const [importBulkLoading, setImportBulkLoading] = useState(false);
   const [mosques, setMosques] = useState([]);
   const [pendingMosques, setPendingMosques] = useState([]);
   const [dbMosques, setDbMosques] = useState([]);
@@ -371,7 +374,19 @@ export default function AdminScreen() {
   };
 
   const deleteDeclaration = (id, label) =>
-    confirmDelete('/api/PriereJanaza', id, label, () => setDeclarations(p => p.filter(d => d.id !== id)));
+    confirmDelete('/api/PriereJanaza', id, label, () => {
+      setDeclarations(p => p.filter(d => d.id !== id));
+      dispatch({ type: 'JANAZA_DELETE', payload: { id: String(id) } });
+      dispatch({ type: 'FORCE_DATA_REFRESH' });
+      apiClient.get('/api/prierejanaza/upcoming')
+        .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+        .catch(() => {});
+      if (apiUser?.id) {
+        apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+          .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+          .catch(() => {});
+      }
+    });
 
   const deleteUser = (id, label) =>
     confirmDelete('/api/Utilisateur', id, label, () => setUsers(p => p.filter(u => u.id !== id)));
@@ -432,6 +447,7 @@ export default function AdminScreen() {
   };
 
   useEffect(() => { setPendingSelectMode(false); setSelectedPendingIds(new Set()); }, [tab, mosqueSubTab]);
+  useEffect(() => { setDeclSubTab(0); setImportSearchUser(''); }, [tab]);
   const usersById = Object.fromEntries(users.map(u => [u.id, u]));
 
   const filteredDecl = declarations
@@ -456,6 +472,55 @@ export default function AdminScreen() {
       (roleFilter === 'user' && !isAdmin);
     return matchSearch && matchRole;
   });
+
+  const filteredImportUsers = users.filter(u => {
+    const isAdmin = u.email === SUPER_ADMIN_EMAIL || u._role === 'Admin';
+    if (isAdmin) return false;
+    return !importSearchUser ||
+      q(u.prenom ?? '').includes(q(importSearchUser)) ||
+      q(u.nom ?? '').includes(q(importSearchUser)) ||
+      q(u.email ?? '').includes(q(importSearchUser));
+  });
+
+  const handleToggleImport = async (userId, newValue) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, canImportFlyer: newValue } : u));
+    try {
+      await apiClient.put(`/api/utilisateur/${userId}/import-flyer`, { canImportFlyer: newValue });
+    } catch {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, canImportFlyer: !newValue } : u));
+      Alert.alert(t('admin.add_error'), t('admin.import_permission_error'));
+    }
+  };
+
+  const handleAutoriserTous = async () => {
+    setImportBulkLoading(true);
+    try {
+      await apiClient.put('/api/utilisateur/import-flyer/bulk', { canImportFlyer: true });
+      setUsers(prev => prev.map(u => {
+        const isAdmin = u.email === SUPER_ADMIN_EMAIL || u._role === 'Admin';
+        return isAdmin ? u : { ...u, canImportFlyer: true };
+      }));
+    } catch {
+      Alert.alert(t('admin.add_error'), t('admin.import_bulk_error'));
+    } finally {
+      setImportBulkLoading(false);
+    }
+  };
+
+  const handleRefuserTous = async () => {
+    setImportBulkLoading(true);
+    try {
+      await apiClient.put('/api/utilisateur/import-flyer/bulk', { canImportFlyer: false });
+      setUsers(prev => prev.map(u => {
+        const isAdmin = u.email === SUPER_ADMIN_EMAIL || u._role === 'Admin';
+        return isAdmin ? u : { ...u, canImportFlyer: false };
+      }));
+    } catch {
+      Alert.alert(t('admin.add_error'), t('admin.import_bulk_error'));
+    } finally {
+      setImportBulkLoading(false);
+    }
+  };
 
   const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />;
 
@@ -627,57 +692,144 @@ export default function AdminScreen() {
 
           {/* DÉCLARATIONS */}
           {tab === 2 && (
-            <FlatList
-              data={filteredDecl}
-              keyExtractor={item => String(item.id)}
-              contentContainerStyle={styles.list}
-              refreshControl={refreshControl}
-              ListHeaderComponent={
-                <View>
-                  <SearchBar value={searchDecl} onChange={setSearchDecl} placeholder={t('admin.search_declarations')} />
-                  <View style={styles.genderFilterRow}>
-                    {[
-                      { key: 'all', label: t('admin.filter_all') },
-                      { key: 'homme', label: t('admin.edit_male') },
-                      { key: 'femme', label: t('admin.edit_female') },
-                      { key: 'enfant', label: t('admin.edit_child') },
-                    ].map(opt => (
-                      <TouchableOpacity
-                        key={opt.key}
-                        style={[styles.filterChip, genderFilter === opt.key && styles.filterChipActive]}
-                        onPress={() => setGenderFilter(opt.key)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.filterChipText, genderFilter === opt.key && styles.filterChipTextActive]}>
-                          {opt.label}
+            <>
+              <View style={styles.subTabs}>
+                <TouchableOpacity
+                  style={[styles.subTab, declSubTab === 0 && styles.subTabActive]}
+                  onPress={() => setDeclSubTab(0)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.subTabText, declSubTab === 0 && styles.subTabTextActive]}>{t('admin.import_decl_subtab')}</Text>
+                  <Text style={[styles.subTabCount, declSubTab === 0 && styles.subTabCountActive]}>{filteredDecl.length}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.subTab, declSubTab === 1 && styles.subTabActive]}
+                  onPress={() => setDeclSubTab(1)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.subTabText, declSubTab === 1 && styles.subTabTextActive]}>{t('admin.import_tab')}</Text>
+                  <Text style={[styles.subTabCount, declSubTab === 1 && styles.subTabCountActive]}>{filteredImportUsers.length}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {declSubTab === 0 && (
+                <FlatList
+                  data={filteredDecl}
+                  keyExtractor={item => String(item.id)}
+                  contentContainerStyle={styles.list}
+                  refreshControl={refreshControl}
+                  ListHeaderComponent={
+                    <View>
+                      <SearchBar value={searchDecl} onChange={setSearchDecl} placeholder={t('admin.search_declarations')} />
+                      <View style={styles.genderFilterRow}>
+                        {[
+                          { key: 'all', label: t('admin.filter_all') },
+                          { key: 'homme', label: t('admin.edit_male') },
+                          { key: 'femme', label: t('admin.edit_female') },
+                          { key: 'enfant', label: t('admin.edit_child') },
+                        ].map(opt => (
+                          <TouchableOpacity
+                            key={opt.key}
+                            style={[styles.filterChip, genderFilter === opt.key && styles.filterChipActive]}
+                            onPress={() => setGenderFilter(opt.key)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.filterChipText, genderFilter === opt.key && styles.filterChipTextActive]}>
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  }
+                  ListEmptyComponent={<EmptyState label={searchDecl ? t('admin.no_results') : t('admin.no_declarations')} icon="moon-outline" />}
+                  renderItem={({ item }) => {
+                    const declarant = usersById[item.utilisateurId];
+                    const declarantNom = declarant
+                      ? `${declarant.prenom ?? ''} ${declarant.nom ?? ''}`.trim()
+                      : item.utilisateurId ? `#${item.utilisateurId}` : t('admin.anonymous_user');
+                    const fmt = (raw) => parseUtc(raw)?.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? null;
+                    const dateDecl = fmt(item.dateCreation);
+                    return (
+                      <Row
+                        title={item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? t('admin.deceased_unknown'))}
+                        subtitle={[item.mosqueeNom, fmt(item.dateHeurePriere)].filter(Boolean).join(' · ')}
+                        extra={[dateDecl ? t('admin.declared_on', { date: dateDecl }) : null, t('admin.declared_by', { name: declarantNom })].filter(Boolean).join(' · ')}
+                        onEdit={() => setEditDecl(item)}
+                        onDelete={() => deleteDeclaration(
+                          item.id,
+                          item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? `#${item.id}`)
+                        )}
+                      />
+                    );
+                  }}
+                />
+              )}
+
+              {declSubTab === 1 && (
+                <FlatList
+                  data={filteredImportUsers}
+                  keyExtractor={item => String(item.id)}
+                  contentContainerStyle={styles.list}
+                  refreshControl={refreshControl}
+                  ListHeaderComponent={
+                    <View>
+                      <SearchBar
+                        value={importSearchUser}
+                        onChange={setImportSearchUser}
+                        placeholder={t('admin.import_search_placeholder')}
+                      />
+                      <View style={styles.importBulkRow}>
+                        <TouchableOpacity
+                          style={[styles.importBulkBtn, styles.importBulkBtnGreen, importBulkLoading && { opacity: 0.6 }]}
+                          onPress={handleAutoriserTous}
+                          disabled={importBulkLoading}
+                          activeOpacity={0.8}
+                        >
+                          {importBulkLoading
+                            ? <ActivityIndicator size="small" color={colors.white} />
+                            : <><Ionicons name="checkmark-circle-outline" size={15} color={colors.white} /><Text style={styles.importBulkBtnText}>{t('admin.import_authorize_all')}</Text></>
+                          }
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.importBulkBtn, styles.importBulkBtnRed, importBulkLoading && { opacity: 0.6 }]}
+                          onPress={handleRefuserTous}
+                          disabled={importBulkLoading}
+                          activeOpacity={0.8}
+                        >
+                          {importBulkLoading
+                            ? <ActivityIndicator size="small" color={colors.white} />
+                            : <><Ionicons name="close-circle-outline" size={15} color={colors.white} /><Text style={styles.importBulkBtnText}>{t('admin.import_refuse_all')}</Text></>
+                          }
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  }
+                  ListEmptyComponent={<EmptyState label={t('admin.import_no_users')} icon="people-outline" />}
+                  renderItem={({ item }) => (
+                    <View style={styles.importUserRow}>
+                      <View style={styles.importUserInfo}>
+                        <Text style={styles.importUserName} numberOfLines={1}>
+                          {`${item.prenom ?? ''} ${item.nom ?? ''}`.trim() || '—'}
                         </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              }
-              ListEmptyComponent={<EmptyState label={searchDecl ? t('admin.no_results') : t('admin.no_declarations')} icon="moon-outline" />}
-              renderItem={({ item }) => {
-                const declarant = usersById[item.utilisateurId];
-                const declarantNom = declarant
-                  ? `${declarant.prenom ?? ''} ${declarant.nom ?? ''}`.trim()
-                  : item.utilisateurId ? `#${item.utilisateurId}` : t('admin.anonymous_user');
-                const fmt = (raw) => parseUtc(raw)?.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? null;
-                const dateDecl = fmt(item.dateCreation);
-                return (
-                  <Row
-                    title={item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? t('admin.deceased_unknown'))}
-                    subtitle={[item.mosqueeNom, fmt(item.dateHeurePriere)].filter(Boolean).join(' · ')}
-                    extra={[dateDecl ? t('admin.declared_on', { date: dateDecl }) : null, t('admin.declared_by', { name: declarantNom })].filter(Boolean).join(' · ')}
-                    onEdit={() => setEditDecl(item)}
-                    onDelete={() => deleteDeclaration(
-                      item.id,
-                      item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? `#${item.id}`)
-                    )}
-                  />
-                );
-              }}
-            />
+                        <Text style={styles.importUserEmail} numberOfLines={1}>{item.email ?? '—'}</Text>
+                      </View>
+                      <View style={styles.importUserRight}>
+                        <Text style={[styles.importPermLabel, item.canImportFlyer && styles.importPermLabelActive]}>
+                          {t('admin.import_permission_label')}
+                        </Text>
+                        <Switch
+                          value={item.canImportFlyer ?? false}
+                          onValueChange={(v) => handleToggleImport(item.id, v)}
+                          trackColor={{ false: colors.border, true: colors.primary }}
+                          thumbColor={colors.white}
+                        />
+                      </View>
+                    </View>
+                  )}
+                />
+              )}
+            </>
           )}
 
           {/* UTILISATEURS */}
@@ -752,6 +904,15 @@ export default function AdminScreen() {
           setDeclarations(p => p.map(d => d.id === updated.id ? { ...d, ...updated } : d));
           dispatch({ type: 'JANAZA_UPDATE', payload: updated });
           setEditDecl(null);
+          dispatch({ type: 'FORCE_DATA_REFRESH' });
+          apiClient.get('/api/prierejanaza/upcoming')
+            .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+            .catch(() => {});
+          if (apiUser?.id) {
+            apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+              .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+              .catch(() => {});
+          }
         }}
       />
 
@@ -1795,6 +1956,29 @@ const styles = StyleSheet.create({
     borderRadius: radius.md, paddingVertical: spacing.md, marginTop: spacing.sm,
   },
   createBtnText: { ...typography.button, fontSize: 15 },
+
+  // Import permission tab
+  importBulkRow: {
+    flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.sm,
+  },
+  importBulkBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 4, borderRadius: radius.md, paddingVertical: spacing.sm + 2,
+  },
+  importBulkBtnGreen: { backgroundColor: '#22c55e' },
+  importBulkBtnRed: { backgroundColor: colors.error },
+  importBulkBtnText: { fontSize: 13, fontWeight: '700', color: colors.white },
+  importUserRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  },
+  importUserInfo: { flex: 1, gap: 2 },
+  importUserName: { fontSize: 14, fontWeight: '600', color: colors.text },
+  importUserEmail: { fontSize: 12, color: colors.textMuted },
+  importUserRight: { alignItems: 'flex-end', gap: 2 },
+  importPermLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
+  importPermLabelActive: { color: colors.primary },
 
   // DB Mosquées tab
   dbMosqueRow: {

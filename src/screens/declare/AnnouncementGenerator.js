@@ -294,11 +294,11 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
 
 // ─── Main Modal (2-step: form → preview) ──────────────────────────────────────
 
-export default function AnnouncementGeneratorModal({ visible, onClose, onDataChange, form, date, hour, minute, initialValues }) {
+export default function AnnouncementGeneratorModal({ visible, onClose, onDataChange, onPublish, form, date, hour, minute, initialValues }) {
   const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
   const [step, setStep] = useState('form');
-  const [showYears, setShowYears] = useState(true);
+  const [showYears, setShowYears] = useState(false);
   const [birthYear, setBirthYear] = useState(1950);
   const [deathYear, setDeathYear] = useState(CURRENT_YEAR);
   const [country, setCountry] = useState('');
@@ -322,7 +322,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   useEffect(() => {
     if (!visible) {
       setStep('form');
-      setShowYears(true);
+      setShowYears(false);
     } else {
       setCommentaire(form?.commentaire ?? '');
       const presetCountry = initialValues?.country;
@@ -396,7 +396,9 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
               <View style={styles.toggleRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.toggleLabel}>{t('announcement.years_toggle')}</Text>
-                  <Text style={styles.toggleDesc}>{t('announcement.years_toggle_description')}</Text>
+                  <Text style={styles.toggleDesc}>
+                    {showYears ? t('announcement.years_toggle_description') : 'Activer si vous disposez de cette information'}
+                  </Text>
                 </View>
                 <Switch
                   value={showYears}
@@ -475,12 +477,21 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
                 />
               </View>
 
-              <TouchableOpacity style={styles.formBtn} onPress={() => {
+              <TouchableOpacity style={[styles.formBtn, styles.formBtnOutline]} onPress={() => {
                 onDataChange?.({ birthYear, deathYear, country, locationFrance, showYears, commentaire });
                 setStep('preview');
               }} activeOpacity={0.8}>
-                <Ionicons name="eye-outline" size={18} color={colors.white} />
-                <Text style={styles.formBtnText}>{t('announcement.preview')}</Text>
+                <Ionicons name="eye-outline" size={18} color={colors.primary} />
+                <Text style={[styles.formBtnText, styles.formBtnTextOutline]}>{t('announcement.preview')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.formBtn, { marginTop: spacing.sm }]} onPress={() => {
+                const data = { birthYear, deathYear, country, locationFrance, showYears, commentaire };
+                onDataChange?.(data);
+                onPublish?.(data);
+              }} activeOpacity={0.8}>
+                <Ionicons name="megaphone-outline" size={18} color={colors.white} />
+                <Text style={styles.formBtnText}>Publier la prière</Text>
               </TouchableOpacity>
             </ScrollView>
           </KeyboardAvoidingView>
@@ -609,7 +620,7 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
 
 export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValues }) {
   const { t } = useTranslation();
-  const [showYears, setShowYears] = useState(true);
+  const [showYears, setShowYears] = useState(false);
   const [birthYear, setBirthYear] = useState(1950);
   const [deathYear, setDeathYear] = useState(CURRENT_YEAR);
   const [country, setCountry] = useState('');
@@ -629,7 +640,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
 
   useEffect(() => {
     if (visible) {
-      setShowYears(initialValues?.showYears ?? true);
+      setShowYears(initialValues?.showYears ?? false);
       setBirthYear(initialValues?.birthYear ?? 1950);
       setDeathYear(initialValues?.deathYear ?? CURRENT_YEAR);
       setLocationFrance(initialValues?.locationFrance ?? '');
@@ -660,7 +671,9 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.toggleLabel}>{t('announcement.years_toggle')}</Text>
-                <Text style={styles.toggleDesc}>{t('announcement.years_toggle_description')}</Text>
+                <Text style={styles.toggleDesc}>
+                  {showYears ? t('announcement.years_toggle_description') : 'Activer si vous disposez de cette information'}
+                </Text>
               </View>
               <Switch
                 value={showYears}
@@ -808,6 +821,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md, marginTop: spacing.xl ?? 24,
   },
   formBtnText: { fontSize: 15, fontWeight: '700', color: colors.white },
+  formBtnOutline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.primary },
+  formBtnTextOutline: { color: colors.primary },
 
   // ── Toggle row ──
   toggleRow: {

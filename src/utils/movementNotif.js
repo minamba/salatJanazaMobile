@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const MOVEMENT_TASK = 'MOVEMENT_JANAZA_TASK';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.salatjanaza.org';
-const PROXIMITY_KM = 5; // 5 km
+const PROXIMITY_KM = 10; // 10 km
 
 function distKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -62,12 +62,13 @@ TaskManager.defineTask(MOVEMENT_TASK, async ({ data, error }) => {
 
     // Seulement les janazas d'aujourd'hui dont l'heure n'est pas passée (force UTC parsing)
     const parseDate = (raw) => new Date(/Z$|[+-]\d{2}:/.test(raw) ? raw : raw + 'Z');
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
     const relevant = janazas.filter(
       (j) =>
         j.mosqueeLatitude != null &&
         j.mosqueeLongitude != null &&
-        parseDate(j.dateHeurePriere).toDateString() === todayStr &&
-        parseDate(j.dateHeurePriere) > now,
+        parseDate(j.dateHeurePriere) > now &&
+        parseDate(j.dateHeurePriere) <= oneHourLater,
     );
 
     const notified = await getNotifiedToday();
@@ -92,7 +93,9 @@ TaskManager.defineTask(MOVEMENT_TASK, async ({ data, error }) => {
           content: {
             title: `🕌 Salat al-Janaza · ${j.mosqueeNom}`,
             body: `${defunt}${genreLabel ? ` (${genreLabel})` : ''} · ${timeLabel}${j.mosqueeAdresse ? ` · ${j.mosqueeAdresse}` : ''}`,
-            sound: true,
+            sound: 'default',
+            // Android 8+ : obligatoire, sinon la notification est rejetée silencieusement
+            ...(Platform.OS === 'android' && { channelId: 'default', priority: 'high' }),
           },
           trigger: null,
         });

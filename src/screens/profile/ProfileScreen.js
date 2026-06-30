@@ -257,6 +257,15 @@ export default function ProfileScreen() {
             } catch {}
             dispatch({ type: 'MY_DECLARATION_DELETE', payload: { id: janaza.id } });
             dispatch({ type: 'JANAZA_DELETE', payload: { id: String(janaza.id) } });
+            dispatch({ type: 'FORCE_DATA_REFRESH' });
+            apiClient.get('/api/prierejanaza/upcoming')
+              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+              .catch(() => {});
+            if (apiUser?.id) {
+              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+            }
           },
         },
       ]
@@ -767,6 +776,15 @@ export default function ProfileScreen() {
         onSaved={(updated) => {
           dispatch({ type: 'JANAZA_UPDATE', payload: updated });
           setEditDecl(null);
+          dispatch({ type: 'FORCE_DATA_REFRESH' });
+          apiClient.get('/api/prierejanaza/upcoming')
+            .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+            .catch(() => {});
+          if (apiUser?.id) {
+            apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+              .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+              .catch(() => {});
+          }
         }}
       />
 

@@ -28,8 +28,15 @@ export async function searchMosquesByNameOSM(query) {
       { headers: { 'User-Agent': 'QabrApp/1.0 (contact@myjanaza.fr)' } }
     );
     const data = await res.json();
+    const ALLOWED_TYPES = new Set([
+      'place_of_worship', 'mosque',
+      'funeral_hall', 'crematorium',
+      'hospital', 'clinic',
+      'grave_yard', 'cemetery',
+      'community_centre', 'hall', 'social_facility',
+    ]);
     return data
-      .filter((item) => item.type === 'place_of_worship')
+      .filter((item) => ALLOWED_TYPES.has(item.type))
       .slice(0, 15)
       .map(mapNominatimItem);
   } catch {

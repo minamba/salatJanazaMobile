@@ -586,6 +586,15 @@ export default function HomeScreen() {
               await apiClient.delete(`/api/prierejanaza/${id}`);
             } catch {}
             dispatch({ type: 'JANAZA_DELETE', payload: { id } });
+            dispatch({ type: 'FORCE_DATA_REFRESH' });
+            apiClient.get('/api/prierejanaza/upcoming')
+              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+              .catch(() => {});
+            if (apiUser?.id) {
+              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+            }
           },
         },
       ]

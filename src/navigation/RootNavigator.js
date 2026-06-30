@@ -17,8 +17,27 @@ const PROJECT_ID = Constants.expoConfig?.extra?.eas?.projectId ?? '63750b9a-4f66
 async function registerPushToken(apiUserId) {
   if (Platform.OS === 'web') return;
   try {
-    const { status } = await Notifications.getPermissionsAsync();
+    // Android 8+ (API 26+) : le canal doit exister avant tout envoi de notification.
+    // Sans canal, les notifications push sont silencieusement rejetées par le système.
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Salat Janaza',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#238636',
+        sound: 'default',
+        enableVibrate: true,
+      });
+    }
+
+    // Android 13+ (API 33+) exige une demande explicite de la permission POST_NOTIFICATIONS.
+    // getPermissionsAsync() seul ne suffit pas : il faut requestPermissionsAsync() si non accordé.
+    let { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      ({ status } = await Notifications.requestPermissionsAsync());
+    }
     if (status !== 'granted') return;
+
     const token = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
     await apiClient.put(`/api/utilisateur/${apiUserId}`, { expoToken: token.data });
   } catch (e) {

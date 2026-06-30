@@ -9,7 +9,7 @@
       }
     },
     "icon": "./assets/icons/icon2.png",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "scheme": "qabr",
     "userInterfaceStyle": "light",
@@ -65,14 +65,7 @@
         "FOREGROUND_SERVICE",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "FOREGROUND_SERVICE",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "runtimeVersion": "1.1.0"
     },
@@ -88,7 +81,8 @@
         "expo-notifications",
         {
           "icon": "./assets/icons/icon2.png",
-          "color": "#238636"
+          "color": "#238636",
+          "defaultChannel": "default"
         }
       ],
       "expo-web-browser",

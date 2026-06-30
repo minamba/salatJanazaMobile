@@ -425,10 +425,35 @@ function formatNom(raw, lang) {
     const rest = m ? text.slice(m[0].length) : text.slice(15);
     return 'Salle de prière' + rest;
   }
+  if (norm.startsWith('salle')) {
+    const m = text.match(/^salle/i);
+    const rest = m ? text.slice(m[0].length) : text.slice(5);
+    return 'Salle' + rest;
+  }
   if (norm.startsWith('centre')) {
     const m = text.match(/^centr[eé]/i);
     const rest = m ? text.slice(m[0].length) : text.slice(6);
     return 'Centre' + rest;
+  }
+  if (norm.startsWith('funerarium')) {
+    const m = text.match(/^fun[eé]rarium/i);
+    const rest = m ? text.slice(m[0].length) : text.slice(10);
+    return 'Funérarium' + rest;
+  }
+  if (norm.startsWith('hopital')) {
+    const m = text.match(/^h[oô]pital/i);
+    const rest = m ? text.slice(m[0].length) : text.slice(7);
+    return 'Hôpital' + rest;
+  }
+  if (norm.startsWith('cimetiere')) {
+    const m = text.match(/^cimeti[eè]re/i);
+    const rest = m ? text.slice(m[0].length) : text.slice(9);
+    return 'Cimetière' + rest;
+  }
+  if (norm.startsWith('clinique')) {
+    const m = text.match(/^clinique/i);
+    const rest = m ? text.slice(m[0].length) : text.slice(8);
+    return 'Clinique' + rest;
   }
   return text;
 }
@@ -442,7 +467,12 @@ function hasValidPrefix(text, lang) {
       t.startsWith('مسجد') ||
       t.startsWith('مصلى') ||
       t.startsWith('قاعة صلاة') ||
-      t.startsWith('مركز')
+      t.startsWith('قاعة') ||
+      t.startsWith('مركز') ||
+      t.startsWith('دار الجنائز') ||
+      t.startsWith('مستشفى') ||
+      t.startsWith('مقبرة') ||
+      t.startsWith('عيادة')
     );
   }
 
@@ -453,7 +483,12 @@ function hasValidPrefix(text, lang) {
       norm.startsWith('small mosque') ||
       norm.startsWith('mosque') ||
       norm.startsWith('prayer hall') ||
-      norm.startsWith('centr')
+      norm.startsWith('hall') ||
+      norm.startsWith('centr') ||
+      norm.startsWith('funeral') ||
+      norm.startsWith('hospital') ||
+      norm.startsWith('cemetery') ||
+      norm.startsWith('clinic')
     );
   }
 
@@ -464,7 +499,12 @@ function hasValidPrefix(text, lang) {
     norm.startsWith('petite mosquee') ||
     norm.startsWith('mosquee') ||
     norm.startsWith('salle de priere') ||
-    norm.startsWith('centre')
+    norm.startsWith('salle') ||
+    norm.startsWith('centre') ||
+    norm.startsWith('funerarium') ||
+    norm.startsWith('hopital') ||
+    norm.startsWith('cimetiere') ||
+    norm.startsWith('clinique')
   );
 }
 
@@ -627,90 +667,102 @@ function AddMosqueModal({ onAdd, onClose }) {
 
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={{ flex: 1 }} />
         </TouchableWithoutFeedback>
-        <View style={styles.addModalSheet}>
-          <View style={styles.modalHandle} />
-          <Text style={styles.addModalTitle}>{t('map.add_title')}</Text>
-          <Text style={styles.addModalSubtitle}>{t('map.add_subtitle')}</Text>
-          <Text style={styles.addFieldLabel}>{t('map.add_name_label')}</Text>
-          <View style={[styles.addInputRow, nomError ? styles.addInputRowError : null]}>
-            <Ionicons name="business-outline" size={16} color={nomError ? colors.error : colors.textMuted} style={styles.addInputIcon} />
-            <TextInput
-              style={styles.addInput}
-              placeholder={t('map.add_name_placeholder')}
-              placeholderTextColor={colors.textMuted}
-              value={nom}
-              onChangeText={(v) => { setNom(v); setNomError(''); }}
-            />
-          </View>
-          {nomError ? <Text style={styles.fieldError}>{nomError}</Text> : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: spacing.xs, marginBottom: spacing.xs }}>
-            <Text style={styles.addFieldLabel}>{t('map.add_address_label')}</Text>
-            <Text style={{ color: colors.error, fontSize: 11, marginLeft: spacing.xs, flexShrink: 1 }}>{t('map.add_address_geolocate_hint')}</Text>
-          </View>
-          <View style={styles.addressOptionalHint}>
-            <Ionicons name="information-circle-outline" size={14} color="#b45309" />
-            <Text style={styles.addressOptionalHintText}>
-              {t('map.add_address_autocomplete_hint')}
-            </Text>
-          </View>
-          <View style={{ zIndex: 10 }}>
-            <View style={[styles.addInputRow, adresseError ? styles.addInputRowError : null]}>
-              <Ionicons name="location-outline" size={16} color={adresseError ? colors.error : colors.textMuted} style={styles.addInputIcon} />
+        <View style={[styles.addModalSheet, { maxHeight: '90%' }]}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <View style={styles.modalHandle} />
+            <Text style={styles.addModalTitle}>{t('map.add_title')}</Text>
+            <Text style={styles.addModalSubtitle}>{t('map.add_subtitle')}</Text>
+            <Text style={styles.addFieldLabel}>{t('map.add_name_label')}</Text>
+            <View style={[styles.addInputRow, nomError ? styles.addInputRowError : null]}>
+              <Ionicons name="business-outline" size={16} color={nomError ? colors.error : colors.textMuted} style={styles.addInputIcon} />
               <TextInput
                 style={styles.addInput}
-                placeholder={t('map.add_address_placeholder')}
+                placeholder={t('map.add_name_placeholder')}
                 placeholderTextColor={colors.textMuted}
-                value={adresse}
-                onChangeText={handleAdresseChange}
+                value={nom}
+                onChangeText={(v) => { setNom(v); setNomError(''); }}
+                returnKeyType="next"
               />
-              <TouchableOpacity
-                onPress={handleGeolocate}
-                disabled={locating}
-                style={{ backgroundColor: colors.primary, borderRadius: 8, padding: 6, marginLeft: spacing.xs }}
-                activeOpacity={0.7}
-              >
-                {locating
-                  ? <ActivityIndicator size="small" color={colors.white} />
-                  : <Ionicons name="navigate" size={16} color={colors.white} />
-                }
-              </TouchableOpacity>
-              {!locating && (loadingSugg
-                ? <ActivityIndicator size="small" color={colors.textMuted} style={{ marginLeft: spacing.xs }} />
-                : coords
-                  ? <Ionicons name="checkmark-circle" size={18} color={colors.success} style={{ marginLeft: spacing.xs }} />
-                  : null
+            </View>
+            {nomError ? <Text style={styles.fieldError}>{nomError}</Text> : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: spacing.xs, marginBottom: spacing.xs }}>
+              <Text style={styles.addFieldLabel}>{t('map.add_address_label')}</Text>
+              <Text style={{ color: colors.error, fontSize: 11, marginLeft: spacing.xs, flexShrink: 1 }}>{t('map.add_address_geolocate_hint')}</Text>
+            </View>
+            <View style={styles.addressOptionalHint}>
+              <Ionicons name="information-circle-outline" size={14} color="#b45309" />
+              <Text style={styles.addressOptionalHintText}>
+                {t('map.add_address_autocomplete_hint')}
+              </Text>
+            </View>
+            <View style={{ zIndex: 10 }}>
+              <View style={[styles.addInputRow, adresseError ? styles.addInputRowError : null]}>
+                <Ionicons name="location-outline" size={16} color={adresseError ? colors.error : colors.textMuted} style={styles.addInputIcon} />
+                <TextInput
+                  style={styles.addInput}
+                  placeholder={t('map.add_address_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                  value={adresse}
+                  onChangeText={handleAdresseChange}
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+                <TouchableOpacity
+                  onPress={handleGeolocate}
+                  disabled={locating}
+                  style={{ backgroundColor: colors.primary, borderRadius: 8, padding: 6, marginLeft: spacing.xs }}
+                  activeOpacity={0.7}
+                >
+                  {locating
+                    ? <ActivityIndicator size="small" color={colors.white} />
+                    : <Ionicons name="navigate" size={16} color={colors.white} />
+                  }
+                </TouchableOpacity>
+                {!locating && (loadingSugg
+                  ? <ActivityIndicator size="small" color={colors.textMuted} style={{ marginLeft: spacing.xs }} />
+                  : coords
+                    ? <Ionicons name="checkmark-circle" size={18} color={colors.success} style={{ marginLeft: spacing.xs }} />
+                    : null
+                )}
+              </View>
+              {adresseError ? <Text style={styles.fieldError}>{adresseError}</Text> : null}
+              {suggestions.length > 0 && (
+                <View style={styles.suggestionsList}>
+                  {suggestions.map((item) => (
+                    <TouchableOpacity key={item.place_id} style={styles.suggestionItem} onPress={() => selectSuggestion(item)} activeOpacity={0.7}>
+                      <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+                      <Text style={styles.suggestionText} numberOfLines={2}>{item.display_name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               )}
             </View>
-            {adresseError ? <Text style={styles.fieldError}>{adresseError}</Text> : null}
-            {suggestions.length > 0 && (
-              <View style={styles.suggestionsList}>
-                {suggestions.map((item) => (
-                  <TouchableOpacity key={item.place_id} style={styles.suggestionItem} onPress={() => selectSuggestion(item)} activeOpacity={0.7}>
-                    <Ionicons name="location-outline" size={13} color={colors.textMuted} />
-                    <Text style={styles.suggestionText} numberOfLines={2}>{item.display_name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-          <TouchableOpacity
-            style={[styles.addBtn, saving && styles.addBtnDisabled]}
-            onPress={handleAdd}
-            disabled={saving}
-            activeOpacity={0.8}
-          >
-            {saving
-              ? <ActivityIndicator color={colors.white} size="small" />
-              : <><Ionicons name="add-circle-outline" size={18} color={colors.white} /><Text style={styles.addBtnText}>{t('map.add_submit')}</Text></>
-            }
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
-            <Text style={styles.closeBtnText}>{t('map.add_cancel')}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.addBtn, saving && styles.addBtnDisabled]}
+              onPress={handleAdd}
+              disabled={saving}
+              activeOpacity={0.8}
+            >
+              {saving
+                ? <ActivityIndicator color={colors.white} size="small" />
+                : <><Ionicons name="add-circle-outline" size={18} color={colors.white} /><Text style={styles.addBtnText}>{t('map.add_submit')}</Text></>
+              }
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
+              <Text style={styles.closeBtnText}>{t('map.add_cancel')}</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -1166,6 +1218,15 @@ export default function MapScreen() {
           onPress: async () => {
             try { await apiClient.delete(`/api/prierejanaza/${id}`); } catch {}
             dispatch({ type: 'JANAZA_DELETE', payload: { id } });
+            dispatch({ type: 'FORCE_DATA_REFRESH' });
+            apiClient.get('/api/prierejanaza/upcoming')
+              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+              .catch(() => {});
+            if (apiUser?.id) {
+              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+            }
           },
         },
       ]

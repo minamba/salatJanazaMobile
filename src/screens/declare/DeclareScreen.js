@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, KeyboardAvoidingView,
   Platform, Switch, Keyboard, ActivityIndicator, Image,
   Modal, TouchableWithoutFeedback, FlatList, Alert,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import AnnouncementGeneratorModal, { ComplementaryInfoModal } from './AnnouncementGenerator';
 import { capitalizeFirst } from '../../utils/text';
 import { searchMosquesByNameOSM } from '../../utils/mosqueSearch';
@@ -188,6 +189,12 @@ export default function DeclareScreen() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importStatus, setImportStatus] = useState(null); // null | 'pending' | 'success' | 'error'
+  const [importMessage, setImportMessage] = useState('');
+  const [showImportVerify, setShowImportVerify] = useState(false);
+  const [importTimeUnknown, setImportTimeUnknown] = useState(false);
+  const importPollRef = useRef(null);
   const [mosqueSearch, setMosqueSearch] = useState('');
   const [mosqueResults, setMosqueResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -446,6 +453,122 @@ export default function DeclareScreen() {
     }
   }
 
+  async function handleImportFlyer() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(t('declare.import_permission_title'), t('declare.import_permission_body'));
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const asset = result.assets[0];
+    const mime = asset.mimeType || (asset.uri.endsWith('.png') ? 'image/png' : 'image/jpeg');
+    if (!['image/png', 'image/jpeg'].includes(mime)) {
+      Alert.alert(t('declare.import_format_title'), t('declare.import_format_body'));
+      return;
+    }
+
+    if (!apiUser?.id) {
+      Alert.alert('', t('declare.import_login_required'));
+      return;
+    }
+
+    setImportLoading(true);
+    setImportStatus('pending');
+    setImportMessage(t('declare.import_processing'));
+
+    try {
+      const fd = new FormData();
+      fd.append('file', { uri: asset.uri, name: asset.fileName || 'flyer.jpg', type: mime });
+      fd.append('utilisateurId', String(apiUser.id));
+
+      const uploadResp = await apiClient.post('/api/flyer/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
+      });
+      const { importToken } = uploadResp.data;
+
+      importPollRef.current = setInterval(async () => {
+        try {
+          const statusResp = await apiClient.get(`/api/flyer/import-status/${importToken}`);
+          const { status: s, message, errorCode, timeUnknown } = statusResp.data;
+          if (s === 'success') {
+            clearInterval(importPollRef.current);
+            importPollRef.current = null;
+            setImportLoading(false);
+            setImportStatus('success');
+            setImportMessage(t('declare.import_success'));
+            setImportTimeUnknown(!!timeUnknown);
+            setShowImportVerify(true);
+            // Rafraîchit toutes les données pour que la janaza et la mosquée
+            // apparaissent immédiatement dans tous les onglets (carte, accueil, profil).
+            dispatch({ type: 'FORCE_DATA_REFRESH' });
+            apiClient.get('/api/prierejanaza/upcoming')
+              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+              .catch(() => {});
+            if (apiUser?.id) {
+              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+              apiClient.get(`/api/abonnement/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+            }
+            apiClient.get('/api/mosquee/contributions')
+              .then(res => {
+                res.data.forEach(m => dispatch({
+                  type: 'MOSQUE_REGISTER',
+                  payload: {
+                    id: `db_${m.id}`,
+                    nom: m.nom,
+                    adresse: m.adresse ?? '',
+                    latitude: m.latitude,
+                    longitude: m.longitude,
+                    source: 'user',
+                  },
+                }));
+              })
+              .catch(() => {});
+          } else if (s === 'error') {
+            clearInterval(importPollRef.current);
+            importPollRef.current = null;
+            setImportLoading(false);
+            setImportStatus('error');
+            const errMsg = errorCode === 'IMAGE_QUALITY' ? t('declare.import_image_quality') : (message || t('declare.import_error_generic'));
+            setImportMessage(errMsg);
+            Alert.alert('', errMsg);
+          }
+        } catch (_) {}
+      }, 3000);
+
+      setTimeout(() => {
+        if (importPollRef.current) {
+          clearInterval(importPollRef.current);
+          importPollRef.current = null;
+          setImportLoading(false);
+          setImportStatus('error');
+          const timeoutMsg = t('declare.import_timeout');
+          setImportMessage(timeoutMsg);
+          Alert.alert('', timeoutMsg);
+        }
+      }, 2 * 60 * 1000);
+
+    } catch (e) {
+      setImportLoading(false);
+      setImportStatus('error');
+      const catchMsg = e?.response?.data?.error || t('declare.import_error_generic');
+      setImportMessage(catchMsg);
+      Alert.alert('', catchMsg);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -610,6 +733,47 @@ export default function DeclareScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          {(apiUser?.canImportFlyer || ['admin', 'superadmin'].includes(user?.role?.toLowerCase())) && (
+            <View>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnOutline, styles.btnImport, importLoading && styles.btnDisabled]}
+                onPress={handleImportFlyer}
+                disabled={importLoading}
+                activeOpacity={0.8}
+              >
+                {importLoading ? (
+                  <ActivityIndicator color={colors.primary} size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} />
+                    <Text style={[styles.btnText, styles.btnTextOutline]}>{t('declare.import_flyer')}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.importHint}>{t('declare.import_hint')}</Text>
+              {importStatus && (
+                <View style={[
+                  styles.importStatusBox,
+                  importStatus === 'success' && styles.importStatusSuccess,
+                  importStatus === 'error' && styles.importStatusError,
+                  importStatus === 'pending' && styles.importStatusPending,
+                ]}>
+                  <Ionicons
+                    name={importStatus === 'success' ? 'checkmark-circle-outline' : importStatus === 'error' ? 'alert-circle-outline' : 'time-outline'}
+                    size={16}
+                    color={importStatus === 'success' ? '#15803d' : importStatus === 'error' ? '#dc2626' : '#92400e'}
+                  />
+                  <Text style={[
+                    styles.importStatusText,
+                    importStatus === 'success' && styles.importStatusTextSuccess,
+                    importStatus === 'error' && styles.importStatusTextError,
+                    importStatus === 'pending' && styles.importStatusTextPending,
+                  ]}>{importMessage}</Text>
+                </View>
+              )}
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -640,6 +804,11 @@ export default function DeclareScreen() {
         visible={showAnnouncement}
         onClose={() => setShowAnnouncement(false)}
         onDataChange={setAnnouncementData}
+        onPublish={(data) => {
+          setShowAnnouncement(false);
+          setAnnouncementData(data);
+          doSubmit(data);
+        }}
         form={form}
         date={selectedDate}
         hour={selectedHour}
@@ -655,6 +824,25 @@ export default function DeclareScreen() {
           doSubmit(data);
         }}
       />
+
+      {/* Popup vérification import IA */}
+      <Modal transparent animationType="fade" visible={showImportVerify} onRequestClose={() => setShowImportVerify(false)}>
+        <View style={styles.successOverlay}>
+          <View style={styles.successModal}>
+            <View style={styles.successIconCircle}>
+              <Ionicons name="information-circle" size={48} color={colors.primary} />
+            </View>
+            <Text style={styles.successModalTitle}>{t('declare.import_verify_title')}</Text>
+            {importTimeUnknown && (
+              <Text style={[styles.successModalBody, { color: '#b45309', fontWeight: '600', marginBottom: 4 }]}>{t('declare.import_verify_time_unknown')}</Text>
+            )}
+            <Text style={styles.successModalBody}>{t('declare.import_verify_body')}</Text>
+            <TouchableOpacity style={styles.successModalBtn} onPress={() => setShowImportVerify(false)} activeOpacity={0.8}>
+              <Text style={styles.successModalBtnText}>{t('declare.import_verify_close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Popup succès */}
       <Modal transparent animationType="fade" visible={success} onRequestClose={() => setSuccess(false)}>
@@ -730,6 +918,16 @@ const styles = StyleSheet.create({
   btnText: { ...typography.button },
   btnOutline: { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.primary },
   btnTextOutline: { color: colors.primary },
+  btnImport: { marginTop: spacing.sm },
+  importHint: { ...typography.caption, color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs },
+  importStatusBox: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.sm, borderWidth: 1 },
+  importStatusSuccess: { backgroundColor: 'rgba(21,128,61,0.07)', borderColor: '#86efac' },
+  importStatusError: { backgroundColor: 'rgba(220,38,38,0.07)', borderColor: '#fca5a5' },
+  importStatusPending: { backgroundColor: '#fffbeb', borderColor: '#fcd34d' },
+  importStatusText: { flex: 1, fontSize: 13, lineHeight: 19 },
+  importStatusTextSuccess: { color: '#15803d' },
+  importStatusTextError: { color: '#dc2626' },
+  importStatusTextPending: { color: '#92400e' },
 
   // Date picker
   datePickerBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
