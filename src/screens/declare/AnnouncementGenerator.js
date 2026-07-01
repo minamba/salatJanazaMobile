@@ -403,7 +403,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
                 <Switch
                   value={showYears}
                   onValueChange={setShowYears}
-                  trackColor={{ false: colors.border, true: colors.primary }}
+                  trackColor={{ false: '#9E9E9E', true: colors.primary }}
                   thumbColor={colors.white}
                 />
               </View>
@@ -678,7 +678,8 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
               <Switch
                 value={showYears}
                 onValueChange={setShowYears}
-                trackColor={{ false: colors.border, true: colors.primary }}
+                trackColor={{ false: '#9E9E9E', true: colors.primary }}
+                ios_backgroundColor="#9E9E9E"
                 thumbColor={colors.white}
               />
             </View>

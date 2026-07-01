@@ -788,6 +788,17 @@ export default function MapScreen() {
     setRetryKey(k => k + 1);
   }, [appRefresh]);
 
+  useEffect(() => {
+    AsyncStorage.getItem('map_info_seen').then(seen => {
+      if (seen) return;
+      const timer = setTimeout(() => {
+        Alert.alert(t('map.info_title'), t('map.info_body'));
+        AsyncStorage.setItem('map_info_seen', '1');
+      }, 500);
+      return () => clearTimeout(timer);
+    });
+  }, []);
+
   const subscribedIds = useMemo(() => {
     const set = new Set();
     subscriptions.forEach((s) => {
@@ -1282,6 +1293,9 @@ export default function MapScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>{t('map.title')}</Text>
+          <TouchableOpacity onPress={() => Alert.alert(t('map.info_title'), t('map.info_body'))} activeOpacity={0.7} style={{ marginLeft: spacing.xs }}>
+            <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
           {osmLoading && <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: spacing.sm }} />}
         </View>
         <View style={styles.headerRight}>
@@ -1440,7 +1454,7 @@ export default function MapScreen() {
               color={colors.primary}
             />
             <Text style={styles.radiusStripText}>
-              {t('map.mosque_count_prefix', { count: filteredMosques.length })}{' '}
+              {t(filteredMosques.length > 1 ? 'map.mosque_count_prefix_plural' : 'map.mosque_count_prefix', { count: filteredMosques.length })}{' '}
               <Text style={styles.radiusStripBold}>{notifRadius} {t('map.radius_suffix')}</Text>
               {locationMode === 'home' && apiUser?.adresseDomicile
                 ? <Text> · {apiUser.adresseDomicile.split(',')[0]}</Text>

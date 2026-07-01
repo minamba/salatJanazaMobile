@@ -140,7 +140,8 @@ export default function AdminScreen() {
 
   const [tab, setTab] = useState(0);
   const [mosqueSubTab, setMosqueSubTab] = useState(0); // 0=Toutes 1=En attente
-  const [declSubTab, setDeclSubTab] = useState(0); // 0=Déclarations 1=Importation
+  const [declSubTab, setDeclSubTab] = useState(0); // 0=Déclarations 1=Importation 2=En attente
+  const [pendingDeclarations, setPendingDeclarations] = useState([]);
   const [importSearchUser, setImportSearchUser] = useState('');
   const [importBulkLoading, setImportBulkLoading] = useState(false);
   const [mosques, setMosques] = useState([]);
@@ -175,16 +176,18 @@ export default function AdminScreen() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [mosRes, pendRes, decRes, usrRes] = await Promise.all([
+      const [mosRes, pendRes, decRes, usrRes, pendDeclRes] = await Promise.all([
         apiClient.get('/api/Mosquee/contributions'),
         apiClient.get('/api/Mosquee/pending'),
         apiClient.get('/api/PriereJanaza'),
         apiClient.get('/api/Utilisateur'),
+        apiClient.get('/api/prierejanaza/en-attente'),
       ]);
       setMosques(mosRes.data ?? []);
       setPendingMosques(pendRes.data ?? []);
       setDeclarations(decRes.data ?? []);
       setUsers(usrRes.data ?? []);
+      setPendingDeclarations(pendDeclRes.data ?? []);
     } catch {
       Alert.alert(t('admin.add_error'), t('admin.load_error'));
     } finally {
@@ -485,10 +488,12 @@ export default function AdminScreen() {
   const handleToggleImport = async (userId, newValue) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, canImportFlyer: newValue } : u));
     try {
-      await apiClient.put(`/api/utilisateur/${userId}/import-flyer`, { canImportFlyer: newValue });
-    } catch {
+      const res = await apiClient.put(`/api/utilisateur/${userId}/import-flyer`, { canImportFlyer: newValue });
+      console.log('[Admin] import-flyer updated →', res.data?.canImportFlyer, 'for user', userId);
+    } catch (err) {
+      console.error('[Admin] import-flyer error:', err?.response?.status, err?.response?.data);
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, canImportFlyer: !newValue } : u));
-      Alert.alert(t('admin.add_error'), t('admin.import_permission_error'));
+      Alert.alert(t('admin.add_error'), err?.response?.data?.error ?? t('admin.import_permission_error'));
     }
   };
 
@@ -710,6 +715,16 @@ export default function AdminScreen() {
                   <Text style={[styles.subTabText, declSubTab === 1 && styles.subTabTextActive]}>{t('admin.import_tab')}</Text>
                   <Text style={[styles.subTabCount, declSubTab === 1 && styles.subTabCountActive]}>{filteredImportUsers.length}</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.subTab, declSubTab === 2 && styles.subTabActive]}
+                  onPress={() => setDeclSubTab(2)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.subTabText, declSubTab === 2 && styles.subTabTextActive]}>{t('admin.pending')}</Text>
+                  {pendingDeclarations.length > 0 && (
+                    <View style={styles.pendingBadge}><Text style={styles.pendingBadgeText}>{pendingDeclarations.length}</Text></View>
+                  )}
+                </TouchableOpacity>
               </View>
 
               {declSubTab === 0 && (
@@ -827,6 +842,26 @@ export default function AdminScreen() {
                       </View>
                     </View>
                   )}
+                />
+              )}
+
+              {declSubTab === 2 && (
+                <FlatList
+                  data={pendingDeclarations}
+                  keyExtractor={item => String(item.id)}
+                  contentContainerStyle={styles.list}
+                  refreshControl={refreshControl}
+                  ListEmptyComponent={<EmptyState label={t('admin.no_declarations')} icon="time-outline" />}
+                  renderItem={({ item }) => {
+                    const fmt = (raw) => parseUtc(raw)?.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? null;
+                    return (
+                      <Row
+                        title={item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? t('admin.deceased_unknown'))}
+                        subtitle={[item.mosqueeNom, fmt(item.dateHeurePriere)].filter(Boolean).join(' · ')}
+                        extra={t('admin.declared_on', { date: fmt(item.dateCreation) ?? '—' })}
+                      />
+                    );
+                  }}
                 />
               )}
             </>

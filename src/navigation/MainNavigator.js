@@ -1,7 +1,9 @@
-import React, { useState, useRef, useMemo, useCallback, createContext, useContext } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import PagerView from 'react-native-pager-view';
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Modal, TouchableWithoutFeedback, Alert, ActivityIndicator } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import apiClient from '../lib/api/apiClient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
@@ -62,6 +64,201 @@ function GuestModal({ visible, onClose, onLogin }) {
               <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose} activeOpacity={0.7}>
                 <Text style={styles.modalCancelText}>{t('nav.guest_modal_cancel')}</Text>
               </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
+function DeclareChoiceModal({ visible, onClose, onSaisir }) {
+  const { t } = useTranslation();
+  const dispatch = useDispatch();
+  const apiUser = useSelector(state => state.auth.apiUser);
+  const user = useSelector(state => state.auth.user);
+
+  const [importLoading, setImportLoading] = useState(false);
+  const [importStatus, setImportStatus] = useState(null);
+  const [importMessage, setImportMessage] = useState('');
+  const [importTimeUnknown, setImportTimeUnknown] = useState(false);
+  const importPollRef = useRef(null);
+
+  useEffect(() => {
+    if (!visible) {
+      if (importPollRef.current) { clearInterval(importPollRef.current); importPollRef.current = null; }
+      setImportLoading(false);
+      setImportStatus(null);
+      setImportMessage('');
+      setImportTimeUnknown(false);
+    }
+  }, [visible]);
+
+
+  async function handleImportFlyer() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(t('declare.import_permission_title'), t('declare.import_permission_body'));
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+
+    const asset = result.assets[0];
+    const mime = asset.mimeType || (asset.uri.endsWith('.png') ? 'image/png' : 'image/jpeg');
+    if (!['image/png', 'image/jpeg'].includes(mime)) {
+      Alert.alert(t('declare.import_format_title'), t('declare.import_format_body'));
+      return;
+    }
+
+    if (!apiUser?.id) {
+      Alert.alert('', t('declare.import_login_required'));
+      return;
+    }
+
+    setImportLoading(true);
+    setImportStatus('pending');
+    setImportMessage(t('declare.import_processing'));
+
+    try {
+      const fd = new FormData();
+      fd.append('file', { uri: asset.uri, name: asset.fileName || 'flyer.jpg', type: mime });
+      fd.append('utilisateurId', String(apiUser.id));
+
+      const uploadResp = await apiClient.post('/api/flyer/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
+      });
+      const { importToken } = uploadResp.data;
+
+      importPollRef.current = setInterval(async () => {
+        try {
+          const statusResp = await apiClient.get(`/api/flyer/import-status/${importToken}`);
+          const { status: s, message, errorCode, timeUnknown } = statusResp.data;
+          if (s === 'success') {
+            clearInterval(importPollRef.current);
+            importPollRef.current = null;
+            setImportLoading(false);
+            setImportStatus('success');
+            setImportMessage(t('declare.import_success'));
+            setImportTimeUnknown(!!timeUnknown);
+            dispatch({ type: 'FORCE_DATA_REFRESH' });
+            apiClient.get('/api/prierejanaza/upcoming')
+              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+              .catch(() => {});
+            if (apiUser?.id) {
+              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+              apiClient.get(`/api/abonnement/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+            }
+            apiClient.get('/api/mosquee/contributions')
+              .then(res => {
+                res.data.forEach(m => dispatch({
+                  type: 'MOSQUE_REGISTER',
+                  payload: { id: `db_${m.id}`, nom: m.nom, adresse: m.adresse ?? '', latitude: m.latitude, longitude: m.longitude, source: 'user' },
+                }));
+              })
+              .catch(() => {});
+          } else if (s === 'error') {
+            clearInterval(importPollRef.current);
+            importPollRef.current = null;
+            setImportLoading(false);
+            setImportStatus('error');
+            const errMsg = errorCode === 'IMAGE_QUALITY' ? t('declare.import_image_quality') : (message || t('declare.import_error_generic'));
+            setImportMessage(errMsg);
+          }
+        } catch (_) {}
+      }, 3000);
+
+      setTimeout(() => {
+        if (importPollRef.current) {
+          clearInterval(importPollRef.current);
+          importPollRef.current = null;
+          setImportLoading(false);
+          setImportStatus('error');
+          setImportMessage(t('declare.import_timeout'));
+        }
+      }, 2 * 60 * 1000);
+    } catch (e) {
+      setImportLoading(false);
+      setImportStatus('error');
+      setImportMessage(e?.response?.data?.error || t('declare.import_error_generic'));
+    }
+  }
+
+  const canImport = apiUser?.canImportFlyer || ['admin', 'superadmin'].includes(user?.role?.toLowerCase());
+
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={() => { if (!importLoading && importStatus !== 'success') onClose(); }}>
+      <TouchableWithoutFeedback onPress={() => { if (!importLoading && importStatus !== 'success') onClose(); }}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.modalBox}>
+              {importLoading ? (
+                <>
+                  <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: spacing.md }} />
+                  <Text style={styles.modalTitle}>{t('nav.declare_import_loading')}</Text>
+                  <Text style={styles.modalText}>{importMessage}</Text>
+                </>
+              ) : importStatus === 'success' ? (
+                <>
+                  <View style={styles.successIconCircle}>
+                    <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
+                  </View>
+                  <Text style={styles.modalTitle}>{t('declare.import_verify_title')}</Text>
+                  {importTimeUnknown && (
+                    <Text style={[styles.modalText, { color: '#b45309', fontWeight: '600' }]}>{t('declare.import_verify_time_unknown')}</Text>
+                  )}
+                  <Text style={styles.modalText}>{t('declare.import_verify_body')}</Text>
+                  <TouchableOpacity style={styles.modalBtn} onPress={onClose} activeOpacity={0.8}>
+                    <Text style={styles.modalBtnText}>OK</Text>
+                  </TouchableOpacity>
+                </>
+              ) : importStatus === 'error' ? (
+                <>
+                  <Ionicons name="alert-circle-outline" size={36} color={colors.error ?? '#dc2626'} style={{ marginBottom: spacing.md }} />
+                  <Text style={styles.modalTitle}>{t('nav.declare_import_error_title')}</Text>
+                  <Text style={styles.modalText}>{importMessage}</Text>
+                  <TouchableOpacity style={styles.modalBtn} onPress={() => { setImportStatus(null); setImportMessage(''); handleImportFlyer(); }} activeOpacity={0.8}>
+                    <Text style={styles.modalBtnText}>{t('nav.declare_retry')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose} activeOpacity={0.7}>
+                    <Text style={styles.modalCancelText}>{t('nav.declare_close')}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="add-circle-outline" size={36} color={colors.primary} style={{ marginBottom: spacing.md }} />
+                  <Text style={styles.modalTitle}>{t('nav.declare_modal_title')}</Text>
+                  <Text style={styles.modalText}>{t('nav.declare_modal_subtitle')}</Text>
+                  <TouchableOpacity style={styles.modalBtn} onPress={onSaisir} activeOpacity={0.8}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                      <Ionicons name="create-outline" size={18} color={colors.white} />
+                      <Text style={styles.modalBtnText}>{t('nav.declare_manual')}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  {canImport && (
+                    <TouchableOpacity style={[styles.modalBtn, styles.modalBtnOutline, { marginTop: spacing.sm }]} onPress={handleImportFlyer} activeOpacity={0.8}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                        <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} />
+                        <Text style={[styles.modalBtnText, { color: colors.primary }]}>{t('nav.declare_import')}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose} activeOpacity={0.7}>
+                    <Text style={styles.modalCancelText}>{t('nav.guest_modal_cancel')}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -152,9 +349,11 @@ function CustomTabBar({ screens, activeIndex, onTabPress, onFabPress, isFabFocus
 
 function MainTabs() {
   const user = useSelector(state => state.auth.user);
+  const apiUser = useSelector(state => state.auth.apiUser);
   const isGuest = useSelector(s => s.auth.isGuest);
   const dispatch = useDispatch();
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const canImport = apiUser?.canImportFlyer || ['admin', 'superadmin'].includes(user?.role?.toLowerCase());
 
   const screens = useMemo(() => [
     { name: 'Home',          component: HomeScreen },
@@ -170,6 +369,7 @@ function MainTabs() {
   const pagerRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showGuestModal, setShowGuestModal] = useState(false);
+  const [showDeclareModal, setShowDeclareModal] = useState(false);
   const activeIndexRef = useRef(0);
   // Pages visitées : rend l'écran seulement quand l'utilisateur y accède (comme Tab.Navigator lazy)
   const [visitedPages, setVisitedPages] = useState(() => new Set([0]));
@@ -209,7 +409,8 @@ function MainTabs() {
 
   function handleFabPress() {
     if (isGuest) { setShowGuestModal(true); return; }
-    goTo(DECLARE_IDX);
+    if (!canImport) { goTo(DECLARE_IDX); return; }
+    setShowDeclareModal(true);
   }
 
   function handleGuestLogin() {
@@ -248,6 +449,12 @@ function MainTabs() {
           visible={showGuestModal}
           onClose={() => setShowGuestModal(false)}
           onLogin={handleGuestLogin}
+        />
+
+        <DeclareChoiceModal
+          visible={showDeclareModal}
+          onClose={() => setShowDeclareModal(false)}
+          onSaisir={() => { setShowDeclareModal(false); goTo(DECLARE_IDX); }}
         />
       </View>
     </TabContext.Provider>
@@ -359,5 +566,19 @@ const styles = StyleSheet.create({
   modalCancelText: {
     ...typography.body,
     color: colors.textMuted,
+  },
+  modalBtnOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  successIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(35,134,54,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
 });

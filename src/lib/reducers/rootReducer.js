@@ -13,6 +13,8 @@ function authReducer(state = initialAuth, action) {
       return { ...state, isGuest: true };
     case 'AUTH_API_USER_UPDATED':
       return { ...state, apiUser: action.payload };
+    case 'AUTH_API_USER_PERMISSION_UPDATED':
+      return { ...state, apiUser: state.apiUser ? { ...state.apiUser, ...action.payload } : state.apiUser };
     case 'USER_UPDATE_PROFILE':
       return { ...state, user: { ...state.user, ...action.payload } };
     case 'AUTH_LOGOUT':

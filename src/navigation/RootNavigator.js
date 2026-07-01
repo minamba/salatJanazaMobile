@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, View, ActivityIndicator } from 'react-native';
+import { Platform, View, ActivityIndicator, AppState } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSelector, useDispatch } from 'react-redux';
 import * as Notifications from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
@@ -50,6 +51,7 @@ export default function RootNavigator() {
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const isGuest = useSelector((state) => state.auth.isGuest);
   const apiUserId = useSelector((state) => state.auth.apiUser?.id);
+  const identityUserId = useSelector((state) => state.auth.user?.id);
   const notifMouvement = useSelector((state) => state.auth.apiUser?.notifMouvement ?? false);
   const [isRestoring, setIsRestoring] = useState(true);
 
@@ -132,6 +134,40 @@ export default function RootNavigator() {
       .catch(() => {});
     registerPushToken(apiUserId);
   }, [apiUserId]);
+
+  // Rafraîchit le profil (canImportFlyer etc.) au foreground ET toutes les 2 minutes
+  useEffect(() => {
+    if (!identityUserId) return;
+
+    async function refreshProfile() {
+      try {
+        const res = await apiClient.get(`/api/utilisateur/identity/${identityUserId}`);
+        if (res.data) {
+          dispatch({ type: 'AUTH_API_USER_UPDATED', payload: res.data });
+          SecureStore.setItemAsync('api_user_data', JSON.stringify(res.data)).catch(() => {});
+        }
+      } catch {}
+    }
+
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') refreshProfile();
+    });
+    const interval = setInterval(refreshProfile, 2 * 60 * 1000);
+
+    // Notification silencieuse "PERMISSION_UPDATED" envoyée par le backend quand l'admin toggle
+    const notifSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data;
+      if (data?.type === 'PERMISSION_UPDATED') {
+        dispatch({ type: 'AUTH_API_USER_PERMISSION_UPDATED', payload: { canImportFlyer: data.canImportFlyer } });
+      }
+    });
+
+    return () => {
+      appStateSubscription.remove();
+      clearInterval(interval);
+      notifSubscription.remove();
+    };
+  }, [identityUserId]);
 
   useEffect(() => {
     if (notifMouvement) {

@@ -44,6 +44,25 @@ export async function searchMosquesByNameOSM(query) {
   }
 }
 
+// Broad establishment search — any named amenity/building (hospitals, funeraries, clinics, mosques, etc.)
+export async function searchPlacesByNameOSM(query) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&namedetails=1&limit=20`,
+      { headers: { 'User-Agent': 'QabrApp/1.0 (contact@myjanaza.fr)' } }
+    );
+    const data = await res.json();
+    const EXCLUDED_CLASSES = new Set(['highway', 'boundary', 'natural', 'waterway', 'railway', 'landuse']);
+    const EXCLUDED_TYPES = new Set(['administrative', 'country', 'state', 'county', 'city', 'town', 'village', 'suburb', 'neighbourhood', 'postcode', 'road', 'residential', 'quarter']);
+    return data
+      .filter((item) => !EXCLUDED_CLASSES.has(item.class) && !EXCLUDED_TYPES.has(item.type) && item.namedetails?.name)
+      .slice(0, 15)
+      .map(mapNominatimItem);
+  } catch {
+    return [];
+  }
+}
+
 // Removes diacritics and lowercases — "Évry" → "evry", "Mosquée" → "mosquee"
 export function normalize(str) {
   if (!str) return '';
