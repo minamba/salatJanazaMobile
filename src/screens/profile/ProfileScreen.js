@@ -607,10 +607,10 @@ export default function ProfileScreen() {
                 .map((j) => {
                 const dateObj = j.dateHeure ? new Date(j.dateHeure) : null;
                 const dateStr = dateObj
-                  ? dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+                  ? dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
                   : '';
                 const timeStr = dateObj
-                  ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                  ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
                   : '';
                 const createdObj = j.dateCreation ? new Date(j.dateCreation) : null;
                 const createdStr = createdObj

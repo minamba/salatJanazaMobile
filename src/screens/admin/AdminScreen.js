@@ -148,6 +148,7 @@ export default function AdminScreen() {
   const [pendingMosques, setPendingMosques] = useState([]);
   const [dbMosques, setDbMosques] = useState([]);
   const [dbLoading, setDbLoading] = useState(false);
+  const [normLoading, setNormLoading] = useState(false);
   const [declarations, setDeclarations] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -212,6 +213,34 @@ export default function AdminScreen() {
     setRefreshing(false);
   }, [loadData]);
 
+  const normaliserSansNom = () => {
+    Alert.alert(
+      'Normaliser mosquées sans nom',
+      'Renommer toutes les mosquées nommées "Mosquée" d\'après leur ville, et supprimer celles sans adresse valide ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Confirmer', style: 'destructive',
+          onPress: async () => {
+            setNormLoading(true);
+            try {
+              const { data } = await apiClient.post('/api/Mosquee/normaliser-sans-nom');
+              await loadDbMosques();
+              Alert.alert(
+                'Normalisation terminée',
+                `Renommées : ${data.renommes?.length ?? 0}\nSupprimées : ${data.supprimes?.length ?? 0}\nIgnorées (janazas liées) : ${data.ignores?.length ?? 0}`,
+              );
+            } catch {
+              Alert.alert('Erreur', 'La normalisation a échoué.');
+            } finally {
+              setNormLoading(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const confirmDelete = (endpoint, id, label, onSuccess) => {
     Alert.alert(t('admin.delete'), t('admin.delete_confirm_message', { name: label }), [
       { text: t('admin.delete_cancel'), style: 'cancel' },
@@ -235,31 +264,61 @@ export default function AdminScreen() {
   const deleteMosque = (id, nom) =>
     confirmDelete('/api/Mosquee', id, nom, () => setMosques(p => p.filter(m => m.id !== id)));
 
-  const refuserMosque = (id, nom) =>
-    confirmDelete('/api/Mosquee', id, nom, () => setPendingMosques(p => p.filter(m => m.id !== id)));
+  const refuserMosque = (id, nom) => {
+    Alert.alert(t('admin.reject'), t('admin.delete_confirm_message', { name: nom }), [
+      { text: t('admin.delete_cancel'), style: 'cancel' },
+      {
+        text: t('admin.reject'), style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.put(`/api/Mosquee/${id}/refuser`);
+            setPendingMosques(p => p.filter(m => m.id !== id));
+          } catch (e) {
+            const status = e?.response?.status;
+            Alert.alert(t('admin.add_error'), status
+              ? t('admin.delete_error_http', { status })
+              : t('admin.delete_error_network'));
+          }
+        },
+      },
+    ]);
+  };
 
-  const validerMosque = async (id) => {
-    try {
-      await apiClient.put(`/api/Mosquee/${id}/valider`);
-      const validated = pendingMosques.find(m => m.id === id);
-      setPendingMosques(p => p.filter(m => m.id !== id));
-      if (validated) {
-        setMosques(p => [{ ...validated, statut: 'Validee' }, ...p]);
-        dispatch({
-          type: 'MOSQUE_REGISTER',
-          payload: {
-            id: `db_${validated.id}`,
-            nom: validated.nom,
-            adresse: validated.adresse ?? '',
-            latitude: validated.latitude,
-            longitude: validated.longitude,
-            source: 'user',
+  const validerMosque = (id) => {
+    const target = pendingMosques.find(x => x.id === id);
+    Alert.alert(
+      t('admin.validate'),
+      t('admin.validate_confirm_message', { name: target?.nom ?? '' }),
+      [
+        { text: t('admin.delete_cancel'), style: 'cancel' },
+        {
+          text: t('admin.validate_confirm_btn'),
+          onPress: async () => {
+            try {
+              await apiClient.put(`/api/Mosquee/${id}/valider`);
+              const validated = pendingMosques.find(m => m.id === id);
+              setPendingMosques(p => p.filter(m => m.id !== id));
+              if (validated) {
+                setMosques(p => [{ ...validated, statut: 'Validee' }, ...p]);
+                dispatch({
+                  type: 'MOSQUE_REGISTER',
+                  payload: {
+                    id: `db_${validated.id}`,
+                    nom: validated.nom,
+                    adresse: validated.adresse ?? '',
+                    latitude: validated.latitude,
+                    longitude: validated.longitude,
+                    source: 'user',
+                  },
+                });
+              }
+            } catch {
+              Alert.alert(t('admin.add_error'), t('admin.validate_error'));
+            }
           },
-        });
-      }
-    } catch {
-      Alert.alert(t('admin.add_error'), t('admin.validate_error'));
-    }
+        },
+      ]
+    );
   };
 
   const enterSelectMode = () => { setPendingSelectMode(true); setSelectedPendingIds(new Set()); };
@@ -283,7 +342,7 @@ export default function AdminScreen() {
           onPress: async () => {
             setLoading(true);
             try {
-              await Promise.all(filteredPending.map(m => apiClient.delete(`/api/Mosquee/${m.id}`)));
+              await Promise.all(filteredPending.map(m => apiClient.put(`/api/Mosquee/${m.id}/refuser`)));
               const deleted = filteredPending;
               setPendingMosques(p => p.filter(m => !deleted.some(v => v.id === m.id)));
             } catch {
@@ -297,24 +356,36 @@ export default function AdminScreen() {
     );
   };
 
-  const validerSelection = async () => {
+  const validerSelection = () => {
     const toValidate = filteredPending.filter(m => selectedPendingIds.has(m.id));
     if (toValidate.length === 0) return;
-    setLoading(true);
-    try {
-      await Promise.all(toValidate.map(m => apiClient.put(`/api/Mosquee/${m.id}/valider`)));
-      setPendingMosques(p => p.filter(m => !selectedPendingIds.has(m.id)));
-      setMosques(p => [...toValidate.map(m => ({ ...m, statut: 'Validee' })), ...p]);
-      toValidate.forEach(m => dispatch({
-        type: 'MOSQUE_REGISTER',
-        payload: { id: `db_${m.id}`, nom: m.nom, adresse: m.adresse ?? '', latitude: m.latitude, longitude: m.longitude, source: 'user' },
-      }));
-      exitSelectMode();
-    } catch {
-      Alert.alert(t('admin.add_error'), t('admin.validate_all_error'));
-    } finally {
-      setLoading(false);
-    }
+    Alert.alert(
+      t('admin.validate_all'),
+      t('admin.validate_selection_confirm', { count: toValidate.length }),
+      [
+        { text: t('admin.delete_cancel'), style: 'cancel' },
+        {
+          text: t('admin.validate_confirm_btn'),
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await Promise.all(toValidate.map(m => apiClient.put(`/api/Mosquee/${m.id}/valider`)));
+              setPendingMosques(p => p.filter(m => !selectedPendingIds.has(m.id)));
+              setMosques(p => [...toValidate.map(m => ({ ...m, statut: 'Validee' })), ...p]);
+              toValidate.forEach(m => dispatch({
+                type: 'MOSQUE_REGISTER',
+                payload: { id: `db_${m.id}`, nom: m.nom, adresse: m.adresse ?? '', latitude: m.latitude, longitude: m.longitude, source: 'user' },
+              }));
+              exitSelectMode();
+            } catch {
+              Alert.alert(t('admin.add_error'), t('admin.validate_all_error'));
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const supprimerSelection = () => {
@@ -331,7 +402,7 @@ export default function AdminScreen() {
           onPress: async () => {
             setLoading(true);
             try {
-              await Promise.all(toDelete.map(m => apiClient.delete(`/api/Mosquee/${m.id}`)));
+              await Promise.all(toDelete.map(m => apiClient.put(`/api/Mosquee/${m.id}/refuser`)));
               setPendingMosques(p => p.filter(m => !selectedPendingIds.has(m.id)));
               exitSelectMode();
             } catch {
@@ -668,7 +739,20 @@ export default function AdminScreen() {
               contentContainerStyle={styles.list}
               refreshControl={refreshControl}
               ListHeaderComponent={
-                <SearchBar value={searchDbMosque} onChange={setSearchDbMosque} placeholder="Rechercher par nom ou adresse…" />
+                <>
+                  <TouchableOpacity
+                    style={[styles.normBtn, normLoading && styles.normBtnDisabled]}
+                    onPress={normaliserSansNom}
+                    disabled={normLoading}
+                    activeOpacity={0.7}
+                  >
+                    {normLoading
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={styles.normBtnText}>Normaliser mosquées sans nom</Text>
+                    }
+                  </TouchableOpacity>
+                  <SearchBar value={searchDbMosque} onChange={setSearchDbMosque} placeholder="Rechercher par nom ou adresse…" />
+                </>
               }
               ListEmptyComponent={
                 dbLoading
@@ -2029,4 +2113,10 @@ const styles = StyleSheet.create({
   dbMosqueActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginLeft: spacing.sm },
   dbMosqueEditBtn: { padding: spacing.xs },
   dbMosqueDeleteBtn: { padding: spacing.xs },
+  normBtn: {
+    backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 10,
+    alignItems: 'center', marginBottom: spacing.sm,
+  },
+  normBtnDisabled: { opacity: 0.6 },
+  normBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 });

@@ -45,16 +45,17 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 }
 
 function formatTime(date, locale) {
-  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 }
 
 function formatDate(date, locale, t) {
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  if (date.toDateString() === today.toDateString()) return t('home.today');
-  if (date.toDateString() === tomorrow.toDateString()) return t('home.tomorrow');
-  const label = date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateUTC = date.toISOString().slice(0, 10);
+  const now = new Date();
+  const todayUTC = now.toISOString().slice(0, 10);
+  const tomorrowUTC = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+  if (dateUTC === todayUTC) return t('home.today');
+  if (dateUTC === tomorrowUTC) return t('home.tomorrow');
+  const label = date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
@@ -62,9 +63,10 @@ function groupJanazasByDate(janazas, locale, t) {
   const groups = [];
   const seen = {};
   for (const j of janazas) {
-    const key = j.dateHeure.toDateString();
+    const d = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
+    const key = d.toISOString().slice(0, 10); // date UTC
     if (!seen[key]) {
-      seen[key] = { label: formatDate(j.dateHeure, locale, t), items: [] };
+      seen[key] = { label: formatDate(d, locale, t), items: [] };
       groups.push(seen[key]);
     }
     seen[key].items.push(j);
@@ -119,7 +121,11 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
   const prayerTime = earliest.dateHeure instanceof Date ? earliest.dateHeure : new Date(earliest.dateHeure);
   const prayerMs = isNaN(prayerTime.getTime()) ? 0 : prayerTime.getTime();
   const reminderIsActive = reminder != null;
-  const allSameDay = group.janazas.every(j => j.dateHeure.toDateString() === group.janazas[0].dateHeure.toDateString());
+  const allSameDay = group.janazas.every(j => {
+    const d = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
+    const d0 = group.janazas[0].dateHeure instanceof Date ? group.janazas[0].dateHeure : new Date(group.janazas[0].dateHeure);
+    return d.toISOString().slice(0, 10) === d0.toISOString().slice(0, 10);
+  });
   const dateGroups = groupJanazasByDate(group.janazas, locale, t);
 
 
@@ -472,9 +478,9 @@ export default function HomeScreen() {
     });
   }, []);
 
-  // Polling toutes les 5 min quand l'app est au premier plan
+  // Polling toutes les 90s quand l'app est au premier plan
   useEffect(() => {
-    const POLL_MS = 5 * 60 * 1000;
+    const POLL_MS = 90 * 1000;
     const id = setInterval(() => {
       if (AppState.currentState !== 'active') return;
       dispatch({ type: 'FORCE_DATA_REFRESH' });

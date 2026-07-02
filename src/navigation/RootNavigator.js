@@ -135,6 +135,23 @@ export default function RootNavigator() {
     registerPushToken(apiUserId);
   }, [apiUserId]);
 
+  // Rafraîchit les janazas dès que l'app repasse au premier plan
+  useEffect(() => {
+    if (!isAuthenticated && !isGuest) return;
+
+    function refreshJanazas() {
+      apiClient.get('/api/prierejanaza/upcoming')
+        .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+        .catch(() => {});
+    }
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') refreshJanazas();
+    });
+
+    return () => subscription.remove();
+  }, [isAuthenticated, isGuest]);
+
   // Rafraîchit le profil (canImportFlyer etc.) au foreground ET toutes les 2 minutes
   useEffect(() => {
     if (!identityUserId) return;

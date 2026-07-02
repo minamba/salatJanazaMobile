@@ -630,6 +630,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   const [showDeath, setShowDeath] = useState(false);
   const [showCountry, setShowCountry] = useState(false);
   const [kbHeight, setKbHeight] = useState(0);
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -657,7 +658,11 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
       <View style={styles.container}>
-        <View style={styles.formSheet}>
+        <KeyboardAvoidingView
+          style={styles.formSheet}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+        >
             <View style={styles.formHandle} />
             <View style={styles.formTopBar}>
               <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -667,7 +672,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
               <View style={{ width: 22 }} />
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? kbHeight + spacing.xl : spacing.xl }}>
+            <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? kbHeight + spacing.xl : spacing.xl }}>
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.toggleLabel}>{t('announcement.years_toggle')}</Text>
@@ -749,6 +754,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                 onChangeText={setLocationFrance}
                 placeholder={t('announcement.location_placeholder')}
                 placeholderTextColor={colors.textMuted}
+                onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100)}
               />
             </View>
 
@@ -761,7 +767,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
               <Text style={styles.formBtnText}>Publier la prière</Text>
             </TouchableOpacity>
             </ScrollView>
-          </View>
+        </KeyboardAvoidingView>
         </View>
 
       <YearPickerModal visible={showBirth} selected={birthYear} onSelect={setBirthYear} onClose={() => setShowBirth(false)} title={t('announcement.year_birth_title')} />

@@ -1148,6 +1148,7 @@ export default function MapScreen() {
         adresse: mosque.adresse || null,
         latitude: mosque.latitude ?? 0,
         longitude: mosque.longitude ?? 0,
+        utilisateurId: apiUser?.id ?? null,
       });
       Alert.alert(
         'Demande envoyée ✓',

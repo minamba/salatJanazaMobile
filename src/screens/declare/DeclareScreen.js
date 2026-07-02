@@ -166,7 +166,7 @@ function SectionHeader({ icon, label }) {
   );
 }
 
-function AddLieuModal({ visible, initialName, onClose, onAdded }) {
+function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId }) {
   const { t } = useTranslation();
   const [nom, setNom] = useState('');
   const [adresse, setAdresse] = useState('');
@@ -252,6 +252,7 @@ function AddLieuModal({ visible, initialName, onClose, onAdded }) {
         adresse: adresse.trim(),
         latitude: lat ?? 0,
         longitude: lon ?? 0,
+        utilisateurId: utilisateurId ?? null,
       });
       onAdded({ id: `db_${res.data.id}`, _dbId: res.data.id, nom: nom.trim(), adresse: adresse.trim(), latitude: lat ?? 0, longitude: lon ?? 0 });
       onClose();
@@ -544,9 +545,11 @@ export default function DeclareScreen() {
 
   function buildDateHeure() {
     if (!selectedDate) return null;
-    const d = new Date(selectedDate);
-    d.setHours(selectedHour, selectedMinute, 0, 0);
-    return d;
+    // On stocke l'heure choisie directement en UTC pour que tous les pays voient la même heure
+    return new Date(Date.UTC(
+      selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(),
+      selectedHour, selectedMinute, 0, 0,
+    ));
   }
 
   function validate() {
@@ -614,8 +617,8 @@ export default function DeclareScreen() {
       const sameHourConflict = janazaList.find((j) => {
         if (!j.dateHeure) return false;
         const jDate = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
-        const jDay = `${jDate.getFullYear()}-${jDate.getMonth()}-${jDate.getDate()}`;
-        if (jDay !== proposedDay || jDate.getHours() !== selectedHour) return false;
+        const jDay = `${jDate.getUTCFullYear()}-${jDate.getUTCMonth()}-${jDate.getUTCDate()}`;
+        if (jDay !== proposedDay || jDate.getUTCHours() !== selectedHour) return false;
         if (form.mosqueeDbId) return String(j.mosqueeId) === String(form.mosqueeDbId);
         return norm(j.mosquee) === norm(form.mosqueeNom);
       });
@@ -645,7 +648,6 @@ export default function DeclareScreen() {
         estAnonyme: form.nomAnonyme,
         genre: form.genre,
         dateHeurePriere: dateHeure.toISOString(),
-        utcOffsetMinutes: -dateHeure.getTimezoneOffset(),
         commentaire: extraData?.commentaire || null,
         paysEnterrement: extraData?.country || null,
         villeEnterrement: extraData?.locationFrance || null,
@@ -947,6 +949,7 @@ export default function DeclareScreen() {
       <AddLieuModal
         visible={showAddLieu}
         initialName={mosqueSearch}
+        utilisateurId={apiUser?.id}
         onClose={() => setShowAddLieu(false)}
         onAdded={(lieu) => {
           selectMosque(lieu);

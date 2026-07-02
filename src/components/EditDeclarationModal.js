@@ -179,9 +179,9 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
       : null;
     const raw = rawApi ?? rawLocal;
     const d = raw ? new Date(/Z|[+-]\d{2}:/.test(raw) ? raw : raw + 'Z') : new Date();
-    setSelectedDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
-    setSelectedHour(d.getHours());
-    setSelectedMinute(d.getMinutes());
+    setSelectedDate(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    setSelectedHour(d.getUTCHours());
+    setSelectedMinute(d.getUTCMinutes());
     setCommentaire(item.commentaire ?? '');
     setMosqueeSearch(item.mosqueeNom ?? item.mosquee ?? '');
     setSelectedMosque(item.mosqueeId ? { id: String(item.mosqueeId), _dbId: item.mosqueeId, nom: item.mosqueeNom ?? '' } : null);
@@ -257,8 +257,10 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
       Alert.alert('Date manquante', 'Veuillez choisir une date.');
       return;
     }
-    const d = new Date(selectedDate);
-    d.setHours(selectedHour, selectedMinute, 0, 0);
+    const d = new Date(Date.UTC(
+      selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(),
+      selectedHour, selectedMinute, 0, 0,
+    ));
     setLoading(true);
     try {
       const mosqueeId = await resolveMosqueeId();

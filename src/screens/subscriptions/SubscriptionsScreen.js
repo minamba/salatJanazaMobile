@@ -37,7 +37,7 @@ function SubscriptionCard({ item, onUnsubscribe, onToggleNotif, onPress }) {
           <View style={styles.metaRow}>
             <Ionicons name="location-outline" size={12} color={colors.textMuted} />
             <Text style={styles.mosqueMeta}>
-              {item.distance != null ? `${item.distance.toFixed(1)} km · ` : ''}{item.janazaCount} prière{item.janazaCount !== 1 ? 's' : ''}
+              {item.distance != null ? `${item.distance.toFixed(1)} km · ` : ''}{item.janazaCount} {item.janazaCount !== 1 ? t('subscriptions.prayer_plural') : t('subscriptions.prayer_singular')}
             </Text>
           </View>
         </View>

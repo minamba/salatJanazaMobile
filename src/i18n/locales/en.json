@@ -263,7 +263,9 @@
     "unsubscribe_confirm": "Unsubscribe",
     "notifications_active": "Notifications active",
     "notifications_disabled": "Notifications disabled",
-    "prayers_today": "prayer today"
+    "prayers_today": "prayer today",
+    "prayer_singular": "prayer",
+    "prayer_plural": "prayers"
   },
   "profile": {
     "address_label": "Home address",
@@ -443,7 +445,10 @@
     "import_permission_label": "Can import",
     "import_permission_error": "Unable to update permission.",
     "import_bulk_error": "Unable to update permissions.",
-    "import_decl_subtab": "Declarations"
+    "import_decl_subtab": "Declarations",
+    "validate_confirm_message": "Validate the mosque \"{{name}}\"?",
+    "validate_confirm_btn": "Validate",
+    "validate_selection_confirm": "Validate {{count}} selected mosque(s)?"
   },
   "prayer": {
     "title": "Salat al-Janaza",

@@ -260,7 +260,9 @@
     "unsubscribe_confirm": "إلغاء الاشتراك",
     "notifications_active": "الإشعارات مفعّلة",
     "notifications_disabled": "الإشعارات معطّلة",
-    "prayers_today": "صلاة اليوم"
+    "prayers_today": "صلاة اليوم",
+    "prayer_singular": "صلاة",
+    "prayer_plural": "صلوات"
   },
   "profile": {
     "address_label": "عنوان المنزل",
@@ -440,7 +442,10 @@
     "import_permission_label": "يمكنه الاستيراد",
     "import_permission_error": "تعذر تعديل الصلاحية.",
     "import_bulk_error": "تعذر تعديل الصلاحيات.",
-    "import_decl_subtab": "الإعلانات"
+    "import_decl_subtab": "الإعلانات",
+    "validate_confirm_message": "هل تريد التحقق من المسجد \"{{name}}\"؟",
+    "validate_confirm_btn": "تحقق",
+    "validate_selection_confirm": "هل تريد التحقق من {{count}} مسجد(مساجد) مختارة؟"
   },
   "prayer": {
     "title": "صلاة الجنازة",
