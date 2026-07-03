@@ -183,7 +183,7 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
       ? t('announcement.unknown_child')
       : t('announcement.unknown_male');
   const dateStr = date
-    ? date.toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    ? date.toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
     : '___';
   const timeStr = `${String(hour ?? 12).padStart(2, '0')}h${String(minute ?? 0).padStart(2, '0')}`;
   const ageStr = (showYears && birthYear && deathYear) ? `${birthYear} – ${deathYear}` : null;
@@ -569,8 +569,8 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
     mosqueeAdresse: janaza?.adresse ?? '',
     commentaire: janaza?.commentaire ?? '',
     date,
-    hour: date?.getHours() ?? 12,
-    minute: date?.getMinutes() ?? 0,
+    hour: date?.getUTCHours() ?? 12,
+    minute: date?.getUTCMinutes() ?? 0,
   };
 
   async function handleShare() {
@@ -618,8 +618,10 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
 
 // ─── ComplementaryInfoModal ───────────────────────────────────────────────────
 
-export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValues }) {
+export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValues, form, date, hour, minute }) {
   const { t } = useTranslation();
+  const [step, setStep] = useState('form');
+  const [sharing, setSharing] = useState(false);
   const [showYears, setShowYears] = useState(false);
   const [birthYear, setBirthYear] = useState(1950);
   const [deathYear, setDeathYear] = useState(CURRENT_YEAR);
@@ -629,18 +631,48 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   const [showBirth, setShowBirth] = useState(false);
   const [showDeath, setShowDeath] = useState(false);
   const [showCountry, setShowCountry] = useState(false);
-  const [kbHeight, setKbHeight] = useState(0);
   const scrollRef = useRef(null);
+  const viewRef = useRef(null);
 
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const show = Keyboard.addListener('keyboardDidShow', (e) => setKbHeight(e.endCoordinates.height));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
-    return () => { show.remove(); hide.remove(); };
-  }, []);
+  const rawNom = form?.nomAnonyme ? '' : (form?.nomDefunt ?? '');
+  const familleNom = rawNom.trim().split(/\s+/)[0] ?? '';
+
+  const previewData = {
+    familleNom,
+    showYears,
+    birthYear,
+    deathYear,
+    country,
+    locationFrance,
+    commentaire,
+    genre: form?.genre ?? 'homme',
+    nomDefunt: form?.nomDefunt ?? '',
+    nomAnonyme: form?.nomAnonyme ?? false,
+    mosqueeNom: form?.mosqueeNom ?? '',
+    mosqueeAdresse: form?.mosqueeAdresse ?? '',
+    date,
+    hour,
+    minute,
+  };
+
+  async function handleShare() {
+    try {
+      setSharing(true);
+      const uri = await captureRef(viewRef, { format: 'png', quality: 1 });
+      const available = await Sharing.isAvailableAsync();
+      if (available) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: "Partager l'annonce" });
+      }
+    } catch (e) {
+      console.warn('Capture/share error:', e);
+    } finally {
+      setSharing(false);
+    }
+  }
 
   useEffect(() => {
     if (visible) {
+      setStep('form');
       setShowYears(initialValues?.showYears ?? false);
       setBirthYear(initialValues?.birthYear ?? 1950);
       setDeathYear(initialValues?.deathYear ?? CURRENT_YEAR);
@@ -656,119 +688,158 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   }, [visible]);
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <View style={styles.container}>
-        <KeyboardAvoidingView
-          style={styles.formSheet}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
-        >
-            <View style={styles.formHandle} />
-            <View style={styles.formTopBar}>
-              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close" size={22} color={colors.text} />
-              </TouchableOpacity>
-              <Text style={styles.formTitle}>Informations complémentaires</Text>
-              <View style={{ width: 22 }} />
-            </View>
+    <Modal transparent animationType="slide" visible={visible} onRequestClose={step === 'preview' ? () => setStep('form') : onClose}>
 
-            <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? kbHeight + spacing.xl : spacing.xl }}>
-            <View style={styles.toggleRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.toggleLabel}>{t('announcement.years_toggle')}</Text>
-                <Text style={styles.toggleDesc}>
-                  {showYears ? t('announcement.years_toggle_description') : 'Activer si vous disposez de cette information'}
-                </Text>
+      {/* ── Step 1 : Formulaire ── */}
+      {step === 'form' && (
+        <View style={styles.container}>
+          <KeyboardAvoidingView
+            style={styles.formSheet}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={0}
+          >
+              <View style={styles.formHandle} />
+              <View style={styles.formTopBar}>
+                <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close" size={22} color={colors.text} />
+                </TouchableOpacity>
+                <Text style={styles.formTitle}>Informations complémentaires</Text>
+                <View style={{ width: 22 }} />
               </View>
-              <Switch
-                value={showYears}
-                onValueChange={setShowYears}
-                trackColor={{ false: '#9E9E9E', true: colors.primary }}
-                ios_backgroundColor="#9E9E9E"
-                thumbColor={colors.white}
-              />
-            </View>
 
-            {showYears && (
-              <>
-                <View style={styles.formLabelRow}>
-                  <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.birth_year')}</Text>
-                  <Text style={styles.formLabelOptional}>optionnel</Text>
+              <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.xl }}>
+              <View style={styles.toggleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleLabel}>{t('announcement.years_toggle')}</Text>
+                  <Text style={styles.toggleDesc}>
+                    {showYears ? t('announcement.years_toggle_description') : 'Activer si vous disposez de cette information'}
+                  </Text>
                 </View>
-                <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowBirth(true)} activeOpacity={0.7}>
-                  <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
-                  <Text style={[styles.formPickerText, { flex: 1 }]}>{birthYear}</Text>
-                  <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
-                </TouchableOpacity>
+                <Switch
+                  value={showYears}
+                  onValueChange={setShowYears}
+                  trackColor={{ false: '#9E9E9E', true: colors.primary }}
+                  ios_backgroundColor="#9E9E9E"
+                  thumbColor={colors.white}
+                />
+              </View>
 
-                <View style={styles.formLabelRow}>
-                  <Text style={styles.formLabel}>{t('announcement.death_year')}</Text>
-                  <Text style={styles.formLabelOptional}>optionnel</Text>
-                </View>
-                <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowDeath(true)} activeOpacity={0.7}>
-                  <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
-                  <Text style={[styles.formPickerText, { flex: 1 }]}>{deathYear}</Text>
-                  <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
-                </TouchableOpacity>
-              </>
-            )}
+              {showYears && (
+                <>
+                  <View style={styles.formLabelRow}>
+                    <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.birth_year')}</Text>
+                    <Text style={styles.formLabelOptional}>optionnel</Text>
+                  </View>
+                  <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowBirth(true)} activeOpacity={0.7}>
+                    <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
+                    <Text style={[styles.formPickerText, { flex: 1 }]}>{birthYear}</Text>
+                    <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
 
-            <View style={styles.formLabelRow}>
-              <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('declare.info_section')}</Text>
-              <Text style={styles.formLabelOptional}>optionnel</Text>
-            </View>
-            <View style={[styles.formInputRow, { alignItems: 'flex-start', paddingTop: spacing.sm }]}>
-              <Ionicons name="chatbubble-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm, marginTop: 2 }} />
-              <TextInput
-                style={[styles.formInput, { minHeight: 80, textAlignVertical: 'top' }]}
-                placeholder={t('declare.info_placeholder')}
-                placeholderTextColor={colors.textMuted}
-                value={commentaire}
-                onChangeText={setCommentaire}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
+                  <View style={styles.formLabelRow}>
+                    <Text style={styles.formLabel}>{t('announcement.death_year')}</Text>
+                    <Text style={styles.formLabelOptional}>optionnel</Text>
+                  </View>
+                  <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowDeath(true)} activeOpacity={0.7}>
+                    <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
+                    <Text style={[styles.formPickerText, { flex: 1 }]}>{deathYear}</Text>
+                    <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </>
+              )}
 
-            <View style={styles.formLabelRow}>
-              <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.country')}</Text>
-              <Text style={styles.formLabelRequired}>obligatoire</Text>
-            </View>
-            <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowCountry(true)} activeOpacity={0.7}>
-              <Ionicons name="earth-outline" size={16} color={colors.textMuted} />
-              <Text style={[styles.formPickerText, { flex: 1, color: country ? colors.text : colors.textMuted }]}>
-                {country || t('announcement.country_placeholder')}
-              </Text>
-              <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
+              <View style={styles.formLabelRow}>
+                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('declare.info_section')}</Text>
+                <Text style={styles.formLabelOptional}>optionnel</Text>
+              </View>
+              <View style={[styles.formInputRow, { alignItems: 'flex-start', paddingTop: spacing.sm }]}>
+                <Ionicons name="chatbubble-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm, marginTop: 2 }} />
+                <TextInput
+                  style={[styles.formInput, { minHeight: 80, textAlignVertical: 'top' }]}
+                  placeholder={t('declare.info_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                  value={commentaire}
+                  onChangeText={setCommentaire}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
 
-            <View style={styles.formLabelRow}>
-              <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>Ville / lieu d'enterrement</Text>
-              <Text style={styles.formLabelOptional}>optionnel</Text>
-            </View>
-            <View style={styles.formInputRow}>
-              <Ionicons name="location-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
-              <TextInput
-                style={styles.formInput}
-                value={locationFrance}
-                onChangeText={setLocationFrance}
-                placeholder={t('announcement.location_placeholder')}
-                placeholderTextColor={colors.textMuted}
-                onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100)}
-              />
-            </View>
+              <View style={styles.formLabelRow}>
+                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.country')}</Text>
+                <Text style={styles.formLabelRequired}>obligatoire</Text>
+              </View>
+              <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowCountry(true)} activeOpacity={0.7}>
+                <Ionicons name="earth-outline" size={16} color={colors.textMuted} />
+                <Text style={[styles.formPickerText, { flex: 1, color: country ? colors.text : colors.textMuted }]}>
+                  {country || t('announcement.country_placeholder')}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.formBtn}
-              onPress={() => onSubmit?.({ birthYear, deathYear, country, locationFrance, showYears, commentaire })}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="megaphone-outline" size={18} color={colors.white} />
-              <Text style={styles.formBtnText}>Publier la prière</Text>
-            </TouchableOpacity>
-            </ScrollView>
-        </KeyboardAvoidingView>
+              <View style={styles.formLabelRow}>
+                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>Ville / lieu d'enterrement</Text>
+                <Text style={styles.formLabelOptional}>optionnel</Text>
+              </View>
+              <View style={styles.formInputRow}>
+                <Ionicons name="location-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
+                <TextInput
+                  style={styles.formInput}
+                  value={locationFrance}
+                  onChangeText={setLocationFrance}
+                  placeholder={t('announcement.location_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                  onFocus={() => { if (Platform.OS === 'ios') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100); }}
+                />
+              </View>
+
+              <TouchableOpacity style={[styles.formBtn, styles.formBtnOutline]} onPress={() => setStep('preview')} activeOpacity={0.8}>
+                <Ionicons name="eye-outline" size={18} color={colors.primary} />
+                <Text style={[styles.formBtnText, styles.formBtnTextOutline]}>{t('announcement.preview')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.formBtn, { marginTop: spacing.sm }]}
+                onPress={() => onSubmit?.({ birthYear, deathYear, country, locationFrance, showYears, commentaire })}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="megaphone-outline" size={18} color={colors.white} />
+                <Text style={styles.formBtnText}>Publier la prière</Text>
+              </TouchableOpacity>
+              </ScrollView>
+          </KeyboardAvoidingView>
         </View>
+      )}
+
+      {/* ── Step 2 : Prévisualisation ── */}
+      {step === 'preview' && (
+        <SafeAreaProvider>
+          <SafeAreaView style={[styles.container, { justifyContent: 'flex-start' }]} edges={['top', 'bottom']}>
+            <View style={{ flex: 1, backgroundColor: colors.background }}>
+              <View style={styles.prevTopBar}>
+                <TouchableOpacity onPress={() => setStep('form')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="arrow-back" size={24} color={colors.text} />
+                </TouchableOpacity>
+                <Text style={styles.prevTopTitle}>{t('announcement.preview_title')}</Text>
+                <TouchableOpacity style={styles.shareBtn} onPress={handleShare} disabled={sharing} activeOpacity={0.8}>
+                  {sharing
+                    ? <ActivityIndicator size="small" color={colors.white} />
+                    : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name={Platform.OS === 'ios' ? 'share-social-outline' : 'share-outline'} size={16} color={colors.white} />
+                        <Text style={styles.shareBtnText}>{t('announcement.share')}</Text>
+                      </View>
+                    )
+                  }
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.md }}>
+                <AnnouncementPreview ref={viewRef} data={previewData} />
+              </ScrollView>
+            </View>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      )}
 
       <YearPickerModal visible={showBirth} selected={birthYear} onSelect={setBirthYear} onClose={() => setShowBirth(false)} title={t('announcement.year_birth_title')} />
       <YearPickerModal visible={showDeath} selected={deathYear} onSelect={setDeathYear} onClose={() => setShowDeath(false)} title={t('announcement.year_death_title')} />

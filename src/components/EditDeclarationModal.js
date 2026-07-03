@@ -179,6 +179,7 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
       : null;
     const raw = rawApi ?? rawLocal;
     const d = raw ? new Date(/Z|[+-]\d{2}:/.test(raw) ? raw : raw + 'Z') : new Date();
+    // dateHeure is stored as wall-clock UTC — read directly
     setSelectedDate(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
     setSelectedHour(d.getUTCHours());
     setSelectedMinute(d.getUTCMinutes());
@@ -257,10 +258,11 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
       Alert.alert('Date manquante', 'Veuillez choisir une date.');
       return;
     }
-    const d = new Date(Date.UTC(
+    const wallClockMs = Date.UTC(
       selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(),
       selectedHour, selectedMinute, 0, 0,
-    ));
+    );
+    const d = new Date(wallClockMs);
     setLoading(true);
     try {
       const mosqueeId = await resolveMosqueeId();
@@ -272,6 +274,7 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
         genre,
         dateHeurePriere: d.toISOString(),
         commentaire,
+        utcOffsetMinutes: item.utcOffsetMinutes ?? 0,
       });
       onSaved(res.data);
     } catch {
@@ -454,7 +457,7 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
         visible={showAnnouncement}
         onClose={() => setShowAnnouncement(false)}
         form={announcementForm}
-        date={selectedDate}
+        date={selectedDate ? new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())) : null}
         hour={selectedHour}
         minute={selectedMinute}
         initialValues={{ country: item?.paysEnterrement ?? null }}

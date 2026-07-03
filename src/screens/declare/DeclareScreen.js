@@ -5,7 +5,7 @@ import {
   Platform, Switch, Keyboard, ActivityIndicator, Image,
   Modal, TouchableWithoutFeedback, FlatList, Alert,
 } from 'react-native';
-import AnnouncementGeneratorModal, { ComplementaryInfoModal } from './AnnouncementGenerator';
+import { ComplementaryInfoModal } from './AnnouncementGenerator';
 import { capitalizeFirst } from '../../utils/text';
 import { searchPlacesByNameOSM } from '../../utils/mosqueSearch';
 
@@ -37,6 +37,62 @@ const EMPTY_FORM = {
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 }, (_, i) => i);
 const CAL_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA' };
+
+const COUNTRY_TO_TIMEZONE = {
+  fr: 'Europe/Paris', be: 'Europe/Paris', lu: 'Europe/Paris',
+  nl: 'Europe/Paris', es: 'Europe/Paris', it: 'Europe/Paris',
+  de: 'Europe/Paris', ch: 'Europe/Paris', at: 'Europe/Paris',
+  pl: 'Europe/Paris', no: 'Europe/Paris', se: 'Europe/Paris',
+  dk: 'Europe/Paris', mc: 'Europe/Paris', gb: 'Europe/London',
+  ie: 'Europe/London', pt: 'Europe/Lisbon', ma: 'Africa/Casablanca',
+  tn: 'Africa/Tunis', dz: 'Africa/Algiers', ly: 'Africa/Tripoli',
+  eg: 'Africa/Cairo', tr: 'Europe/Istanbul', sa: 'Asia/Riyadh',
+  kw: 'Asia/Riyadh', bh: 'Asia/Riyadh', qa: 'Asia/Riyadh',
+  ye: 'Asia/Riyadh', jo: 'Asia/Riyadh', iq: 'Asia/Riyadh',
+  ae: 'Asia/Dubai', om: 'Asia/Dubai', pk: 'Asia/Karachi',
+  bd: 'Asia/Dhaka', sn: 'Africa/Abidjan', gn: 'Africa/Abidjan',
+  ml: 'Africa/Abidjan', mr: 'Africa/Abidjan', bf: 'Africa/Abidjan',
+  ne: 'Africa/Abidjan', tg: 'Africa/Abidjan', bj: 'Africa/Abidjan',
+  gh: 'Africa/Abidjan', ci: 'Africa/Lagos', ng: 'Africa/Lagos',
+  cm: 'Africa/Lagos', ga: 'Africa/Lagos', cg: 'Africa/Lagos',
+  cd: 'Africa/Lagos', so: 'Africa/Nairobi', sd: 'Africa/Nairobi',
+  et: 'Africa/Nairobi', cn: 'Asia/Shanghai', id: 'Asia/Jakarta',
+  my: 'Asia/Kuala_Lumpur', bn: 'Asia/Kuala_Lumpur', ph: 'Asia/Manila',
+  af: 'Asia/Kabul', ir: 'Asia/Tehran', uz: 'Asia/Tashkent',
+  tj: 'Asia/Tashkent', tm: 'Asia/Tashkent', kz: 'Asia/Almaty',
+  az: 'Asia/Baku',
+};
+
+function getUtcOffsetMinutes(ianaTimezone, refDate) {
+  try {
+    const d = refDate ?? new Date();
+    const formatter = new Intl.DateTimeFormat('en', {
+      timeZone: ianaTimezone,
+      timeZoneName: 'shortOffset',
+    });
+    const parts = formatter.formatToParts(d);
+    const offsetStr = parts.find(p => p.type === 'timeZoneName')?.value ?? 'UTC';
+    const m = offsetStr.match(/GMT([+-])(\d+)(?::(\d+))?/);
+    if (!m) return 0;
+    const sign = m[1] === '+' ? 1 : -1;
+    return sign * (parseInt(m[2], 10) * 60 + parseInt(m[3] ?? '0', 10));
+  } catch {
+    return 0;
+  }
+}
+
+async function fetchCountryCodeFromCoords(lat, lon) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
+      { headers: { 'User-Agent': 'QabrApp/1.0 (contact@myjanaza.fr)' } }
+    );
+    const data = await res.json();
+    return data.address?.country_code ?? null;
+  } catch {
+    return null;
+  }
+}
 
 function CalendarModal({ visible, selectedDate, onSelect, onClose }) {
   const { i18n } = useTranslation();
@@ -456,11 +512,11 @@ export default function DeclareScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showHourPicker, setShowHourPicker] = useState(false);
   const [showMinutePicker, setShowMinutePicker] = useState(false);
-  const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [showComplementaryInfo, setShowComplementaryInfo] = useState(false);
   const [announcementData, setAnnouncementData] = useState(null);
   const [showAddLieu, setShowAddLieu] = useState(false);
   const [isNewLieu, setIsNewLieu] = useState(false);
+  const [mosqueUtcOffsetMinutes, setMosqueUtcOffsetMinutes] = useState(0);
   // Recherche textuelle directe en DB, sans limite de rayon
   const searchDebounceRef = useRef(null);
   const latestQueryRef = useRef('');
@@ -536,20 +592,32 @@ export default function DeclareScreen() {
     setMosqueResults([]);
     setShowDrop(false);
     Keyboard.dismiss();
+
+    // Determine mosque timezone from GPS to store correct UTC time
+    setMosqueUtcOffsetMinutes(0);
+    if (mosque.latitude != null && mosque.longitude != null) {
+      fetchCountryCodeFromCoords(mosque.latitude, mosque.longitude).then(countryCode => {
+        const tz = COUNTRY_TO_TIMEZONE[countryCode?.toLowerCase()] ?? 'UTC';
+        const offset = getUtcOffsetMinutes(tz, new Date());
+        setMosqueUtcOffsetMinutes(offset);
+      });
+    }
   }
 
   function clearMosque() {
     setForm((f) => ({ ...f, mosqueeId: '', mosqueeNom: '', mosqueeAdresse: '', mosqueeLatitude: null, mosqueeLongitude: null }));
     setMosqueSearch('');
+    setMosqueUtcOffsetMinutes(0);
   }
 
   function buildDateHeure() {
     if (!selectedDate) return null;
-    // On stocke l'heure choisie directement en UTC pour que tous les pays voient la même heure
-    return new Date(Date.UTC(
+    // Store declared time as wall-clock UTC: display is always the same number everywhere
+    const wallClockMs = Date.UTC(
       selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(),
       selectedHour, selectedMinute, 0, 0,
-    ));
+    );
+    return new Date(wallClockMs);
   }
 
   function validate() {
@@ -617,6 +685,7 @@ export default function DeclareScreen() {
       const sameHourConflict = janazaList.find((j) => {
         if (!j.dateHeure) return false;
         const jDate = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
+        // Wall-clock stored as UTC — compare UTC fields directly
         const jDay = `${jDate.getUTCFullYear()}-${jDate.getUTCMonth()}-${jDate.getUTCDate()}`;
         if (jDay !== proposedDay || jDate.getUTCHours() !== selectedHour) return false;
         if (form.mosqueeDbId) return String(j.mosqueeId) === String(form.mosqueeDbId);
@@ -648,6 +717,7 @@ export default function DeclareScreen() {
         estAnonyme: form.nomAnonyme,
         genre: form.genre,
         dateHeurePriere: dateHeure.toISOString(),
+        utcOffsetMinutes: mosqueUtcOffsetMinutes,
         commentaire: extraData?.commentaire || null,
         paysEnterrement: extraData?.country || null,
         villeEnterrement: extraData?.locationFrance || null,
@@ -679,6 +749,7 @@ export default function DeclareScreen() {
           latitude: form.mosqueeLatitude,
           longitude: form.mosqueeLongitude,
           dateHeure,
+          utcOffsetMinutes: mosqueUtcOffsetMinutes,
           statut: isNewLieu ? 'en_attente' : 'a_venir',
           genre: form.genre,
           nomDefunt: form.nomAnonyme ? '' : form.nomDefunt,
@@ -702,6 +773,7 @@ export default function DeclareScreen() {
       setSelectedMinute(0);
       setAnnouncementData(null);
       setIsNewLieu(false);
+      setMosqueUtcOffsetMinutes(0);
       Keyboard.dismiss();
       setSuccess(wasNewLieu ? 'pending' : true);
     } catch (e) {
@@ -877,12 +949,6 @@ export default function DeclareScreen() {
             )}
           </View>
 
-          {form.mosqueeId && selectedDate && (
-            <TouchableOpacity style={[styles.btn, styles.btnOutline]} onPress={() => setShowAnnouncement(true)} activeOpacity={0.8}>
-              <Ionicons name="document-text-outline" size={18} color={colors.primary} />
-              <Text style={[styles.btnText, styles.btnTextOutline]}>{t('declare.generate_announcement')}</Text>
-            </TouchableOpacity>
-          )}
 
           <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handlePublishPress} disabled={loading} activeOpacity={0.8}>
             {loading ? (
@@ -921,24 +987,14 @@ export default function DeclareScreen() {
         title="Minutes"
       />
 
-      <AnnouncementGeneratorModal
-        visible={showAnnouncement}
-        onClose={() => setShowAnnouncement(false)}
-        onDataChange={setAnnouncementData}
-        onPublish={(data) => {
-          setShowAnnouncement(false);
-          setAnnouncementData(data);
-          doSubmit(data);
-        }}
-        form={form}
-        date={selectedDate}
-        hour={selectedHour}
-        minute={selectedMinute}
-      />
       <ComplementaryInfoModal
         visible={showComplementaryInfo}
         onClose={() => setShowComplementaryInfo(false)}
         initialValues={announcementData}
+        form={form}
+        date={selectedDate ? new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())) : null}
+        hour={selectedHour}
+        minute={selectedMinute}
         onSubmit={(data) => {
           setShowComplementaryInfo(false);
           setAnnouncementData(data);

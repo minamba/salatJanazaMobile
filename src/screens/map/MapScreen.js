@@ -43,7 +43,7 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 }
 
 function formatTime(date) {
-  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 }
 
 const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA' };
@@ -1190,6 +1190,11 @@ export default function MapScreen() {
   }
 
   async function handleRegionChangeComplete() {
+    if (isProgrammaticMoveRef.current) {
+      isProgrammaticMoveRef.current = false;
+    } else {
+      userHasMovedRef.current = true;
+    }
     if (Platform.OS !== 'android') return;
     await refreshAndroidLabels();
     setLabelsVisible(true);
@@ -1197,7 +1202,8 @@ export default function MapScreen() {
 
   useFocusEffect(useCallback(() => {
     const timer = setTimeout(() => {
-      if (activeCoordsRef.current && mapRef.current) {
+      if (activeCoordsRef.current && mapRef.current && !userHasMovedRef.current) {
+        isProgrammaticMoveRef.current = true;
         mapRef.current.animateToRegion(regionForRadiusRef.current, 500);
       }
       if (Platform.OS === 'android') {
@@ -1259,6 +1265,8 @@ export default function MapScreen() {
     }
     if (lat != null && lon != null && mapRef.current) {
       const delta = (notifRadius * 2 / 111) * 1.4;
+      userHasMovedRef.current = false;
+      isProgrammaticMoveRef.current = true;
       mapRef.current.animateToRegion(
         { latitude: lat, longitude: lon, latitudeDelta: delta, longitudeDelta: delta },
         500
@@ -1277,6 +1285,10 @@ export default function MapScreen() {
   const regionForRadiusRef = useRef(regionForRadius);
   useEffect(() => { activeCoordsRef.current = activeCoords; }, [activeCoords]);
   useEffect(() => { regionForRadiusRef.current = regionForRadius; }, [regionForRadius]);
+
+  // Quand l'utilisateur a manuellement bougé la carte, on ne la recentre plus au focus
+  const userHasMovedRef = useRef(false);
+  const isProgrammaticMoveRef = useRef(false);
 
   const hasHomeAddress = !!apiUser?.adresseDomicile;
 

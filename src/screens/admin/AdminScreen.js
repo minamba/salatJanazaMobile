@@ -215,8 +215,8 @@ export default function AdminScreen() {
 
   const normaliserSansNom = () => {
     Alert.alert(
-      'Normaliser mosquées sans nom',
-      'Renommer toutes les mosquées nommées "Mosquée" d\'après leur ville, et supprimer celles sans adresse valide ?',
+      'Normaliser mosquées',
+      'Cette opération va :\n\n• Renommer les mosquées "Mosquée" d\'après leur ville\n• Supprimer celles sans adresse valide (nom de rue + code postal)\n• Supprimer les doublons (même nom + même adresse, même si GPS différents)',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -226,9 +226,15 @@ export default function AdminScreen() {
             try {
               const { data } = await apiClient.post('/api/Mosquee/normaliser-sans-nom');
               await loadDbMosques();
+              const doublons = [
+                ...(data.supprimes ?? []).filter(s => s.raison?.startsWith('Doublon supprimé')),
+                ...(data.ignores ?? []).filter(s => s.raison?.startsWith('Doublon désactivé')),
+              ].length;
+              const invalides = (data.supprimes ?? []).filter(s => s.raison?.startsWith('Adresse invalide')).length;
+              const desactives = (data.ignores ?? []).filter(s => s.raison?.startsWith('Janazas')).length;
               Alert.alert(
                 'Normalisation terminée',
-                `Renommées : ${data.renommes?.length ?? 0}\nSupprimées : ${data.supprimes?.length ?? 0}\nIgnorées (janazas liées) : ${data.ignores?.length ?? 0}`,
+                `Renommées : ${data.renommes?.length ?? 0}\nSupprimées (adresse invalide) : ${invalides}\nDoublons supprimés : ${doublons}\nDésactivées (janazas liées) : ${desactives}`,
               );
             } catch {
               Alert.alert('Erreur', 'La normalisation a échoué.');
@@ -748,7 +754,7 @@ export default function AdminScreen() {
                   >
                     {normLoading
                       ? <ActivityIndicator size="small" color="#fff" />
-                      : <Text style={styles.normBtnText}>Normaliser mosquées sans nom</Text>
+                      : <Text style={styles.normBtnText}>Normalisation / Suppression doublon</Text>
                     }
                   </TouchableOpacity>
                   <SearchBar value={searchDbMosque} onChange={setSearchDbMosque} placeholder="Rechercher par nom ou adresse…" />

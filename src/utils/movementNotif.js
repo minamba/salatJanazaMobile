@@ -60,15 +60,19 @@ TaskManager.defineTask(MOVEMENT_TASK, async ({ data, error }) => {
     const now = new Date();
     const todayStr = now.toDateString();
 
-    // Seulement les janazas d'aujourd'hui dont l'heure n'est pas passée (force UTC parsing)
+    // Wall-clock UTC → interprété comme heure locale de l'appareil (même chiffre partout)
     const parseDate = (raw) => new Date(/Z$|[+-]\d{2}:/.test(raw) ? raw : raw + 'Z');
+    const toLocalTime = (raw) => {
+      const d = parseDate(raw);
+      return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), 0, 0);
+    };
     const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
     const relevant = janazas.filter(
       (j) =>
         j.mosqueeLatitude != null &&
         j.mosqueeLongitude != null &&
-        parseDate(j.dateHeurePriere) > now &&
-        parseDate(j.dateHeurePriere) <= oneHourLater,
+        toLocalTime(j.dateHeurePriere) > now &&
+        toLocalTime(j.dateHeurePriere) <= oneHourLater,
     );
 
     const notified = await getNotifiedToday();
@@ -81,8 +85,9 @@ TaskManager.defineTask(MOVEMENT_TASK, async ({ data, error }) => {
       const dist = distKm(latitude, longitude, j.mosqueeLatitude, j.mosqueeLongitude);
       if (dist <= PROXIMITY_KM) {
         const prayerDate = parseDate(j.dateHeurePriere);
-        const minutesLeft = Math.round((prayerDate - now) / 60000);
-        const heure = prayerDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const prayerLocal = toLocalTime(j.dateHeurePriere);
+        const minutesLeft = Math.round((prayerLocal - now) / 60000);
+        const heure = prayerDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 
         const defunt = j.estAnonyme || !j.nomDefunt ? 'Défunt anonyme' : j.nomDefunt;
         const genre = j.genre?.toLowerCase();

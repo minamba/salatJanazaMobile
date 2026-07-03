@@ -454,7 +454,10 @@ function MainTabs() {
         <DeclareChoiceModal
           visible={showDeclareModal}
           onClose={() => setShowDeclareModal(false)}
-          onSaisir={() => { setShowDeclareModal(false); goTo(DECLARE_IDX); }}
+          onSaisir={() => {
+            setShowDeclareModal(false);
+            if (activeIndex !== DECLARE_IDX) goTo(DECLARE_IDX);
+          }}
         />
       </View>
     </TabContext.Provider>

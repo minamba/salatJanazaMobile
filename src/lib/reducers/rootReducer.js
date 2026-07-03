@@ -94,6 +94,7 @@ function apiJanazaToLocal(j) {
     longitude: j.mosqueeLongitude ?? null,
     utilisateurId: j.utilisateurId ?? null,
     dateHeure: parseApiDate(j.dateHeurePriere),
+    utcOffsetMinutes: j.utcOffsetMinutes ?? 0,
     statut: j.statut ?? 'AVenir',
     genre: j.genre ?? 'homme',
     nomDefunt: j.nomDefunt ?? '',
@@ -128,7 +129,7 @@ function janazasReducer(state = initialJanazas, action) {
       };
     case 'JANAZA_UPDATE': {
       const u = action.payload;
-      return { ...state, list: state.list.map(j => String(j.id) === String(u.id) ? { ...j, ...apiJanazaToLocal(u) } : j) };
+      return { ...state, list: state.list.map(j => String(j.id) === String(u.id) ? { ...j, ...apiJanazaToLocal(u), utcOffsetMinutes: u.utcOffsetMinutes ?? j.utcOffsetMinutes ?? 0 } : j) };
     }
     case 'JANAZA_DELETE':
       return { ...state, list: state.list.filter((i) => i.id !== action.payload.id) };

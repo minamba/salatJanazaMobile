@@ -64,7 +64,7 @@ function groupJanazasByDate(janazas, locale, t) {
   const seen = {};
   for (const j of janazas) {
     const d = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
-    const key = d.toISOString().slice(0, 10); // date UTC
+    const key = d.toISOString().slice(0, 10);
     if (!seen[key]) {
       seen[key] = { label: formatDate(d, locale, t), items: [] };
       groups.push(seen[key]);
@@ -155,7 +155,12 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
         return;
       }
 
-      const reminderTime = new Date(prayerMs - 30 * 60 * 1000);
+      // Wall-clock UTC → interprété comme heure locale appareil → 30min avant = 11h30 local
+      const prayerLocal = new Date(
+        prayerTime.getUTCFullYear(), prayerTime.getUTCMonth(), prayerTime.getUTCDate(),
+        prayerTime.getUTCHours(), prayerTime.getUTCMinutes(), 0, 0,
+      );
+      const reminderTime = new Date(prayerLocal.getTime() - 30 * 60 * 1000);
       if (reminderTime <= new Date()) {
         Alert.alert(t('home.too_late'), t('home.too_late_message'));
         return;
