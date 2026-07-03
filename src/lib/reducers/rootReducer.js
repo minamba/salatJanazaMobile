@@ -84,6 +84,14 @@ function parseApiDate(raw) {
   return new Date(/Z$|[+-]\d{2}:/.test(raw) ? raw : raw + 'Z');
 }
 
+function normalizeStatut(s) {
+  if (s === 'AVenir' || s === 'a_venir') return 'a_venir';
+  if (s === 'EnCours' || s === 'en_cours') return 'en_cours';
+  if (s === 'Terminee' || s === 'terminee') return 'terminee';
+  if (s === 'EnAttente' || s === 'en_attente') return 'en_attente';
+  return 'a_venir';
+}
+
 function apiJanazaToLocal(j) {
   return {
     id: String(j.id),
@@ -95,7 +103,7 @@ function apiJanazaToLocal(j) {
     utilisateurId: j.utilisateurId ?? null,
     dateHeure: parseApiDate(j.dateHeurePriere),
     utcOffsetMinutes: j.utcOffsetMinutes ?? 0,
-    statut: j.statut ?? 'AVenir',
+    statut: normalizeStatut(j.statut),
     genre: j.genre ?? 'homme',
     nomDefunt: j.nomDefunt ?? '',
     estAnonyme: j.estAnonyme ?? false,
@@ -123,8 +131,9 @@ function janazasReducer(state = initialJanazas, action) {
         ...state,
         list: state.list.filter((i) => {
           if (!i.dateHeure) return false;
-          const t = i.dateHeure instanceof Date ? i.dateHeure.getTime() : new Date(i.dateHeure).getTime();
-          return Date.now() - t < TWO_HOURS_MS;
+          const wallClockMs = i.dateHeure instanceof Date ? i.dateHeure.getTime() : new Date(i.dateHeure).getTime();
+          const trueUtcMs = wallClockMs - (i.utcOffsetMinutes ?? 0) * 60_000;
+          return Date.now() - trueUtcMs < TWO_HOURS_MS;
         }),
       };
     case 'JANAZA_UPDATE': {
