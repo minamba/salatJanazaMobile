@@ -521,6 +521,11 @@ export default function HomeScreen() {
     subscriptions.map(s => s.mosqueeId).filter(Boolean)
   ), [subscriptions]);
 
+  // Subset : abonnements avec notifications actives — pour l'affichage "Rappel automatique"
+  const notifActiveMosqueeIds = useMemo(() => new Set(
+    subscriptions.filter(s => s.notifActive).map(s => s.mosqueeId).filter(Boolean)
+  ), [subscriptions]);
+
   // Filter by radius then group by mosque, sorted by nearest first (or by prayer time if no coords)
   const groups = useMemo(() => {
     const rayon = apiUser?.rayonNotification ?? 5;
@@ -656,7 +661,7 @@ export default function HomeScreen() {
         data={groups}
         keyExtractor={(g) => g.mosqueeId}
         renderItem={({ item: group }) => (
-          <MosqueCard group={group} coords={activeCoords} onPressJanaza={setSelected} currentUserId={apiUserId} currentUserRole={user?.role} onDelete={handleDelete} isSubscribed={subscribedMosqueeIds.has(String(group.mosqueeId))} />
+          <MosqueCard group={group} coords={activeCoords} onPressJanaza={setSelected} currentUserId={apiUserId} currentUserRole={user?.role} onDelete={handleDelete} isSubscribed={notifActiveMosqueeIds.has(String(group.mosqueeId))} />
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}

@@ -984,12 +984,14 @@ export default function MapScreen() {
               })),
           }).then(syncRes => {
             if (cancelled) return;
-            const suppressed = new Set(syncRes?.data?.suppressedOsmIds ?? []);
-            if (suppressed.size > 0) {
+            const suppressedIds = syncRes?.data?.suppressedOsmIds ?? [];
+            if (suppressedIds.length > 0) {
+              const suppressed = new Set(suppressedIds);
               resolvedOverpass = (resolvedOverpass ?? []).filter(m => {
                 const key = `${m.osmType === 'N' ? 'node' : 'way'}_${m.osmId}`;
                 return !suppressed.has(key);
               });
+              dispatch({ type: 'MOSQUES_SUPPRESS', payload: suppressedIds });
               mergeAndSet();
             }
           }).catch(() => {});

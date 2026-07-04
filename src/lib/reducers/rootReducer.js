@@ -69,6 +69,17 @@ function mosquesReducer(state = initialMosques, action) {
           notifActive: s.notifActive,
         })),
       };
+    case 'MOSQUES_SUPPRESS': {
+      // payload = string[] of osmIds like "node_12345" or "way_67890"
+      const suppressedSet = new Set(action.payload);
+      const filtered = state.known.filter((m) => {
+        // known mosque ids are like "osm_node_12345" — strip the leading "osm_" to match
+        const osmKey = m.id?.startsWith('osm_') ? m.id.slice(4) : null;
+        return osmKey == null || !suppressedSet.has(osmKey);
+      });
+      if (filtered.length === state.known.length) return state;
+      return { ...state, known: filtered };
+    }
     case 'AUTH_LOGOUT':
       return initialMosques;
     default:
