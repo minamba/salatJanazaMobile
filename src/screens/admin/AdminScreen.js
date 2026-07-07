@@ -140,8 +140,15 @@ export default function AdminScreen() {
 
   const [tab, setTab] = useState(0);
   const [mosqueSubTab, setMosqueSubTab] = useState(0); // 0=Toutes 1=En attente
-  const [declSubTab, setDeclSubTab] = useState(0); // 0=Déclarations 1=Importation 2=En attente
+  const [declSubTab, setDeclSubTab] = useState(0); // 0=Déclarations 1=Importation 2=En attente 3=Import TXT
   const [pendingDeclarations, setPendingDeclarations] = useState([]);
+  const [importTxtContent, setImportTxtContent] = useState('');
+  const [importTxtLoading, setImportTxtLoading] = useState(false);
+  const [importTxtResult, setImportTxtResult] = useState(null);
+  const [importTxtPolling, setImportTxtPolling] = useState(false);
+  const [importSummary, setImportSummary] = useState(null);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const pollIntervalRef = useRef(null);
   const [importSearchUser, setImportSearchUser] = useState('');
   const [importBulkLoading, setImportBulkLoading] = useState(false);
   const [mosques, setMosques] = useState([]);
@@ -173,6 +180,12 @@ export default function AdminScreen() {
   const [editUser, setEditUser] = useState(null);
   const [pendingSelectMode, setPendingSelectMode] = useState(false);
   const [selectedPendingIds, setSelectedPendingIds] = useState(new Set());
+  const [declSelectMode, setDeclSelectMode] = useState(false);
+  const [selectedDeclIds, setSelectedDeclIds] = useState(new Set());
+  const [declDateFrom, setDeclDateFrom] = useState(null);
+  const [declDateTo, setDeclDateTo] = useState(null);
+  const [showDeclCalFrom, setShowDeclCalFrom] = useState(false);
+  const [showDeclCalTo, setShowDeclCalTo] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -279,6 +292,7 @@ export default function AdminScreen() {
           try {
             await apiClient.put(`/api/Mosquee/${id}/refuser`);
             setPendingMosques(p => p.filter(m => m.id !== id));
+            setPendingDeclarations(p => p.filter(d => d.mosqueeId !== id));
           } catch (e) {
             const status = e?.response?.status;
             Alert.alert(t('admin.add_error'), status
@@ -329,6 +343,13 @@ export default function AdminScreen() {
 
   const enterSelectMode = () => { setPendingSelectMode(true); setSelectedPendingIds(new Set()); };
   const exitSelectMode = () => { setPendingSelectMode(false); setSelectedPendingIds(new Set()); };
+  const enterDeclSelectMode = () => { setDeclSelectMode(true); setSelectedDeclIds(new Set()); };
+  const exitDeclSelectMode = () => { setDeclSelectMode(false); setSelectedDeclIds(new Set()); };
+  const toggleDeclSelect = (id) => setSelectedDeclIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const togglePendingSelect = (id) => setSelectedPendingIds(prev => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -453,6 +474,70 @@ export default function AdminScreen() {
     );
   };
 
+  const deleteSelectedDecl = () => {
+    const toDelete = filteredDecl.filter(d => selectedDeclIds.has(d.id));
+    if (toDelete.length === 0) return;
+    Alert.alert(
+      t('admin.decl_delete_selected_title'),
+      t('admin.decl_delete_selected_confirm', { count: toDelete.length }),
+      [
+        { text: t('admin.delete_cancel'), style: 'cancel' },
+        {
+          text: t('admin.delete_selection', { count: toDelete.length }),
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await Promise.all(toDelete.map(d => apiClient.delete(`/api/PriereJanaza/${d.id}`)));
+              const deletedIds = new Set(toDelete.map(d => d.id));
+              setDeclarations(p => p.filter(d => !deletedIds.has(d.id)));
+              toDelete.forEach(d => dispatch({ type: 'JANAZA_DELETE', payload: { id: String(d.id) } }));
+              dispatch({ type: 'FORCE_DATA_REFRESH' });
+              apiClient.get('/api/prierejanaza/upcoming').then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data })).catch(() => {});
+              exitDeclSelectMode();
+            } catch {
+              Alert.alert(t('admin.add_error'), t('admin.delete_all_error'));
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteDeclByDateRange = () => {
+    if (filteredDecl.length === 0) return;
+    Alert.alert(
+      t('admin.decl_date_range_delete_title'),
+      t('admin.decl_date_range_delete_confirm', { count: filteredDecl.length }),
+      [
+        { text: t('admin.delete_cancel'), style: 'cancel' },
+        {
+          text: t('admin.delete_all'),
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await Promise.all(filteredDecl.map(d => apiClient.delete(`/api/PriereJanaza/${d.id}`)));
+              const deletedIds = new Set(filteredDecl.map(d => d.id));
+              setDeclarations(p => p.filter(d => !deletedIds.has(d.id)));
+              filteredDecl.forEach(d => dispatch({ type: 'JANAZA_DELETE', payload: { id: String(d.id) } }));
+              dispatch({ type: 'FORCE_DATA_REFRESH' });
+              setDeclDateFrom(null);
+              setDeclDateTo(null);
+              apiClient.get('/api/prierejanaza/upcoming').then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data })).catch(() => {});
+            } catch {
+              Alert.alert(t('admin.add_error'), t('admin.delete_all_error'));
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const deleteDeclaration = (id, label) =>
     confirmDelete('/api/PriereJanaza', id, label, () => {
       setDeclarations(p => p.filter(d => d.id !== id));
@@ -528,6 +613,7 @@ export default function AdminScreen() {
 
   useEffect(() => { setPendingSelectMode(false); setSelectedPendingIds(new Set()); }, [tab, mosqueSubTab]);
   useEffect(() => { setDeclSubTab(0); setImportSearchUser(''); }, [tab]);
+  useEffect(() => { setDeclSelectMode(false); setSelectedDeclIds(new Set()); setDeclDateFrom(null); setDeclDateTo(null); }, [tab]);
   const usersById = Object.fromEntries(users.map(u => [u.id, u]));
 
   const filteredDecl = declarations
@@ -537,9 +623,17 @@ export default function AdminScreen() {
         q(d.mosqueeNom ?? '').includes(q(searchDecl)) ||
         q(d.commentaire ?? '').includes(q(searchDecl));
       const matchGender = genderFilter === 'all' || d.genre === genderFilter;
-      return matchSearch && matchGender;
+      const dDate = parseUtc(d.dateHeurePriere);
+      const matchFrom = !declDateFrom || (dDate && dDate >= declDateFrom);
+      const matchTo = !declDateTo || (dDate && dDate <= new Date(declDateTo.getFullYear(), declDateTo.getMonth(), declDateTo.getDate(), 23, 59, 59, 999));
+      return matchSearch && matchGender && matchFrom && matchTo;
     })
     .sort((a, b) => new Date(b.dateCreation ?? b.dateHeurePriere) - new Date(a.dateCreation ?? a.dateHeurePriere));
+  const allDeclSelected = filteredDecl.length > 0 && selectedDeclIds.size === filteredDecl.length;
+  const toggleSelectAllDecl = () => {
+    if (allDeclSelected) setSelectedDeclIds(new Set());
+    else setSelectedDeclIds(new Set(filteredDecl.map(d => d.id)));
+  };
   const filteredUsers = users.filter(u => {
     const matchSearch = !searchUser ||
       q(u.prenom ?? '').includes(q(searchUser)) ||
@@ -604,10 +698,105 @@ export default function AdminScreen() {
     }
   };
 
+  async function handleImportTxt() {
+    if (!importTxtContent.trim()) return;
+    setImportTxtLoading(true);
+    setImportTxtResult(null);
+    setImportSummary(null);
+    try {
+      const res = await apiClient.post('/api/admin/textimport', { text: importTxtContent });
+      const token = res.data.token;
+      setImportTxtResult({ url: res.data.url, filename: res.data.filename, token });
+      setImportTxtLoading(false);
+      // Démarrer le polling pour récupérer le résumé une fois que n8n a tout traité
+      setImportTxtPolling(true);
+      let attempts = 0;
+      const maxAttempts = 60; // 5 minutes max (5s * 60)
+      pollIntervalRef.current = setInterval(async () => {
+        attempts++;
+        try {
+          const poll = await apiClient.get(`/api/admin/textimport/${token}/summary`);
+          if (poll.data?.ready) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+            setImportTxtPolling(false);
+            setImportSummary(poll.data);
+            setShowSummaryModal(true);
+          }
+        } catch {}
+        if (attempts >= maxAttempts) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          setImportTxtPolling(false);
+        }
+      }, 5000);
+    } catch (err) {
+      setImportTxtResult({ error: err?.response?.data?.error ?? t('admin.import_txt_error') });
+      setImportTxtLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
+  }, []);
+
   const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />;
 
   return (
     <SafeAreaView style={styles.container}>
+
+      <CalendarModal visible={showDeclCalFrom} selectedDate={declDateFrom} onSelect={d => { setDeclDateFrom(d); setShowDeclCalFrom(false); }} onClose={() => setShowDeclCalFrom(false)} />
+      <CalendarModal visible={showDeclCalTo} selectedDate={declDateTo} onSelect={d => { setDeclDateTo(d); setShowDeclCalTo(false); }} onClose={() => setShowDeclCalTo(false)} />
+
+      {/* Modal résumé d'importation texte */}
+      <Modal
+        visible={showSummaryModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSummaryModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowSummaryModal(false)}>
+          <View style={styles.summaryOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.summaryBox}>
+                <View style={styles.summaryHeader}>
+                  <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+                  <Text style={styles.summaryTitle}>{t('admin.import_summary_title')}</Text>
+                </View>
+                <Text style={styles.summaryStats}>
+                  {t('admin.import_summary_stats', {
+                    total: importSummary?.total ?? 0,
+                    success: importSummary?.success ?? 0,
+                    skipped: importSummary?.skipped ?? 0,
+                  })}
+                </Text>
+                {importSummary?.skipped > 0 && (
+                  <>
+                    <Text style={styles.summarySkippedTitle}>{t('admin.import_summary_skipped_title')}</Text>
+                    <ScrollView style={styles.summarySkippedList} nestedScrollEnabled>
+                      {(importSummary?.skippedEntries ?? []).map((e, i) => (
+                        <View key={i} style={styles.summarySkippedItem}>
+                          <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+                          <View style={{ flex: 1, marginLeft: 6 }}>
+                            <Text style={styles.summarySkippedMosque}>{e.mosqueeNom}</Text>
+                            {e.nomDefunt ? <Text style={styles.summarySkippedDefunt}>{e.nomDefunt}</Text> : null}
+                            <Text style={styles.summarySkippedReason}>
+                              {e.reason === 'GEOCODING_FAILED' ? t('admin.import_skip_geocoding') : t('admin.import_skip_conflict')}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
+                <TouchableOpacity style={styles.summaryCloseBtn} onPress={() => setShowSummaryModal(false)} activeOpacity={0.8}>
+                  <Text style={styles.summaryCloseBtnText}>{t('admin.import_summary_close')}</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
       <View style={styles.header}>
         <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
         <Text style={styles.headerTitle}>{t('admin.title')}</Text>
@@ -815,6 +1004,14 @@ export default function AdminScreen() {
                     <View style={styles.pendingBadge}><Text style={styles.pendingBadgeText}>{pendingDeclarations.length}</Text></View>
                   )}
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.subTab, declSubTab === 3 && styles.subTabActive]}
+                  onPress={() => { setDeclSubTab(3); setImportTxtResult(null); }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="cloud-upload-outline" size={13} color={declSubTab === 3 ? colors.primary : colors.textMuted} style={{ marginRight: 3 }} />
+                  <Text style={[styles.subTabText, declSubTab === 3 && styles.subTabTextActive]}>{t('admin.import_txt_tab')}</Text>
+                </TouchableOpacity>
               </View>
 
               {declSubTab === 0 && (
@@ -845,6 +1042,64 @@ export default function AdminScreen() {
                           </TouchableOpacity>
                         ))}
                       </View>
+
+                      {/* Filtre par période */}
+                      <View style={styles.declDateRangeRow}>
+                        <TouchableOpacity style={styles.declDateRangeBtn} onPress={() => setShowDeclCalFrom(true)} activeOpacity={0.7}>
+                          <Ionicons name="calendar-outline" size={13} color={declDateFrom ? colors.primary : colors.textMuted} />
+                          <Text style={[styles.declDateRangeBtnText, !declDateFrom && { color: colors.textMuted }]} numberOfLines={1}>
+                            {declDateFrom ? declDateFrom.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : t('admin.decl_date_from')}
+                          </Text>
+                        </TouchableOpacity>
+                        <Text style={styles.declDateRangeSep}>→</Text>
+                        <TouchableOpacity style={styles.declDateRangeBtn} onPress={() => setShowDeclCalTo(true)} activeOpacity={0.7}>
+                          <Ionicons name="calendar-outline" size={13} color={declDateTo ? colors.primary : colors.textMuted} />
+                          <Text style={[styles.declDateRangeBtnText, !declDateTo && { color: colors.textMuted }]} numberOfLines={1}>
+                            {declDateTo ? declDateTo.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : t('admin.decl_date_to')}
+                          </Text>
+                        </TouchableOpacity>
+                        {(declDateFrom || declDateTo) && (
+                          <TouchableOpacity onPress={() => { setDeclDateFrom(null); setDeclDateTo(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {/* Supprimer par période */}
+                      {(declDateFrom || declDateTo) && filteredDecl.length > 0 && !declSelectMode && (
+                        <TouchableOpacity style={styles.declDateRangeDeleteBtn} onPress={deleteDeclByDateRange} activeOpacity={0.85}>
+                          <Ionicons name="trash-outline" size={14} color={colors.white} />
+                          <Text style={styles.declDateRangeDeleteBtnText}>{t('admin.decl_date_range_delete', { count: filteredDecl.length })}</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Mode sélection */}
+                      {!declSelectMode ? (
+                        <TouchableOpacity style={styles.declSelectModeBtn} onPress={enterDeclSelectMode} activeOpacity={0.85}>
+                          <Ionicons name="checkbox-outline" size={15} color={colors.primary} />
+                          <Text style={styles.declSelectModeBtnText}>{t('admin.select_mode')}</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View>
+                          <View style={styles.selectHeader}>
+                            <TouchableOpacity style={styles.selectAllBtn} onPress={toggleSelectAllDecl} activeOpacity={0.7}>
+                              <Ionicons name={allDeclSelected ? 'checkbox' : 'square-outline'} size={20} color={colors.primary} />
+                              <Text style={styles.selectAllText}>
+                                {allDeclSelected ? t('admin.deselect_all') : t('admin.select_all')}
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={exitDeclSelectMode} style={styles.selectCancelBtn} activeOpacity={0.7}>
+                              <Text style={styles.selectCancelText}>{t('admin.delete_cancel')}</Text>
+                            </TouchableOpacity>
+                          </View>
+                          {selectedDeclIds.size > 0 && (
+                            <TouchableOpacity style={[styles.selectionActionBtn, { backgroundColor: colors.error, marginBottom: spacing.sm }]} onPress={deleteSelectedDecl} activeOpacity={0.85}>
+                              <Ionicons name="trash-outline" size={15} color={colors.white} />
+                              <Text style={styles.selectionActionText}>{t('admin.delete_selection', { count: selectedDeclIds.size })}</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
                     </View>
                   }
                   ListEmptyComponent={<EmptyState label={searchDecl ? t('admin.no_results') : t('admin.no_declarations')} icon="moon-outline" />}
@@ -853,18 +1108,22 @@ export default function AdminScreen() {
                     const declarantNom = declarant
                       ? `${declarant.prenom ?? ''} ${declarant.nom ?? ''}`.trim()
                       : item.utilisateurId ? `#${item.utilisateurId}` : t('admin.anonymous_user');
-                    const fmt = (raw) => parseUtc(raw)?.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? null;
-                    const dateDecl = fmt(item.dateCreation);
+                    const fmt = (raw) => parseUtc(raw)?.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) ?? null;
+                    const fmtLocal = (raw) => raw ? new Date(raw).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
+                    const dateDecl = fmtLocal(item.dateCreation);
                     return (
                       <Row
                         title={item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? t('admin.deceased_unknown'))}
                         subtitle={[item.mosqueeNom, fmt(item.dateHeurePriere)].filter(Boolean).join(' · ')}
                         extra={[dateDecl ? t('admin.declared_on', { date: dateDecl }) : null, t('admin.declared_by', { name: declarantNom })].filter(Boolean).join(' · ')}
-                        onEdit={() => setEditDecl(item)}
-                        onDelete={() => deleteDeclaration(
+                        onEdit={declSelectMode ? null : () => setEditDecl(item)}
+                        onDelete={declSelectMode ? null : () => deleteDeclaration(
                           item.id,
                           item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? `#${item.id}`)
                         )}
+                        selectMode={declSelectMode}
+                        selected={selectedDeclIds.has(item.id)}
+                        onToggle={() => toggleDeclSelect(item.id)}
                       />
                     );
                   }}
@@ -943,16 +1202,73 @@ export default function AdminScreen() {
                   refreshControl={refreshControl}
                   ListEmptyComponent={<EmptyState label={t('admin.no_declarations')} icon="time-outline" />}
                   renderItem={({ item }) => {
-                    const fmt = (raw) => parseUtc(raw)?.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? null;
+                    const fmt = (raw) => parseUtc(raw)?.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) ?? null;
+                    const fmtLocal = (raw) => raw ? new Date(raw).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
                     return (
                       <Row
                         title={item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? t('admin.deceased_unknown'))}
                         subtitle={[item.mosqueeNom, fmt(item.dateHeurePriere)].filter(Boolean).join(' · ')}
-                        extra={t('admin.declared_on', { date: fmt(item.dateCreation) ?? '—' })}
+                        extra={t('admin.declared_on', { date: fmtLocal(item.dateCreation) ?? '—' })}
                       />
                     );
                   }}
                 />
+              )}
+
+              {declSubTab === 3 && (
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+                  <ScrollView contentContainerStyle={styles.importTxtContainer} keyboardShouldPersistTaps="handled">
+                    <Text style={styles.importTxtLabel}>{t('admin.import_txt_label')}</Text>
+                    <TextInput
+                      style={styles.importTxtInput}
+                      multiline
+                      value={importTxtContent}
+                      onChangeText={setImportTxtContent}
+                      placeholder={t('admin.import_txt_placeholder')}
+                      placeholderTextColor={colors.textMuted}
+                      textAlignVertical="top"
+                    />
+                    <TouchableOpacity
+                      style={[styles.importTxtBtn, (!importTxtContent.trim() || importTxtLoading) && { opacity: 0.5 }]}
+                      onPress={handleImportTxt}
+                      disabled={!importTxtContent.trim() || importTxtLoading}
+                      activeOpacity={0.8}
+                    >
+                      {importTxtLoading
+                        ? <ActivityIndicator size="small" color={colors.white} />
+                        : (
+                          <>
+                            <Ionicons name="cloud-upload-outline" size={17} color={colors.white} />
+                            <Text style={styles.importTxtBtnText}>{t('admin.import_txt_send')}</Text>
+                          </>
+                        )
+                      }
+                    </TouchableOpacity>
+
+                    {importTxtResult && !importTxtResult.error && (
+                      <View style={styles.importTxtSuccess}>
+                        <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.importTxtSuccessText}>{t('admin.import_txt_success')}</Text>
+                          <Text style={styles.importTxtFilename} numberOfLines={1}>{importTxtResult.filename}</Text>
+                        </View>
+                      </View>
+                    )}
+                    {importTxtPolling && (
+                      <View style={styles.importTxtPolling}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                        <Text style={styles.importTxtPollingText}>{t('admin.import_txt_processing')}</Text>
+                      </View>
+                    )}
+
+                    {importTxtResult?.error && (
+                      <View style={styles.importTxtError}>
+                        <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+                        <Text style={styles.importTxtErrorText}>{importTxtResult.error}</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </KeyboardAvoidingView>
               )}
             </>
           )}
@@ -1117,39 +1433,52 @@ function SearchBar({ value, onChange, placeholder }) {
 }
 
 // ── Row ───────────────────────────────────────────────────────────────────────
-function Row({ title, subtitle, extra, onEdit, onDelete, badgeType }) {
+function Row({ title, subtitle, extra, onEdit, onDelete, badgeType, selectMode, selected, onToggle }) {
   const { t } = useTranslation();
   const badgeLabel = badgeType === 'super_admin' ? t('admin.super_admin') : badgeType === 'admin' ? t('admin.role_admin') : null;
-  return (
-    <View style={styles.row}>
+  const inner = (
+    <>
+      {selectMode && (
+        <Ionicons name={selected ? 'checkbox' : 'square-outline'} size={22} color={colors.primary} style={{ marginRight: spacing.sm }} />
+      )}
       <View style={styles.rowInfo}>
         <View style={styles.rowTitleRow}>
           <Text style={styles.rowTitle} numberOfLines={1}>{title}</Text>
           {badgeLabel && (
-        <View style={[styles.badge, badgeType === 'super_admin' ? styles.badgeSuper : styles.badgeAdmin]}>
-          <Text style={[styles.badgeText, badgeType === 'super_admin' ? styles.badgeSuperText : styles.badgeAdminText]}>
-            {badgeLabel}
-          </Text>
-        </View>
-      )}
+            <View style={[styles.badge, badgeType === 'super_admin' ? styles.badgeSuper : styles.badgeAdmin]}>
+              <Text style={[styles.badgeText, badgeType === 'super_admin' ? styles.badgeSuperText : styles.badgeAdminText]}>
+                {badgeLabel}
+              </Text>
+            </View>
+          )}
         </View>
         {!!subtitle && <Text style={styles.rowSub} numberOfLines={1}>{subtitle}</Text>}
         {!!extra && <Text style={styles.rowExtra} numberOfLines={1}>{extra}</Text>}
       </View>
-      <View style={styles.rowActions}>
-        {onEdit && (
-          <TouchableOpacity onPress={onEdit} style={styles.editBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="create-outline" size={18} color={colors.primary} />
-          </TouchableOpacity>
-        )}
-        {onDelete && (
-          <TouchableOpacity onPress={onDelete} style={styles.deleteBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="trash-outline" size={18} color={colors.error} />
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
+      {!selectMode && (
+        <View style={styles.rowActions}>
+          {onEdit && (
+            <TouchableOpacity onPress={onEdit} style={styles.editBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="create-outline" size={18} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+          {onDelete && (
+            <TouchableOpacity onPress={onDelete} style={styles.deleteBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="trash-outline" size={18} color={colors.error} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </>
   );
+  if (selectMode) {
+    return (
+      <TouchableOpacity style={[styles.row, selected && styles.rowSelected]} onPress={onToggle} activeOpacity={0.7}>
+        {inner}
+      </TouchableOpacity>
+    );
+  }
+  return <View style={styles.row}>{inner}</View>;
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
@@ -1314,9 +1643,9 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
     setGenre(item.genre ?? 'homme');
     const raw = item.dateHeurePriere;
     const d = raw ? new Date(/Z|[+-]\d{2}:/.test(raw) ? raw : raw + 'Z') : new Date();
-    setSelectedDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
-    setSelectedHour(d.getHours());
-    setSelectedMinute(d.getMinutes());
+    setSelectedDate(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    setSelectedHour(d.getUTCHours());
+    setSelectedMinute(d.getUTCMinutes());
     setCommentaire(item.commentaire ?? '');
     setMosqueeSearch('');
     setSelectedMosque(item.mosqueeId ? { id: String(item.mosqueeId), _dbId: item.mosqueeId, nom: item.mosqueeNom ?? '', adresse: item.mosqueeAdresse ?? item.adresse ?? null } : null);
@@ -2187,4 +2516,78 @@ const styles = StyleSheet.create({
   },
   normBtnDisabled: { opacity: 0.6 },
   normBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+
+  // Import TXT tab
+  importTxtContainer: { padding: spacing.lg, paddingBottom: spacing.xl },
+  importTxtLabel: { ...typography.label, color: colors.textMuted, marginBottom: spacing.sm },
+  importTxtInput: {
+    backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md, padding: spacing.md, minHeight: 240,
+    ...typography.body, marginBottom: spacing.md, textAlignVertical: 'top',
+  },
+  importTxtBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: spacing.sm, backgroundColor: colors.primary, borderRadius: radius.md,
+    paddingVertical: spacing.md, paddingHorizontal: spacing.lg,
+  },
+  importTxtBtnText: { ...typography.body, color: colors.white, fontWeight: '700' },
+  importTxtSuccess: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: 'rgba(74,122,78,0.10)', borderRadius: radius.md,
+    padding: spacing.md, marginTop: spacing.md,
+  },
+  importTxtSuccessText: { ...typography.body, color: colors.success, fontWeight: '600' },
+  importTxtFilename: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+  importTxtError: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: 'rgba(220,38,38,0.08)', borderRadius: radius.md,
+    padding: spacing.md, marginTop: spacing.md,
+  },
+  importTxtErrorText: { ...typography.body, color: colors.error, fontWeight: '600', flex: 1 },
+
+  importTxtPolling: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.md },
+  importTxtPollingText: { ...typography.small, color: colors.textMuted },
+
+  // Modale résumé importation
+  summaryOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
+  summaryBox: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, width: '100%', maxHeight: '75%' },
+  summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.sm },
+  summaryTitle: { ...typography.h3, color: colors.text, fontWeight: '700' },
+  summaryStats: { ...typography.body, color: colors.text, marginBottom: spacing.md },
+  summarySkippedTitle: { ...typography.label, color: colors.error, fontWeight: '600', marginBottom: spacing.xs },
+  summarySkippedList: { maxHeight: 220, marginBottom: spacing.md },
+  summarySkippedItem: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 6,
+    borderBottomWidth: 1, borderBottomColor: colors.border },
+  summarySkippedMosque: { ...typography.body, color: colors.text, fontWeight: '600' },
+  summarySkippedDefunt: { ...typography.small, color: colors.textMuted },
+  summarySkippedReason: { ...typography.small, color: colors.error },
+  summaryCloseBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 10,
+    alignItems: 'center', marginTop: spacing.sm },
+  summaryCloseBtnText: { color: colors.white, fontWeight: '700', fontSize: 14 },
+
+  // Declaration select / date range
+  rowSelected: { backgroundColor: colors.primaryDim },
+  declDateRangeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm,
+  },
+  declDateRangeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md,
+    paddingVertical: spacing.sm, paddingHorizontal: spacing.sm,
+    backgroundColor: colors.surface,
+  },
+  declDateRangeBtnText: { fontSize: 12, fontWeight: '600', color: colors.text, flex: 1 },
+  declDateRangeSep: { fontSize: 14, color: colors.textMuted },
+  declDateRangeDeleteBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, backgroundColor: colors.error, borderRadius: radius.md,
+    paddingVertical: spacing.sm + 2, marginBottom: spacing.sm,
+  },
+  declDateRangeDeleteBtnText: { fontSize: 13, fontWeight: '700', color: colors.white },
+  declSelectModeBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, borderWidth: 1.5, borderColor: colors.primary, borderRadius: radius.md,
+    paddingVertical: spacing.sm, marginBottom: spacing.sm,
+  },
+  declSelectModeBtnText: { fontSize: 13, fontWeight: '600', color: colors.primary },
 });
