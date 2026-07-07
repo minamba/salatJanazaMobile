@@ -66,6 +66,7 @@ export default function ProfileScreen() {
   const user = useSelector((state) => state.auth.user);
   const apiUser = useSelector((state) => state.auth.apiUser);
   const mesDeclarations = useSelector((state) => state.myDeclarations.list);
+  const openHistoriqueTrigger = useSelector((state) => state.ui?.openProfileHistorique);
   const isCeo = user?.email === CEO_EMAIL;
 
   // Recharge les déclarations à chaque fois que l'onglet prend le focus
@@ -105,6 +106,14 @@ export default function ProfileScreen() {
   const [pwdSuccess, setPwdSuccess] = useState(false);
 
   useEffect(() => {
+    if (openHistoriqueTrigger) {
+      dispatch({ type: 'MY_DECLARATIONS_EXPIRE' });
+      dispatch({ type: 'UI_CLEAR_PROFILE_HISTORIQUE' });
+      setShowHistorique(true);
+    }
+  }, [openHistoriqueTrigger]);
+
+  useEffect(() => {
     if (!showHistorique && pendingShareRef.current) {
       const janaza = pendingShareRef.current;
       pendingShareRef.current = null;
@@ -121,6 +130,8 @@ export default function ProfileScreen() {
       return () => clearTimeout(t);
     }
   }, [showHistorique]);
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const [rayon, setRayon] = useState(5);
   const [notifMouvement, setNotifMouvement] = useState(false);
@@ -172,6 +183,14 @@ export default function ProfileScreen() {
     setSelectedCoords({ lat: parseFloat(item.lat), lon: parseFloat(item.lon) });
     setSuggestions([]);
     Keyboard.dismiss();
+  }
+
+  function clearAdresse() {
+    setAdresse('');
+    setSelectedCoords(null);
+    setSuggestions([]);
+    setSaveSuccess(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
   }
 
   async function handleSave() {
@@ -242,34 +261,22 @@ export default function ProfileScreen() {
     }
   }
 
-  function handleDeleteDeclaration(janaza) {
-    Alert.alert(
-      'Supprimer la déclaration',
-      'Cette annonce sera définitivement supprimée de l\'application. Continuer ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiClient.delete(`/api/prierejanaza/${janaza.id}`);
-            } catch {}
-            dispatch({ type: 'MY_DECLARATION_DELETE', payload: { id: janaza.id } });
-            dispatch({ type: 'JANAZA_DELETE', payload: { id: String(janaza.id) } });
-            dispatch({ type: 'FORCE_DATA_REFRESH' });
-            apiClient.get('/api/prierejanaza/upcoming')
-              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
-              .catch(() => {});
-            if (apiUser?.id) {
-              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
-                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
-                .catch(() => {});
-            }
-          },
-        },
-      ]
-    );
+  async function executeDeleteDeclaration(janaza) {
+    setConfirmDeleteId(null);
+    try {
+      await apiClient.delete(`/api/prierejanaza/${janaza.id}`);
+    } catch {}
+    dispatch({ type: 'MY_DECLARATION_DELETE', payload: { id: janaza.id } });
+    dispatch({ type: 'JANAZA_DELETE', payload: { id: String(janaza.id) } });
+    dispatch({ type: 'FORCE_DATA_REFRESH' });
+    apiClient.get('/api/prierejanaza/upcoming')
+      .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+      .catch(() => {});
+    if (apiUser?.id) {
+      apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+        .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+        .catch(() => {});
+    }
   }
 
   async function handleDeleteAccount() {
@@ -364,6 +371,11 @@ export default function ProfileScreen() {
               />
               {loadingSuggestions && (
                 <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: spacing.sm }} />
+              )}
+              {!!adresse && !loadingSuggestions && (
+                <TouchableOpacity onPress={clearAdresse} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: spacing.xs }}>
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                </TouchableOpacity>
               )}
             </View>
 
@@ -542,12 +554,13 @@ export default function ProfileScreen() {
             { code: 'fr', label: t('profile.lang_fr') },
             { code: 'ar', label: t('profile.lang_ar') },
             { code: 'en', label: t('profile.lang_en') },
-          ].map((lang) => {
+          ].map((lang, idx, arr) => {
             const isActive = i18n.language === lang.code || i18n.language?.startsWith(lang.code + '-');
+            const isLast = idx === arr.length - 1;
             return (
               <TouchableOpacity
                 key={lang.code}
-                style={styles.menuItem}
+                style={[styles.menuItem, isLast && styles.menuItemLast]}
                 onPress={() => handleLanguageChange(lang.code)}
                 activeOpacity={0.7}
               >
@@ -664,13 +677,27 @@ export default function ProfileScreen() {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.histoDeleteBtn}
-                        onPress={() => handleDeleteDeclaration(j)}
+                        onPress={() => setConfirmDeleteId(j.id)}
                         activeOpacity={0.8}
                       >
                         <Ionicons name="trash-outline" size={15} color={colors.error} />
                         <Text style={styles.histoDeleteBtnText}>{t('profile.delete')}</Text>
                       </TouchableOpacity>
                     </View>
+                    {confirmDeleteId === j.id && (
+                      <View style={styles.histoConfirmRow}>
+                        <Text style={styles.histoConfirmText}>Supprimer définitivement ?</Text>
+                        <View style={styles.histoConfirmBtns}>
+                          <TouchableOpacity style={styles.histoConfirmCancel} onPress={() => setConfirmDeleteId(null)} activeOpacity={0.7}>
+                            <Text style={styles.histoConfirmCancelText}>Annuler</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.histoConfirmDo} onPress={() => executeDeleteDeclaration(j)} activeOpacity={0.7}>
+                            <Ionicons name="trash-outline" size={13} color="#fff" />
+                            <Text style={styles.histoConfirmDoText}>Supprimer</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 );
               })
@@ -829,11 +856,17 @@ const styles = StyleSheet.create({
   providerText: { ...typography.bodySmall, color: colors.textSecondary, fontWeight: '600' },
 
   section: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    marginBottom: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+    shadowColor: '#1A3320',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -943,6 +976,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.md,
     marginTop: spacing.sm,
+    marginBottom: spacing.md,
   },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...typography.button },
@@ -966,6 +1000,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
+  },
+  menuItemLast: {
+    borderBottomWidth: 0,
   },
   menuItemLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   menuItemIcon: {
@@ -994,8 +1031,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
     marginTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
   },
   deleteAccountLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },
   deleteAccountIcon: {
@@ -1080,4 +1115,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: 5,
   },
   histoDeleteBtnText: { fontSize: 13, fontWeight: '600', color: colors.error },
+
+  histoConfirmRow: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(220,38,38,0.15)',
+    gap: spacing.sm,
+  },
+  histoConfirmText: {
+    fontSize: 13,
+    color: colors.error,
+    fontWeight: '500',
+  },
+  histoConfirmBtns: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  histoConfirmCancel: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  histoConfirmCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  histoConfirmDo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    backgroundColor: colors.error,
+  },
+  histoConfirmDoText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
 });

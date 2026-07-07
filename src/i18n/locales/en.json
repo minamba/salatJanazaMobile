@@ -192,7 +192,8 @@
     "import_verify_title": "Verify the information",
     "import_verify_body": "The AI has extracted the information from the flyer. It is not perfect — please check that all the information is correct.\n\nTo make changes, go to Declaration History in your profile.",
     "import_verify_time_unknown": "⚠️ The prayer time is set to 00:00 — the AI could not extract this information. Please enter it manually.",
-    "import_verify_close": "Got it"
+    "import_verify_close": "Got it",
+    "import_view_history": "View my declarations"
   },
   "map": {
     "title": "Mosques",
@@ -406,6 +407,8 @@
     "edit_comment_placeholder": "Additional information...",
     "edit_preview": "Additional info & preview",
     "edit_declaration_save": "Save",
+    "edit_declaration_success_title": "Changes saved",
+    "edit_declaration_success_body": "The information has been successfully updated.",
     "edit_missing_date": "Missing date",
     "edit_missing_date_message": "Please choose a date.",
     "edit_declaration_error": "Unable to save changes.",

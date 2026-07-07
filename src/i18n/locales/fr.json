@@ -192,7 +192,8 @@
     "import_verify_title": "Vérifiez les informations",
     "import_verify_body": "L'IA a extrait les informations du flyer. Elle n'est pas infaillible : vérifiez que toutes les informations sont correctes.\n\nPour les modifier, rendez-vous dans la rubrique « Historique des déclarations » de votre profil.",
     "import_verify_time_unknown": "⚠️ L'horaire de la prière est à 00h00 — l'IA n'a pas pu extraire cette information. Veuillez la renseigner manuellement.",
-    "import_verify_close": "J'ai compris"
+    "import_verify_close": "J'ai compris",
+    "import_view_history": "Voir mes déclarations"
   },
   "map": {
     "title": "Mosquées",
@@ -406,6 +407,8 @@
     "edit_comment_placeholder": "Informations complémentaires...",
     "edit_preview": "Infos complémentaires et aperçu",
     "edit_declaration_save": "Enregistrer",
+    "edit_declaration_success_title": "Modifications enregistrées",
+    "edit_declaration_success_body": "Les informations ont bien été modifiées.",
     "edit_missing_date": "Date manquante",
     "edit_missing_date_message": "Veuillez choisir une date.",
     "edit_declaration_error": "Impossible de sauvegarder les modifications.",

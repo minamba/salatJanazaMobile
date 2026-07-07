@@ -187,6 +187,7 @@ function JanazaMapPin({ count }) {
 export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, onDelete, currentUserId, currentUserRole, subscribed, onToggleSubscribe, showSubscribe }) {
   const { t, i18n } = useTranslation();
   const dateLocale = LOCALE_MAP[i18n.language] ?? 'fr-FR';
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   function formatDateLabel(date) {
     const today = new Date();
@@ -308,32 +309,50 @@ export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, o
                       (currentUserId != null && j.utilisateurId != null && Number(currentUserId) === Number(j.utilisateurId))
                       || currentUserRole === 'admin' || currentUserRole === 'superadmin'
                     );
+                    const isPendingConfirm = confirmDeleteId === j.id;
                     return (
-                      <View key={j.id} style={[styles.janazaRow, i > 0 && styles.janazaRowBorder]}>
-                        <View style={styles.janazaTimeBox}>
-                          <Text style={styles.janazaTime}>{formatTime(j.dateHeure)}</Text>
-                        </View>
-                        <Image source={GENRE_IMAGES[j.genre]} style={styles.janazaGenreImg} resizeMode="contain" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.janazaNom}>{nom}</Text>
-                          <Text style={styles.janazaGenreLabel}>{genreLabels[j.genre]}</Text>
-                        </View>
-                        <TouchableOpacity
-                          onPress={() => onShare?.({ ...j, mosquee: mosque.nom, adresse: mosque.adresse })}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          activeOpacity={0.6}
-                          style={{ marginLeft: 4 }}
-                        >
-                          <Ionicons name="share-social-outline" size={17} color={colors.primary} />
-                        </TouchableOpacity>
-                        {canDelete && (
+                      <View key={j.id}>
+                        <View style={[styles.janazaRow, i > 0 && styles.janazaRowBorder]}>
+                          <View style={styles.janazaTimeBox}>
+                            <Text style={styles.janazaTime}>{formatTime(j.dateHeure)}</Text>
+                          </View>
+                          <Image source={GENRE_IMAGES[j.genre]} style={styles.janazaGenreImg} resizeMode="contain" />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.janazaNom}>{nom}</Text>
+                            <Text style={styles.janazaGenreLabel}>{genreLabels[j.genre]}</Text>
+                          </View>
                           <TouchableOpacity
-                            onPress={() => onDelete(j.id)}
+                            onPress={() => onShare?.({ ...j, mosquee: mosque.nom, adresse: mosque.adresse })}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             activeOpacity={0.6}
+                            style={{ marginLeft: 4 }}
                           >
-                            <Ionicons name="trash-outline" size={17} color={colors.error} />
+                            <Ionicons name="share-social-outline" size={17} color={colors.primary} />
                           </TouchableOpacity>
+                          {canDelete && (
+                            <TouchableOpacity
+                              onPress={() => setConfirmDeleteId(isPendingConfirm ? null : j.id)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              activeOpacity={0.6}
+                            >
+                              <Ionicons name="trash-outline" size={17} color={isPendingConfirm ? colors.textMuted : colors.error} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        {isPendingConfirm && (
+                          <View style={styles.deleteConfirmRow}>
+                            <TouchableOpacity style={styles.deleteConfirmCancelBtn} onPress={() => setConfirmDeleteId(null)} activeOpacity={0.7}>
+                              <Text style={styles.deleteConfirmCancelText}>{t('home.delete_cancel')}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.deleteConfirmDeleteBtn}
+                              onPress={() => { onDelete(j.id); setConfirmDeleteId(null); }}
+                              activeOpacity={0.7}
+                            >
+                              <Ionicons name="trash-outline" size={13} color={colors.white} />
+                              <Text style={styles.deleteConfirmDeleteText}>{t('home.delete_confirm')}</Text>
+                            </TouchableOpacity>
+                          </View>
                         )}
                       </View>
                     );
@@ -1136,6 +1155,12 @@ export default function MapScreen() {
             mosqueeId: mosqueeApiId,
           });
           payload.apiId = res.data.id;
+          payload.mosqueeId = String(mosqueeApiId);
+          if (!mosque._dbId) {
+            setOsmMosques(prev => prev.map(m =>
+              m.id === mosque.id ? { ...m, _dbId: mosqueeApiId } : m
+            ));
+          }
         } catch {}
       }
       dispatch({ type: 'MOSQUE_SUBSCRIBE', payload });
@@ -1222,35 +1247,34 @@ export default function MapScreen() {
       m.id === mosque.id ||
       String(m._dbId) === String(mosque.id) ||
       m.id === 'db_' + String(mosque.id)
-    ) ?? mosque;
-    setSelectedMosque({ ...canonical, janazas: getJanazas(mosque) });
+    );
+    if (canonical) {
+      setSelectedMosque({ ...canonical, janazas: getJanazas(mosque) });
+    } else {
+      // Mosquée hors rayon cliquée via un pin janaza — id est l'id DB numérique brut
+      const rawId = String(mosque.id);
+      const numericId = /^\d+$/.test(rawId) ? parseInt(rawId, 10) : null;
+      setSelectedMosque({
+        ...mosque,
+        id: numericId != null ? `db_${rawId}` : rawId,
+        _dbId: numericId ?? mosque._dbId,
+        janazas: getJanazas(mosque),
+      });
+    }
   }
 
-  function handleDelete(id) {
-    Alert.alert(
-      t('home.delete_title'),
-      t('home.delete_message'),
-      [
-        { text: t('home.delete_cancel'), style: 'cancel' },
-        {
-          text: t('home.delete_confirm'),
-          style: 'destructive',
-          onPress: async () => {
-            try { await apiClient.delete(`/api/prierejanaza/${id}`); } catch {}
-            dispatch({ type: 'JANAZA_DELETE', payload: { id } });
-            dispatch({ type: 'FORCE_DATA_REFRESH' });
-            apiClient.get('/api/prierejanaza/upcoming')
-              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
-              .catch(() => {});
-            if (apiUser?.id) {
-              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
-                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
-                .catch(() => {});
-            }
-          },
-        },
-      ]
-    );
+  async function handleDelete(id) {
+    try { await apiClient.delete(`/api/prierejanaza/${id}`); } catch {}
+    dispatch({ type: 'JANAZA_DELETE', payload: { id } });
+    dispatch({ type: 'FORCE_DATA_REFRESH' });
+    apiClient.get('/api/prierejanaza/upcoming')
+      .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+      .catch(() => {});
+    if (apiUser?.id) {
+      apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+        .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+        .catch(() => {});
+    }
   }
 
 
@@ -1673,6 +1697,11 @@ const styles = StyleSheet.create({
   modalSectionTitle: { ...typography.label, color: colors.primary, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.8 },
   janazaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm + 2, gap: spacing.sm },
   janazaRowBorder: { borderTopWidth: 1, borderTopColor: colors.borderLight },
+  deleteConfirmRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs + 2, paddingHorizontal: spacing.xs, marginBottom: spacing.xs },
+  deleteConfirmCancelBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
+  deleteConfirmCancelText: { ...typography.caption, color: colors.textMuted, fontWeight: '600' },
+  deleteConfirmDeleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, borderRadius: radius.sm, backgroundColor: colors.error },
+  deleteConfirmDeleteText: { ...typography.caption, color: colors.white, fontWeight: '700' },
   janazaTimeBox: { backgroundColor: colors.primaryDim, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minWidth: 56, alignItems: 'center' },
   janazaTime: { ...typography.label, color: colors.primary, fontSize: 14 },
   janazaGenreImg: { width: 64, height: 64 },

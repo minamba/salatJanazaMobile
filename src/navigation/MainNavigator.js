@@ -75,6 +75,7 @@ function GuestModal({ visible, onClose, onLogin }) {
 function DeclareChoiceModal({ visible, onClose, onSaisir }) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
+  const { goTo } = useTabNavigation();
   const apiUser = useSelector(state => state.auth.apiUser);
   const user = useSelector(state => state.auth.user);
 
@@ -219,8 +220,18 @@ function DeclareChoiceModal({ visible, onClose, onSaisir }) {
                     <Text style={[styles.modalText, { color: '#b45309', fontWeight: '600' }]}>{t('declare.import_verify_time_unknown')}</Text>
                   )}
                   <Text style={styles.modalText}>{t('declare.import_verify_body')}</Text>
-                  <TouchableOpacity style={styles.modalBtn} onPress={onClose} activeOpacity={0.8}>
-                    <Text style={styles.modalBtnText}>OK</Text>
+                  <TouchableOpacity style={styles.modalBtn} onPress={() => {
+                    dispatch({ type: 'UI_OPEN_PROFILE_HISTORIQUE' });
+                    onClose();
+                    goTo('Profile');
+                  }} activeOpacity={0.8}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                      <Ionicons name="list-outline" size={18} color={colors.white} />
+                      <Text style={styles.modalBtnText}>{t('declare.import_view_history')}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose} activeOpacity={0.7}>
+                    <Text style={styles.modalCancelText}>OK</Text>
                   </TouchableOpacity>
                 </>
               ) : importStatus === 'error' ? (

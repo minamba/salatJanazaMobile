@@ -189,7 +189,8 @@
     "import_verify_title": "تحقق من المعلومات",
     "import_verify_body": "قام الذكاء الاصطناعي باستخراج المعلومات من الإعلان. قد تحدث أخطاء — تأكد من صحة جميع المعلومات.\n\nللتعديل، اذهب إلى سجل الإعلانات في ملفك الشخصي.",
     "import_verify_time_unknown": "⚠️ وقت الصلاة مضبوط على 00:00 — لم يتمكن الذكاء الاصطناعي من استخراج هذه المعلومة. يرجى إدخالها يدوياً.",
-    "import_verify_close": "فهمت"
+    "import_verify_close": "فهمت",
+    "import_view_history": "عرض إعلاناتي"
   },
   "map": {
     "title": "المساجد",
@@ -403,6 +404,8 @@
     "edit_comment_placeholder": "معلومات إضافية...",
     "edit_preview": "معاينة الإعلان",
     "edit_declaration_save": "حفظ",
+    "edit_declaration_success_title": "تم الحفظ",
+    "edit_declaration_success_body": "تم تعديل المعلومات بنجاح.",
     "edit_missing_date": "تاريخ مفقود",
     "edit_missing_date_message": "يرجى اختيار تاريخ.",
     "edit_declaration_error": "تعذّر حفظ التغييرات.",

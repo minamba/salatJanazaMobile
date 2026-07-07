@@ -309,8 +309,8 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
   );
 }
 
-// ── Detail modal (unchanged logic) ────────────────────────────────────────────
-function DetailModal({ item, coords, user, onClose, onDelete }) {
+// ── Detail modal ───────────────────────────────────────────────────────────────
+function DetailModal({ item, coords, apiUserId, currentUserRole, onClose, onDelete }) {
   const { t, i18n } = useTranslation();
   const locale = LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
   const isAr = i18n.language?.startsWith('ar');
@@ -320,7 +320,8 @@ function DetailModal({ item, coords, user, onClose, onDelete }) {
   const getGenreLabel = useGenreLabel();
   const genreLabel = getGenreLabel(item.genre);
   const nomAffiche = item.estAnonyme ? t('home.anonymous') : (item.nomDefunt || t('home.not_specified'));
-  const canDelete = user?.email === item.declarantEmail || user?.isAdmin;
+  const canDelete = (apiUserId != null && item.utilisateurId != null && Number(apiUserId) === Number(item.utilisateurId))
+    || currentUserRole === 'admin' || currentUserRole === 'superadmin';
   const d = distKm(coords, item);
 
   async function copyAddress() {
@@ -409,7 +410,7 @@ function DetailModal({ item, coords, user, onClose, onDelete }) {
           {canDelete && (
             <TouchableOpacity
               style={styles.deleteModalBtn}
-              onPress={() => { onDelete(item.id); onClose(); }}
+              onPress={() => { onClose(); setTimeout(() => onDelete(item.id), 300); }}
               activeOpacity={0.8}
             >
               <Ionicons name="trash-outline" size={16} color={colors.error} />
@@ -680,7 +681,8 @@ export default function HomeScreen() {
         <DetailModal
           item={selected}
           coords={activeCoords}
-          user={user}
+          apiUserId={apiUserId}
+          currentUserRole={user?.role}
           onClose={() => setSelected(null)}
           onDelete={handleDelete}
         />

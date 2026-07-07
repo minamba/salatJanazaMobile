@@ -184,8 +184,12 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
     setSelectedHour(d.getUTCHours());
     setSelectedMinute(d.getUTCMinutes());
     setCommentaire(item.commentaire ?? '');
-    setMosqueeSearch(item.mosqueeNom ?? item.mosquee ?? '');
-    setSelectedMosque(item.mosqueeId ? { id: String(item.mosqueeId), _dbId: item.mosqueeId, nom: item.mosqueeNom ?? '' } : null);
+    setMosqueeSearch('');
+    setSelectedMosque(item.mosqueeId ? {
+      id: String(item.mosqueeId), _dbId: item.mosqueeId,
+      nom: item.mosqueeNom ?? item.mosquee ?? '',
+      adresse: item.mosqueeAdresse ?? item.adresse ?? null,
+    } : null);
     setMosqueeOptions([]);
     setShowDrop(false);
   }, [item]);
@@ -220,8 +224,17 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
   }
 
   function selectMosque(mosque) {
-    setMosqueeSearch(mosque.nom);
+    latestQueryRef.current = '';  // invalide toute requête en vol
+    setLoadingMosquees(false);
+    setMosqueeSearch('');
     setSelectedMosque(mosque);
+    setMosqueeOptions([]);
+    setShowDrop(false);
+  }
+
+  function clearMosque() {
+    setSelectedMosque(null);
+    setMosqueeSearch('');
     setMosqueeOptions([]);
     setShowDrop(false);
   }
@@ -253,10 +266,10 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
     }
   }
 
-  const handleSave = async () => {
+  const saveDeclaration = async (finalCommentaire, extraData) => {
     if (!selectedDate) {
-      Alert.alert('Date manquante', 'Veuillez choisir une date.');
-      return;
+      Alert.alert(t('admin.edit_missing_date'), t('admin.edit_missing_date_message'));
+      return false;
     }
     const wallClockMs = Date.UTC(
       selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(),
@@ -273,15 +286,37 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
         estAnonyme,
         genre,
         dateHeurePriere: d.toISOString(),
-        commentaire,
+        commentaire: finalCommentaire ?? commentaire,
         utcOffsetMinutes: item.utcOffsetMinutes ?? 0,
+        ...(extraData ? {
+          paysEnterrement: extraData.country || null,
+          villeEnterrement: extraData.locationFrance || null,
+          anneeNaissance: extraData.showYears ? (extraData.birthYear || null) : null,
+          anneeDeces: extraData.showYears ? (extraData.deathYear || null) : null,
+        } : {}),
       });
-      onSaved(res.data);
+      Alert.alert(
+        t('admin.edit_declaration_success_title'),
+        t('admin.edit_declaration_success_body'),
+        [{ text: 'OK', onPress: () => onSaved(res.data) }],
+      );
+      return true;
     } catch {
       Alert.alert(t('admin.add_error'), t('admin.edit_declaration_error'));
+      return false;
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSave = () => saveDeclaration(commentaire);
+
+  const handleSaveFromAnnouncement = (announcementData) => {
+    const finalCommentaire = announcementData?.commentaire ?? commentaire;
+    setCommentaire(finalCommentaire);
+    // Ferme d'abord la modal pour éviter les conflits Alert/Modal imbriquées sur Android
+    setShowAnnouncement(false);
+    setTimeout(() => saveDeclaration(finalCommentaire, announcementData), 350);
   };
 
   const announcementForm = {
@@ -311,37 +346,52 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
         >
           <View style={styles.modalField}>
             <Text style={styles.modalLabel}>{t('admin.edit_mosque_label')}</Text>
-            <View style={styles.searchInputRow}>
-              <Ionicons name="search-outline" size={16} color={colors.textMuted} style={styles.searchIcon} />
-              <TextInput
-                style={[styles.searchInput, selectedMosque && { color: colors.primary }]}
-                value={mosqueeSearch}
-                onChangeText={handleMosqueeSearch}
-                onFocus={() => mosqueeSearch.length >= 2 && setShowDrop(true)}
-                placeholder={t('map.search_placeholder')}
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="none"
-              />
-              {loadingMosquees && <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: spacing.sm }} />}
-            </View>
-            {showDrop && mosqueeOptions.length > 0 && (
-              <View style={styles.dropdown}>
-                {mosqueeOptions.map(m => (
-                  <TouchableOpacity key={m.id} style={styles.dropdownItem} onPress={() => selectMosque(m)} activeOpacity={0.7}>
-                    <Ionicons name="business-outline" size={14} color={colors.textMuted} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.dropdownItemText} numberOfLines={1}>{m.nom}</Text>
-                      {!!m.adresse && <Text style={styles.dropdownItemAddr} numberOfLines={1}>{m.adresse}</Text>}
-                    </View>
-                  </TouchableOpacity>
-                ))}
+            {selectedMosque ? (
+              <View style={styles.selectedMosque}>
+                <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.selectedMosqueText} numberOfLines={1}>{selectedMosque.nom}</Text>
+                  {!!selectedMosque.adresse && <Text style={styles.selectedMosqueAddr} numberOfLines={1}>{selectedMosque.adresse}</Text>}
+                </View>
+                <TouchableOpacity onPress={clearMosque} style={styles.clearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-circle" size={20} color={colors.primary} />
+                </TouchableOpacity>
               </View>
-            )}
-            {showDrop && !loadingMosquees && mosqueeSearch.length >= 2 && mosqueeOptions.length === 0 && (
-              <View style={styles.noResultBox}>
-                <Ionicons name="search-outline" size={14} color={colors.textMuted} />
-                <Text style={styles.noResultText}>{t('map.no_mosques')}</Text>
-              </View>
+            ) : (
+              <>
+                <View style={styles.searchInputRow}>
+                  <Ionicons name="search-outline" size={16} color={colors.textMuted} style={styles.searchIcon} />
+                  <TextInput
+                    style={styles.searchInput}
+                    value={mosqueeSearch}
+                    onChangeText={handleMosqueeSearch}
+                    onFocus={() => mosqueeSearch.trim().length >= 2 && setShowDrop(true)}
+                    placeholder={t('map.search_placeholder')}
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="none"
+                  />
+                  {loadingMosquees && <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: spacing.sm }} />}
+                </View>
+                {showDrop && mosqueeSearch.trim().length >= 2 && mosqueeOptions.length > 0 && (
+                  <View style={styles.dropdown}>
+                    {mosqueeOptions.map(m => (
+                      <TouchableOpacity key={m.id} style={styles.dropdownItem} onPress={() => selectMosque(m)} activeOpacity={0.7}>
+                        <Ionicons name="business-outline" size={14} color={colors.textMuted} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.dropdownItemText} numberOfLines={1}>{m.nom}</Text>
+                          {!!m.adresse && <Text style={styles.dropdownItemAddr} numberOfLines={1}>{m.adresse}</Text>}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                {showDrop && !loadingMosquees && mosqueeSearch.trim().length >= 2 && mosqueeOptions.length === 0 && (
+                  <View style={styles.noResultBox}>
+                    <Ionicons name="search-outline" size={14} color={colors.textMuted} />
+                    <Text style={styles.noResultText}>{t('map.no_mosques')}</Text>
+                  </View>
+                )}
+              </>
             )}
           </View>
 
@@ -460,8 +510,16 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
         date={selectedDate ? new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())) : null}
         hour={selectedHour}
         minute={selectedMinute}
-        initialValues={{ country: item?.paysEnterrement ?? null }}
+        initialValues={{
+          country: item?.paysEnterrement ?? null,
+          locationFrance: item?.villeEnterrement ?? '',
+          birthYear: item?.anneeNaissance ?? null,
+          deathYear: item?.anneeDeces ?? null,
+          showYears: !!(item?.anneeNaissance || item?.anneeDeces),
+        }}
         onDataChange={(data) => { if (data?.commentaire !== undefined) setCommentaire(data.commentaire); }}
+        onPublish={handleSaveFromAnnouncement}
+        publishLabel={t('admin.edit_declaration_save')}
       />
     </Modal>
   );
@@ -504,6 +562,10 @@ const styles = StyleSheet.create({
   timePickerText: { fontSize: 22, fontWeight: '700', color: colors.primary },
   timeSeparator: { fontSize: 22, fontWeight: '700', color: colors.text },
 
+  selectedMosque: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
+  selectedMosqueText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  selectedMosqueAddr: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  clearBtn: { padding: 2 },
   searchInputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   searchIcon: { marginRight: spacing.sm },
   searchInput: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: spacing.xs },

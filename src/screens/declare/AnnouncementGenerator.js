@@ -294,7 +294,7 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
 
 // ─── Main Modal (2-step: form → preview) ──────────────────────────────────────
 
-export default function AnnouncementGeneratorModal({ visible, onClose, onDataChange, onPublish, form, date, hour, minute, initialValues }) {
+export default function AnnouncementGeneratorModal({ visible, onClose, onDataChange, onPublish, publishLabel, form, date, hour, minute, initialValues }) {
   const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
   const [step, setStep] = useState('form');
@@ -325,6 +325,10 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
       setShowYears(false);
     } else {
       setCommentaire(form?.commentaire ?? '');
+      setLocationFrance(initialValues?.locationFrance ?? '');
+      if (initialValues?.showYears) setShowYears(true);
+      if (initialValues?.birthYear != null) setBirthYear(initialValues.birthYear);
+      if (initialValues?.deathYear != null) setDeathYear(initialValues.deathYear);
       const presetCountry = initialValues?.country;
       if (presetCountry) {
         setCountry(presetCountry);
@@ -404,6 +408,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
                   value={showYears}
                   onValueChange={setShowYears}
                   trackColor={{ false: '#9E9E9E', true: colors.primary }}
+                  ios_backgroundColor="#9E9E9E"
                   thumbColor={colors.white}
                 />
               </View>
@@ -485,14 +490,16 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
                 <Text style={[styles.formBtnText, styles.formBtnTextOutline]}>{t('announcement.preview')}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.formBtn, { marginTop: spacing.sm }]} onPress={() => {
-                const data = { birthYear, deathYear, country, locationFrance, showYears, commentaire };
-                onDataChange?.(data);
-                onPublish?.(data);
-              }} activeOpacity={0.8}>
-                <Ionicons name="megaphone-outline" size={18} color={colors.white} />
-                <Text style={styles.formBtnText}>Publier la prière</Text>
-              </TouchableOpacity>
+              {onPublish && (
+                <TouchableOpacity style={[styles.formBtn, { marginTop: spacing.sm }]} onPress={() => {
+                  const data = { birthYear, deathYear, country, locationFrance, showYears, commentaire };
+                  onDataChange?.(data);
+                  onPublish(data);
+                }} activeOpacity={0.8}>
+                  <Ionicons name={publishLabel ? 'checkmark-outline' : 'megaphone-outline'} size={18} color={colors.white} />
+                  <Text style={styles.formBtnText}>{publishLabel ?? 'Publier la prière'}</Text>
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </KeyboardAvoidingView>
         )}

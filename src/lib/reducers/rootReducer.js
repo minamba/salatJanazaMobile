@@ -55,20 +55,32 @@ function mosquesReducer(state = initialMosques, action) {
           s.id === action.payload.id ? { ...s, notifActive: !s.notifActive } : s
         ),
       };
-    case 'SUBSCRIPTIONS_LOADED':
+    case 'SUBSCRIPTIONS_LOADED': {
+      const prev = state.subscriptions;
       return {
         ...state,
-        subscriptions: action.payload.map(s => ({
-          id: s.mosqueeOsmId ? `osm_${s.mosqueeOsmId}` : `db_${s.mosqueeId}`,
-          mosqueeId: String(s.mosqueeId),
-          apiId: s.id,
-          nom: s.mosqueeNom ?? '',
-          adresse: s.mosqueeAdresse ?? '',
-          latitude: s.mosqueeLatitude,
-          longitude: s.mosqueeLongitude,
-          notifActive: s.notifActive,
-        })),
+        subscriptions: action.payload.map(s => {
+          let id;
+          if (s.mosqueeOsmId) {
+            id = `osm_${s.mosqueeOsmId}`;
+          } else {
+            // mosqueeOsmId null : essayer de préserver l'id OSM déjà connu localement
+            const existing = prev.find(p => p.apiId != null && String(p.apiId) === String(s.id));
+            id = (existing?.id?.startsWith('osm_')) ? existing.id : `db_${s.mosqueeId}`;
+          }
+          return {
+            id,
+            mosqueeId: String(s.mosqueeId),
+            apiId: s.id,
+            nom: s.mosqueeNom ?? '',
+            adresse: s.mosqueeAdresse ?? '',
+            latitude: s.mosqueeLatitude,
+            longitude: s.mosqueeLongitude,
+            notifActive: s.notifActive,
+          };
+        }),
       };
+    }
     case 'MOSQUES_SUPPRESS': {
       // payload = string[] of osmIds like "node_12345" or "way_67890"
       const suppressedSet = new Set(action.payload);
@@ -223,10 +235,22 @@ function appRefreshReducer(state = 0, action) {
   return state;
 }
 
+function uiReducer(state = { openProfileHistorique: false }, action) {
+  switch (action.type) {
+    case 'UI_OPEN_PROFILE_HISTORIQUE':
+      return { ...state, openProfileHistorique: true };
+    case 'UI_CLEAR_PROFILE_HISTORIQUE':
+      return { ...state, openProfileHistorique: false };
+    default:
+      return state;
+  }
+}
+
 export default combineReducers({
   auth: authReducer,
   mosques: mosquesReducer,
   janazas: janazasReducer,
   myDeclarations: myDeclarationsReducer,
   appRefresh: appRefreshReducer,
+  ui: uiReducer,
 });
