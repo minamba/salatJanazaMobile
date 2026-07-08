@@ -512,6 +512,7 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
         minute={selectedMinute}
         initialValues={{
           country: item?.paysEnterrement ?? null,
+          countryKnown: item?.paysEnterrement != null,
           locationFrance: item?.villeEnterrement ?? '',
           birthYear: item?.anneeNaissance ?? null,
           deathYear: item?.anneeDeces ?? null,

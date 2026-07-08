@@ -310,7 +310,7 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
 }
 
 // ── Detail modal ───────────────────────────────────────────────────────────────
-function DetailModal({ item, coords, apiUserId, currentUserRole, onClose, onDelete }) {
+export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose, onDelete }) {
   const { t, i18n } = useTranslation();
   const locale = LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
   const isAr = i18n.language?.startsWith('ar');
@@ -329,15 +329,13 @@ function DetailModal({ item, coords, apiUserId, currentUserRole, onClose, onDele
   }
 
   function openDirections() {
-    const nativeUrl =
-      Platform.OS === 'ios'
-        ? `maps:${item.latitude},${item.longitude}?q=${encodeURIComponent(item.mosquee)}`
-        : `geo:${item.latitude},${item.longitude}?q=${encodeURIComponent(item.mosquee)}`;
-    Linking.openURL(nativeUrl).catch(() =>
-      Linking.openURL(
-        `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`
-      )
-    );
+    const address = encodeURIComponent(item.adresse || '');
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${address}`;
+    if (Platform.OS === 'ios') {
+      Linking.openURL(`maps://?daddr=${address}`).catch(() => Linking.openURL(googleMapsUrl));
+    } else {
+      Linking.openURL(googleMapsUrl);
+    }
   }
 
   return (

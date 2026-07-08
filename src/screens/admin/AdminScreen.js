@@ -1219,15 +1219,27 @@ export default function AdminScreen() {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                   <ScrollView contentContainerStyle={styles.importTxtContainer} keyboardShouldPersistTaps="handled">
                     <Text style={styles.importTxtLabel}>{t('admin.import_txt_label')}</Text>
-                    <TextInput
-                      style={styles.importTxtInput}
-                      multiline
-                      value={importTxtContent}
-                      onChangeText={setImportTxtContent}
-                      placeholder={t('admin.import_txt_placeholder')}
-                      placeholderTextColor={colors.textMuted}
-                      textAlignVertical="top"
-                    />
+                    <View style={{ position: 'relative' }}>
+                      <TextInput
+                        style={styles.importTxtInput}
+                        multiline
+                        value={importTxtContent}
+                        onChangeText={setImportTxtContent}
+                        placeholder={t('admin.import_txt_placeholder')}
+                        placeholderTextColor={colors.textMuted}
+                        textAlignVertical="top"
+                      />
+                      {!!importTxtContent && (
+                        <TouchableOpacity
+                          onPress={() => { setImportTxtContent(''); setImportTxtResult(null); }}
+                          style={styles.importTxtClear}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                     <TouchableOpacity
                       style={[styles.importTxtBtn, (!importTxtContent.trim() || importTxtLoading) && { opacity: 0.5 }]}
                       onPress={handleImportTxt}
@@ -1975,6 +1987,7 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
         minute={selectedMinute}
         initialValues={{
           country: item?.paysEnterrement ?? null,
+          countryKnown: item?.paysEnterrement != null,
           locationFrance: item?.villeEnterrement ?? '',
           birthYear: item?.anneeNaissance ?? null,
           deathYear: item?.anneeDeces ?? null,
@@ -2524,6 +2537,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border,
     borderRadius: radius.md, padding: spacing.md, minHeight: 240,
     ...typography.body, marginBottom: spacing.md, textAlignVertical: 'top',
+  },
+  importTxtClear: {
+    position: 'absolute', top: spacing.sm, right: spacing.sm,
   },
   importTxtBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

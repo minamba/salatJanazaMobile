@@ -219,14 +219,15 @@ export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, o
   }
 
   function openNavigation() {
-    const label = encodeURIComponent(mosque.nom);
-    const nativeUrl =
-      Platform.OS === 'ios'
-        ? `maps:${mosque.latitude},${mosque.longitude}?q=${label}`
-        : `geo:${mosque.latitude},${mosque.longitude}?q=${label}`;
-    Linking.openURL(nativeUrl).catch(() =>
-      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${mosque.latitude},${mosque.longitude}`)
-    );
+    const lat = mosque.latitude;
+    const lng = mosque.longitude;
+    const address = encodeURIComponent(mosque.adresse || '');
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${address}`;
+    if (Platform.OS === 'ios') {
+      Linking.openURL(`maps://?daddr=${address}`).catch(() => Linking.openURL(googleMapsUrl));
+    } else {
+      Linking.openURL(googleMapsUrl);
+    }
   }
 
   return (
@@ -1264,6 +1265,7 @@ export default function MapScreen() {
   }
 
   async function handleDelete(id) {
+    const remainingJanazas = (selectedMosque?.janazas ?? []).filter(j => j.id !== id);
     try { await apiClient.delete(`/api/prierejanaza/${id}`); } catch {}
     dispatch({ type: 'JANAZA_DELETE', payload: { id } });
     dispatch({ type: 'FORCE_DATA_REFRESH' });
@@ -1275,6 +1277,12 @@ export default function MapScreen() {
         .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
         .catch(() => {});
     }
+    if (remainingJanazas.length === 0) {
+      setSelectedMosque(null);
+    } else {
+      setSelectedMosque(prev => prev ? { ...prev, janazas: remainingJanazas } : null);
+    }
+    Alert.alert(t('map.delete_success_title'), t('map.delete_success_body'));
   }
 
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, KeyboardAvoidingView,
@@ -6,6 +6,7 @@ import {
   Modal, TouchableWithoutFeedback, FlatList, Alert,
 } from 'react-native';
 import { ComplementaryInfoModal } from './AnnouncementGenerator';
+import { DetailModal } from '../home/HomeScreen';
 import { capitalizeFirst } from '../../utils/text';
 import { searchPlacesByNameOSM } from '../../utils/mosqueSearch';
 
@@ -38,38 +39,11 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 }, (_, i) => i);
 const CAL_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA' };
 
-const COUNTRY_TO_TIMEZONE = {
-  fr: 'Europe/Paris', be: 'Europe/Paris', lu: 'Europe/Paris',
-  nl: 'Europe/Paris', es: 'Europe/Paris', it: 'Europe/Paris',
-  de: 'Europe/Paris', ch: 'Europe/Paris', at: 'Europe/Paris',
-  pl: 'Europe/Paris', no: 'Europe/Paris', se: 'Europe/Paris',
-  dk: 'Europe/Paris', mc: 'Europe/Paris', gb: 'Europe/London',
-  ie: 'Europe/London', pt: 'Europe/Lisbon', ma: 'Africa/Casablanca',
-  tn: 'Africa/Tunis', dz: 'Africa/Algiers', ly: 'Africa/Tripoli',
-  eg: 'Africa/Cairo', tr: 'Europe/Istanbul', sa: 'Asia/Riyadh',
-  kw: 'Asia/Riyadh', bh: 'Asia/Riyadh', qa: 'Asia/Riyadh',
-  ye: 'Asia/Riyadh', jo: 'Asia/Riyadh', iq: 'Asia/Riyadh',
-  ae: 'Asia/Dubai', om: 'Asia/Dubai', pk: 'Asia/Karachi',
-  bd: 'Asia/Dhaka', sn: 'Africa/Abidjan', gn: 'Africa/Abidjan',
-  ml: 'Africa/Abidjan', mr: 'Africa/Abidjan', bf: 'Africa/Abidjan',
-  ne: 'Africa/Abidjan', tg: 'Africa/Abidjan', bj: 'Africa/Abidjan',
-  gh: 'Africa/Abidjan', ci: 'Africa/Lagos', ng: 'Africa/Lagos',
-  cm: 'Africa/Lagos', ga: 'Africa/Lagos', cg: 'Africa/Lagos',
-  cd: 'Africa/Lagos', so: 'Africa/Nairobi', sd: 'Africa/Nairobi',
-  et: 'Africa/Nairobi', cn: 'Asia/Shanghai', id: 'Asia/Jakarta',
-  my: 'Asia/Kuala_Lumpur', bn: 'Asia/Kuala_Lumpur', ph: 'Asia/Manila',
-  af: 'Asia/Kabul', ir: 'Asia/Tehran', uz: 'Asia/Tashkent',
-  tj: 'Asia/Tashkent', tm: 'Asia/Tashkent', kz: 'Asia/Almaty',
-  az: 'Asia/Baku',
-};
 
 function getUtcOffsetMinutes(ianaTimezone, refDate) {
   try {
     const d = refDate ?? new Date();
-    const formatter = new Intl.DateTimeFormat('en', {
-      timeZone: ianaTimezone,
-      timeZoneName: 'shortOffset',
-    });
+    const formatter = new Intl.DateTimeFormat('en', { timeZone: ianaTimezone, timeZoneName: 'shortOffset' });
     const parts = formatter.formatToParts(d);
     const offsetStr = parts.find(p => p.type === 'timeZoneName')?.value ?? 'UTC';
     const m = offsetStr.match(/GMT([+-])(\d+)(?::(\d+))?/);
@@ -81,14 +55,14 @@ function getUtcOffsetMinutes(ianaTimezone, refDate) {
   }
 }
 
-async function fetchCountryCodeFromCoords(lat, lon) {
+async function fetchTimezoneFromCoords(lat, lon) {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
-      { headers: { 'User-Agent': 'QabrApp/1.0 (contact@myjanaza.fr)' } }
+      `https://timeapi.io/api/timezone/coordinate?latitude=${lat}&longitude=${lon}`,
+      { headers: { 'User-Agent': 'QabrApp/1.0' } }
     );
     const data = await res.json();
-    return data.address?.country_code ?? null;
+    return data.timeZone ?? null;
   } catch {
     return null;
   }
@@ -517,9 +491,27 @@ export default function DeclareScreen() {
   const [showAddLieu, setShowAddLieu] = useState(false);
   const [isNewLieu, setIsNewLieu] = useState(false);
   const [mosqueUtcOffsetMinutes, setMosqueUtcOffsetMinutes] = useState(0);
+  const [defuntSearch, setDefuntSearch] = useState('');
+  const [selectedDefunt, setSelectedDefunt] = useState(null);
   // Recherche textuelle directe en DB, sans limite de rayon
   const searchDebounceRef = useRef(null);
   const latestQueryRef = useRef('');
+
+  const defuntResults = useMemo(() => {
+    const normalize = (s) => s?.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') ?? '';
+    const q = normalize(defuntSearch.trim());
+    if (q.length < 2) return [];
+    return janazaList.filter(j =>
+      normalize(j.nomDefunt).includes(q) ||
+      normalize(j.mosquee).includes(q) ||
+      normalize(j.adresse).includes(q)
+    ).slice(0, 8);
+  }, [defuntSearch, janazaList]);
+
+  function handleDeleteDefunt(id) {
+    dispatch({ type: 'JANAZA_DELETE', payload: { id } });
+    setSelectedDefunt(null);
+  }
 
   function set(field) {
     return (value) => setForm((f) => ({ ...f, [field]: value }));
@@ -593,12 +585,13 @@ export default function DeclareScreen() {
     setShowDrop(false);
     Keyboard.dismiss();
 
-    // Determine mosque timezone from GPS to store correct UTC time
-    setMosqueUtcOffsetMinutes(0);
+    // Immediate fallback: device timezone (synchronous, avoids race condition on submission).
+    // Then refine with mosque's actual GPS timezone — handles all countries + multi-timezone ones (USA, etc.).
+    setMosqueUtcOffsetMinutes(-new Date().getTimezoneOffset());
     if (mosque.latitude != null && mosque.longitude != null) {
-      fetchCountryCodeFromCoords(mosque.latitude, mosque.longitude).then(countryCode => {
-        const tz = COUNTRY_TO_TIMEZONE[countryCode?.toLowerCase()] ?? 'UTC';
-        const offset = getUtcOffsetMinutes(tz, new Date());
+      fetchTimezoneFromCoords(mosque.latitude, mosque.longitude).then(ianaTimezone => {
+        if (!ianaTimezone) return;
+        const offset = getUtcOffsetMinutes(ianaTimezone, new Date());
         setMosqueUtcOffsetMinutes(offset);
       });
     }
@@ -687,7 +680,7 @@ export default function DeclareScreen() {
         const jDate = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
         // Wall-clock stored as UTC — compare UTC fields directly
         const jDay = `${jDate.getUTCFullYear()}-${jDate.getUTCMonth()}-${jDate.getUTCDate()}`;
-        if (jDay !== proposedDay || jDate.getUTCHours() !== selectedHour) return false;
+        if (jDay !== proposedDay || jDate.getUTCHours() !== selectedHour || jDate.getUTCMinutes() !== selectedMinute) return false;
         if (form.mosqueeDbId) return String(j.mosqueeId) === String(form.mosqueeDbId);
         return norm(j.mosquee) === norm(form.mosqueeNom);
       });
@@ -797,6 +790,54 @@ export default function DeclareScreen() {
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
+
+          {/* Recherche de défunt */}
+          <View style={styles.section}>
+            <SectionHeader icon="search-outline" label={t('declare.defunt_search_section')} />
+            <View style={styles.searchInputRow}>
+              <Ionicons name="search-outline" size={16} color={colors.textMuted} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={t('declare.defunt_search_placeholder')}
+                placeholderTextColor={colors.textMuted}
+                value={defuntSearch}
+                onChangeText={setDefuntSearch}
+              />
+              {defuntSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setDefuntSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+            {defuntResults.length > 0 && (
+              <View style={styles.dropdown}>
+                {defuntResults.map((j) => (
+                  <TouchableOpacity
+                    key={j.id}
+                    style={styles.defuntResultItem}
+                    onPress={() => { setSelectedDefunt(j); setDefuntSearch(''); Keyboard.dismiss(); }}
+                    activeOpacity={0.7}
+                  >
+                    <Image
+                      source={GENRE_IMAGES[j.genre] || GENRE_IMAGES.homme}
+                      style={styles.defuntResultImg}
+                      resizeMode="contain"
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.defuntResultName} numberOfLines={1}>
+                        {j.estAnonyme ? t('declare.defunt_anonymous') : (j.nomDefunt || t('declare.defunt_anonymous'))}
+                      </Text>
+                      <Text style={styles.defuntResultMeta} numberOfLines={1}>{j.mosquee}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {defuntSearch.trim().length >= 2 && defuntResults.length === 0 && (
+              <Text style={styles.defuntNoResult}>{t('declare.defunt_search_no_result')}</Text>
+            )}
+          </View>
 
           {/* Mosquée */}
           <View style={styles.section}>
@@ -1014,6 +1055,17 @@ export default function DeclareScreen() {
         }}
       />
 
+      {selectedDefunt && (
+        <DetailModal
+          item={selectedDefunt}
+          coords={null}
+          apiUserId={apiUser?.id}
+          currentUserRole={user?.role}
+          onClose={() => setSelectedDefunt(null)}
+          onDelete={handleDeleteDefunt}
+        />
+      )}
+
       {/* Popup succès */}
       <Modal transparent animationType="fade" visible={!!success} onRequestClose={() => setSuccess(false)}>
         <View style={styles.successOverlay}>
@@ -1064,6 +1116,12 @@ const styles = StyleSheet.create({
   dropdown: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, marginTop: 4, overflow: 'hidden', maxHeight: 280 },
   dropdownItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
   dropdownItemText: { ...typography.body, color: colors.text },
+
+  defuntResultItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+  defuntResultImg: { width: 28, height: 28 },
+  defuntResultName: { ...typography.body, color: colors.text, fontSize: 14, fontWeight: '500' },
+  defuntResultMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  defuntNoResult: { fontSize: 13, color: colors.textMuted, textAlign: 'center', paddingVertical: spacing.sm },
   dropdownItemAddr: { ...typography.caption, color: colors.textSecondary },
   noResultBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, backgroundColor: colors.surfaceElevated, borderRadius: radius.md, marginTop: 4 },
   noResultText: { ...typography.bodySmall, color: colors.textMuted, flex: 1 },

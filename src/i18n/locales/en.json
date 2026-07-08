@@ -193,7 +193,11 @@
     "import_verify_body": "The AI has extracted the information from the flyer. It is not perfect — please check that all the information is correct.\n\nTo make changes, go to Declaration History in your profile.",
     "import_verify_time_unknown": "⚠️ The prayer time is set to 00:00 — the AI could not extract this information. Please enter it manually.",
     "import_verify_close": "Got it",
-    "import_view_history": "View my declarations"
+    "import_view_history": "View my declarations",
+    "defunt_search_section": "Search a deceased (check if already declared)",
+    "defunt_search_placeholder": "Name, first name, mosque, city or postal code...",
+    "defunt_search_no_result": "No results found",
+    "defunt_anonymous": "Anonymous"
   },
   "map": {
     "title": "Mosques",
@@ -248,7 +252,9 @@
     "mosque_count_prefix": "{{count}} prayer place within",
     "mosque_count_prefix_plural": "{{count}} prayer places within",
     "info_title": "Mosques & prayer places",
-    "info_body": "This tab shows mosques, funerary homes and other prayer places within the radius defined in your profile.\n\nThe Map tab shows all prayer places where janazas are scheduled, regardless of distance."
+    "info_body": "This tab shows mosques, funerary homes and other prayer places within the radius defined in your profile.\n\nThe Map tab shows all prayer places where janazas are scheduled, regardless of distance.",
+    "delete_success_title": "Prayer removed",
+    "delete_success_body": "The announcement has been successfully deleted."
   },
   "subscriptions": {
     "title": "My notifications",
@@ -560,6 +566,8 @@
     "death_year": "Death year",
     "country": "Country of burial",
     "country_placeholder": "Select a country",
+    "country_toggle_on": "Disable if the country is unknown",
+    "country_toggle_off": "The country will not be shown in the announcement",
     "location": "City / location (optional)",
     "location_placeholder": "Ex: London, Birmingham...",
     "preview": "Preview announcement",

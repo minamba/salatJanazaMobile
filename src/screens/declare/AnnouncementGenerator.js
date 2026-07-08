@@ -302,6 +302,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   const [birthYear, setBirthYear] = useState(1950);
   const [deathYear, setDeathYear] = useState(CURRENT_YEAR);
   const [country, setCountry] = useState('');
+  const [countryKnown, setCountryKnown] = useState(true);
   const [locationFrance, setLocationFrance] = useState('');
   const [commentaire, setCommentaire] = useState('');
   const [showBirth, setShowBirth] = useState(false);
@@ -329,10 +330,12 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
       if (initialValues?.showYears) setShowYears(true);
       if (initialValues?.birthYear != null) setBirthYear(initialValues.birthYear);
       if (initialValues?.deathYear != null) setDeathYear(initialValues.deathYear);
+      const known = initialValues?.countryKnown ?? true;
+      setCountryKnown(known);
       const presetCountry = initialValues?.country;
       if (presetCountry) {
         setCountry(presetCountry);
-      } else {
+      } else if (known) {
         detectCountryFromIP().then(c => { if (c) setCountry(c); });
       }
     }
@@ -346,7 +349,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
     showYears,
     birthYear,
     deathYear,
-    country,
+    country: countryKnown ? country : null,
     locationFrance,
     genre: form?.genre ?? 'homme',
     nomDefunt: form?.nomDefunt ?? '',
@@ -456,15 +459,28 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
               </View>
 
               {/* Pays */}
-              <View style={styles.formLabelRow}>
-                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.country')}</Text>
-                <Text style={styles.formLabelRequired}>obligatoire</Text>
+              <View style={styles.toggleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleLabel}>{t('announcement.country')}</Text>
+                  <Text style={styles.toggleDesc}>
+                    {countryKnown ? t('announcement.country_toggle_on') : t('announcement.country_toggle_off')}
+                  </Text>
+                </View>
+                <Switch
+                  value={countryKnown}
+                  onValueChange={setCountryKnown}
+                  trackColor={{ false: '#9E9E9E', true: colors.primary }}
+                  ios_backgroundColor="#9E9E9E"
+                  thumbColor={colors.white}
+                />
               </View>
-              <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowCountry(true)} activeOpacity={0.7}>
-                <Ionicons name="earth-outline" size={16} color={colors.textMuted} />
-                <Text style={[styles.formPickerText, { flex: 1 }]}>{country || t('announcement.country_placeholder')}</Text>
-                <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
+              {countryKnown && (
+                <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowCountry(true)} activeOpacity={0.7}>
+                  <Ionicons name="earth-outline" size={16} color={colors.textMuted} />
+                  <Text style={[styles.formPickerText, { flex: 1 }]}>{country || t('announcement.country_placeholder')}</Text>
+                  <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
 
               {/* Lieu */}
               <View style={styles.formLabelRow}>
@@ -483,7 +499,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
               </View>
 
               <TouchableOpacity style={[styles.formBtn, styles.formBtnOutline]} onPress={() => {
-                onDataChange?.({ birthYear, deathYear, country, locationFrance, showYears, commentaire });
+                onDataChange?.({ birthYear, deathYear, country: countryKnown ? country : null, locationFrance, showYears, commentaire, countryKnown });
                 setStep('preview');
               }} activeOpacity={0.8}>
                 <Ionicons name="eye-outline" size={18} color={colors.primary} />
@@ -492,7 +508,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
 
               {onPublish && (
                 <TouchableOpacity style={[styles.formBtn, { marginTop: spacing.sm }]} onPress={() => {
-                  const data = { birthYear, deathYear, country, locationFrance, showYears, commentaire };
+                  const data = { birthYear, deathYear, country: countryKnown ? country : null, locationFrance, showYears, commentaire, countryKnown };
                   onDataChange?.(data);
                   onPublish(data);
                 }} activeOpacity={0.8}>
@@ -633,6 +649,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   const [birthYear, setBirthYear] = useState(1950);
   const [deathYear, setDeathYear] = useState(CURRENT_YEAR);
   const [country, setCountry] = useState('');
+  const [countryKnown, setCountryKnown] = useState(true);
   const [locationFrance, setLocationFrance] = useState('');
   const [commentaire, setCommentaire] = useState('');
   const [showBirth, setShowBirth] = useState(false);
@@ -649,7 +666,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
     showYears,
     birthYear,
     deathYear,
-    country,
+    country: countryKnown ? country : null,
     locationFrance,
     commentaire,
     genre: form?.genre ?? 'homme',
@@ -685,11 +702,13 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
       setDeathYear(initialValues?.deathYear ?? CURRENT_YEAR);
       setLocationFrance(initialValues?.locationFrance ?? '');
       setCommentaire(initialValues?.commentaire ?? '');
+      const known = initialValues?.countryKnown ?? true;
+      setCountryKnown(known);
       if (initialValues?.country) {
         setCountry(initialValues.country);
       } else {
         setCountry('');
-        detectCountryFromIP().then(c => { if (c) setCountry(c); });
+        if (known) detectCountryFromIP().then(c => { if (c) setCountry(c); });
       }
     }
   }, [visible]);
@@ -772,17 +791,30 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                 />
               </View>
 
-              <View style={styles.formLabelRow}>
-                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.country')}</Text>
-                <Text style={styles.formLabelRequired}>obligatoire</Text>
+              <View style={styles.toggleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleLabel}>{t('announcement.country')}</Text>
+                  <Text style={styles.toggleDesc}>
+                    {countryKnown ? t('announcement.country_toggle_on') : t('announcement.country_toggle_off')}
+                  </Text>
+                </View>
+                <Switch
+                  value={countryKnown}
+                  onValueChange={setCountryKnown}
+                  trackColor={{ false: '#9E9E9E', true: colors.primary }}
+                  ios_backgroundColor="#9E9E9E"
+                  thumbColor={colors.white}
+                />
               </View>
-              <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowCountry(true)} activeOpacity={0.7}>
-                <Ionicons name="earth-outline" size={16} color={colors.textMuted} />
-                <Text style={[styles.formPickerText, { flex: 1, color: country ? colors.text : colors.textMuted }]}>
-                  {country || t('announcement.country_placeholder')}
-                </Text>
-                <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
+              {countryKnown && (
+                <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowCountry(true)} activeOpacity={0.7}>
+                  <Ionicons name="earth-outline" size={16} color={colors.textMuted} />
+                  <Text style={[styles.formPickerText, { flex: 1, color: country ? colors.text : colors.textMuted }]}>
+                    {country || t('announcement.country_placeholder')}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
 
               <View style={styles.formLabelRow}>
                 <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>Ville / lieu d'enterrement</Text>
@@ -807,7 +839,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
 
               <TouchableOpacity
                 style={[styles.formBtn, { marginTop: spacing.sm }]}
-                onPress={() => onSubmit?.({ birthYear, deathYear, country, locationFrance, showYears, commentaire })}
+                onPress={() => onSubmit?.({ birthYear, deathYear, country: countryKnown ? country : null, locationFrance, showYears, commentaire, countryKnown })}
                 activeOpacity={0.8}
               >
                 <Ionicons name="megaphone-outline" size={18} color={colors.white} />

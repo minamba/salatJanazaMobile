@@ -193,7 +193,11 @@
     "import_verify_body": "L'IA a extrait les informations du flyer. Elle n'est pas infaillible : vérifiez que toutes les informations sont correctes.\n\nPour les modifier, rendez-vous dans la rubrique « Historique des déclarations » de votre profil.",
     "import_verify_time_unknown": "⚠️ L'horaire de la prière est à 00h00 — l'IA n'a pas pu extraire cette information. Veuillez la renseigner manuellement.",
     "import_verify_close": "J'ai compris",
-    "import_view_history": "Voir mes déclarations"
+    "import_view_history": "Voir mes déclarations",
+    "defunt_search_section": "Rechercher un défunt (vérifier si déjà déclaré)",
+    "defunt_search_placeholder": "Nom, prénom, mosquée, ville ou code postal...",
+    "defunt_search_no_result": "Aucun résultat trouvé",
+    "defunt_anonymous": "Anonyme"
   },
   "map": {
     "title": "Mosquées",
@@ -248,7 +252,9 @@
     "mosque_count_prefix": "{{count}} lieu de prière dans un rayon de",
     "mosque_count_prefix_plural": "{{count}} lieux de prière dans un rayon de",
     "info_title": "Mosquées & lieux de prière",
-    "info_body": "Cet onglet affiche les mosquées, funérariums et autres lieux de prière situés dans le rayon défini dans votre profil.\n\nL'onglet Carte affiche tous les lieux où des janazas sont programmées, quelle que soit la distance."
+    "info_body": "Cet onglet affiche les mosquées, funérariums et autres lieux de prière situés dans le rayon défini dans votre profil.\n\nL'onglet Carte affiche tous les lieux où des janazas sont programmées, quelle que soit la distance.",
+    "delete_success_title": "Prière supprimée",
+    "delete_success_body": "L'annonce a été retirée avec succès."
   },
   "subscriptions": {
     "title": "Mes notifications",
@@ -560,6 +566,8 @@
     "death_year": "Année de décès",
     "country": "Pays d'enterrement",
     "country_placeholder": "Sélectionner un pays",
+    "country_toggle_on": "Désactiver si le pays n'est pas connu",
+    "country_toggle_off": "Le pays ne sera pas affiché dans l'annonce",
     "location": "Ville / lieu (optionnel)",
     "location_placeholder": "Ex: Paris, Évry-Courcouronnes...",
     "preview": "Prévisualiser l'annonce",
