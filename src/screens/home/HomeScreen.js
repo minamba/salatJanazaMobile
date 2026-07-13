@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { capitalizeFirst } from '../../utils/text';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
 import {
   View, Text, FlatList, TouchableOpacity, Alert,
   StyleSheet, RefreshControl, Modal, Linking, Platform,
-  TouchableWithoutFeedback, Image, AppState,
+  TouchableWithoutFeedback, Image, AppState, Animated,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
@@ -23,6 +23,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadow } from '../../utils/theme';
 import { useTranslation } from 'react-i18next';
 import { JanazaShareModal } from '../declare/AnnouncementGenerator';
+
+function ModeToggle({ value, onToggle }) {
+  const anim = useRef(new Animated.Value(value === 'home' ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.spring(anim, { toValue: value === 'home' ? 1 : 0, useNativeDriver: false, tension: 120, friction: 8 }).start();
+  }, [value]);
+  const trackColor = anim.interpolate({ inputRange: [0, 1], outputRange: [colors.accent, colors.primary] });
+  const thumbX = anim.interpolate({ inputRange: [0, 1], outputRange: [3, 29] });
+  return (
+    <TouchableOpacity onPress={onToggle} activeOpacity={0.85}>
+      <Animated.View style={{ width: 56, height: 30, borderRadius: 15, justifyContent: 'center', backgroundColor: trackColor }}>
+        <Animated.View style={{ position: 'absolute', width: 24, height: 24, borderRadius: 12, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3, transform: [{ translateX: thumbX }] }}>
+          <Ionicons name={value === 'home' ? 'home' : 'navigate'} size={13} color={value === 'home' ? colors.primary : colors.accent} />
+        </Animated.View>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
 
 function useGenreLabel() {
   const { t } = useTranslation();
@@ -230,7 +248,7 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
           )}
           {dateGroup.items.map((item, i) => {
             const genreLabel = getGenreLabel(item.genre);
-            const nom = item.estAnonyme ? t('home.anonymous') : (item.nomDefunt || t('home.not_specified'));
+            const nom = item.estAnonyme ? t('home.anonymous') : (formatNomDefunt(item.nomDefunt) || t('home.not_specified'));
             const canDelete = (currentUserId != null && item.utilisateurId != null && Number(currentUserId) === Number(item.utilisateurId)) || currentUserRole === 'admin' || currentUserRole === 'superadmin';
             return (
               <TouchableOpacity
@@ -319,7 +337,7 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
     : d.toFixed(1);
   const getGenreLabel = useGenreLabel();
   const genreLabel = getGenreLabel(item.genre);
-  const nomAffiche = item.estAnonyme ? t('home.anonymous') : (item.nomDefunt || t('home.not_specified'));
+  const nomAffiche = item.estAnonyme ? t('home.anonymous') : (formatNomDefunt(item.nomDefunt) || t('home.not_specified'));
   const canDelete = (apiUserId != null && item.utilisateurId != null && Number(apiUserId) === Number(item.utilisateurId))
     || currentUserRole === 'admin' || currentUserRole === 'superadmin';
   const d = distKm(coords, item);
@@ -435,6 +453,7 @@ export default function HomeScreen() {
   const isGuest = useSelector((state) => state.auth.isGuest);
   const items = useSelector((state) => state.janazas.list);
   const subscriptions = useSelector((state) => state.mosques.subscriptions);
+  const locationMode = useSelector((state) => state.ui.locationMode);
   const [selected, setSelected] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [homeCoords, setHomeCoords] = useState(null);
@@ -471,6 +490,18 @@ export default function HomeScreen() {
       .catch(() => {});
   }, [apiUserId]);
 
+  // Restore persisted location mode (en cas d'ouverture avant l'onglet mosquée)
+  useEffect(() => {
+    AsyncStorage.getItem('map_location_mode')
+      .then(saved => { if (saved) dispatch({ type: 'SET_LOCATION_MODE', payload: saved }); })
+      .catch(() => {});
+  }, []);
+
+  function persistLocationMode(mode) {
+    dispatch({ type: 'SET_LOCATION_MODE', payload: mode });
+    AsyncStorage.setItem('map_location_mode', mode).catch(() => {});
+  }
+
   useEffect(() => {
     AsyncStorage.getItem('home_info_seen').then(seen => {
       if (seen) return;
@@ -500,14 +531,16 @@ export default function HomeScreen() {
     return () => clearInterval(id);
   }, [apiUserId]);
 
-  // Fallback GPS quand pas d'adresse domicile
+  // GPS : sans adresse domicile (fallback) ou avec adresse mais mode GPS actif
   useEffect(() => {
-    if (apiUser?.adresseDomicile) return;
-    refreshGps();
-  }, [apiUser?.adresseDomicile]);
+    if (!apiUser?.adresseDomicile || locationMode === 'gps') refreshGps();
+  }, [apiUser?.adresseDomicile, locationMode]);
 
 
-  const activeCoords = homeCoords ?? gpsCoords;
+  const activeCoords = useMemo(() => {
+    if (!apiUser?.adresseDomicile) return gpsCoords;
+    return locationMode === 'home' ? (homeCoords ?? gpsCoords) : (gpsCoords ?? homeCoords);
+  }, [locationMode, homeCoords, gpsCoords, apiUser?.adresseDomicile]);
 
   // Auto-expire 2h after prayer time
   useEffect(() => {
@@ -564,7 +597,7 @@ export default function HomeScreen() {
 
   async function onRefresh() {
     setRefreshing(true);
-    if (!apiUser?.adresseDomicile) await refreshGps();
+    if (!apiUser?.adresseDomicile || locationMode === 'gps') await refreshGps();
     const requests = [
       apiClient.get('/api/prierejanaza/upcoming')
         .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data })),
@@ -631,8 +664,16 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
         {(() => { const count = groups.reduce((sum, g) => sum + g.janazas.length, 0); return (
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>{count} {count <= 1 ? t('home.prayer_singular') : t('home.prayer_plural')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            {!isGuest && apiUser?.adresseDomicile && (
+              <ModeToggle
+                value={locationMode}
+                onToggle={() => persistLocationMode(locationMode === 'gps' ? 'home' : 'gps')}
+              />
+            )}
+            <View style={styles.headerBadge}>
+              <Text style={styles.headerBadgeText}>{count} {count <= 1 ? t('home.prayer_singular') : t('home.prayer_plural')}</Text>
+            </View>
           </View>
         ); })()}
       </View>

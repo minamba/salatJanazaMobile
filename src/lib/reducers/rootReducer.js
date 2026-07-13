@@ -235,12 +235,14 @@ function appRefreshReducer(state = 0, action) {
   return state;
 }
 
-function uiReducer(state = { openProfileHistorique: false }, action) {
+function uiReducer(state = { openProfileHistorique: false, locationMode: 'gps' }, action) {
   switch (action.type) {
     case 'UI_OPEN_PROFILE_HISTORIQUE':
       return { ...state, openProfileHistorique: true };
     case 'UI_CLEAR_PROFILE_HISTORIQUE':
       return { ...state, openProfileHistorique: false };
+    case 'SET_LOCATION_MODE':
+      return { ...state, locationMode: action.payload };
     default:
       return state;
   }

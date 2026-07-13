@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { capitalizeFirst } from '../../utils/text';
+import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -305,7 +305,7 @@ export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, o
                   </Text>
                   {group.items.map((j, i) => {
                     const genreLabels = { homme: t('home.male'), femme: t('home.female'), enfant: t('home.child') };
-                    const nom = j.estAnonyme ? t('home.anonymous') : (j.nomDefunt || t('home.not_specified'));
+                    const nom = j.estAnonyme ? t('home.anonymous') : (formatNomDefunt(j.nomDefunt) || t('home.not_specified'));
                     const canDelete = onDelete && (
                       (currentUserId != null && j.utilisateurId != null && Number(currentUserId) === Number(j.utilisateurId))
                       || currentUserRole === 'admin' || currentUserRole === 'superadmin'
@@ -835,7 +835,7 @@ export default function MapScreen() {
 
   const [location, setLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(true);
-  const [locationMode, setLocationMode] = useState('gps'); // 'gps' | 'home'
+  const locationMode = useSelector(state => state.ui.locationMode);
   const [shareItem, setShareItem] = useState(null);
   const [androidLabels, setAndroidLabels] = useState([]);
   const [labelsVisible, setLabelsVisible] = useState(true);
@@ -844,14 +844,14 @@ export default function MapScreen() {
   // Restore persisted mode on mount
   useEffect(() => {
     AsyncStorage.getItem('map_location_mode')
-      .then(saved => { if (saved) setLocationMode(saved); })
+      .then(saved => { if (saved) dispatch({ type: 'SET_LOCATION_MODE', payload: saved }); })
       .catch(() => {});
   }, []);
 
   const persistLocationMode = useCallback((mode) => {
-    setLocationMode(mode);
+    dispatch({ type: 'SET_LOCATION_MODE', payload: mode });
     AsyncStorage.setItem('map_location_mode', mode).catch(() => {});
-  }, []);
+  }, [dispatch]);
   const [homeCoords, setHomeCoords] = useState(null);
   const [showGpsModal, setShowGpsModal] = useState(false);
   const [osmMosques, setOsmMosques] = useState([]);

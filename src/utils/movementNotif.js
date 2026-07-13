@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { formatNomDefunt } from './text';
 
 export const MOVEMENT_TASK = 'MOVEMENT_JANAZA_TASK';
 
@@ -89,7 +90,7 @@ TaskManager.defineTask(MOVEMENT_TASK, async ({ data, error }) => {
         const minutesLeft = Math.round((prayerLocal - now) / 60000);
         const heure = prayerDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 
-        const defunt = j.estAnonyme || !j.nomDefunt ? 'Défunt anonyme' : j.nomDefunt;
+        const defunt = j.estAnonyme || !j.nomDefunt ? 'Défunt anonyme' : formatNomDefunt(j.nomDefunt);
         const genre = j.genre?.toLowerCase();
         const genreLabel = genre === 'homme' ? 'Homme' : genre === 'femme' ? 'Femme' : genre === 'enfant' ? 'Enfant' : null;
         const timeLabel = minutesLeft <= 60 ? `dans ${minutesLeft} min` : `à ${heure}`;

@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { ComplementaryInfoModal } from './AnnouncementGenerator';
 import { DetailModal } from '../home/HomeScreen';
-import { capitalizeFirst } from '../../utils/text';
+import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
 import { searchPlacesByNameOSM } from '../../utils/mosqueSearch';
 
 const GENRE_IMAGES = {
@@ -825,7 +825,7 @@ export default function DeclareScreen() {
                     />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.defuntResultName} numberOfLines={1}>
-                        {j.estAnonyme ? t('declare.defunt_anonymous') : (j.nomDefunt || t('declare.defunt_anonymous'))}
+                        {j.estAnonyme ? t('declare.defunt_anonymous') : (formatNomDefunt(j.nomDefunt) || t('declare.defunt_anonymous'))}
                       </Text>
                       <Text style={styles.defuntResultMeta} numberOfLines={1}>{j.mosquee}</Text>
                     </View>

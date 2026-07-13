@@ -9,6 +9,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadow } from '../../utils/theme';
+import { formatNomDefunt } from '../../utils/text';
 import * as Location from 'expo-location';
 
 import { useTranslation } from 'react-i18next';
@@ -644,7 +645,7 @@ export default function ProfileScreen() {
                     {!!j.adresse && <Text style={styles.histoAdresse} numberOfLines={1}>{j.adresse}</Text>}
                     <Text style={styles.histoDate}>{dateStr} à {timeStr}</Text>
                     {!j.estAnonyme && !!j.nomDefunt && (
-                      <Text style={styles.histoNom}>{j.nomDefunt}</Text>
+                      <Text style={styles.histoNom}>{formatNomDefunt(j.nomDefunt)}</Text>
                     )}
                     {!!formatExpiryDate(j.dateHeure) && (
                       <View style={styles.histoExpiry}>

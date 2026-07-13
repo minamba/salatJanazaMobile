@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { colors, spacing, radius, typography } from '../../utils/theme';
+import { formatNomDefunt } from '../../utils/text';
 import apiClient from '../../lib/api/apiClient';
 import AnnouncementGeneratorModal from '../declare/AnnouncementGenerator';
 import { useTranslation } from 'react-i18next';
@@ -779,7 +780,7 @@ export default function AdminScreen() {
                           <Ionicons name="location-outline" size={13} color={colors.textMuted} />
                           <View style={{ flex: 1, marginLeft: 6 }}>
                             <Text style={styles.summarySkippedMosque}>{e.mosqueeNom}</Text>
-                            {e.nomDefunt ? <Text style={styles.summarySkippedDefunt}>{e.nomDefunt}</Text> : null}
+                            {e.nomDefunt ? <Text style={styles.summarySkippedDefunt}>{formatNomDefunt(e.nomDefunt)}</Text> : null}
                             <Text style={styles.summarySkippedReason}>
                               {e.reason === 'GEOCODING_FAILED' ? t('admin.import_skip_geocoding') : t('admin.import_skip_conflict')}
                             </Text>
@@ -1113,13 +1114,13 @@ export default function AdminScreen() {
                     const dateDecl = fmtLocal(item.dateCreation);
                     return (
                       <Row
-                        title={item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? t('admin.deceased_unknown'))}
+                        title={item.estAnonyme ? t('admin.edit_anonymous') : (formatNomDefunt(item.nomDefunt) || t('admin.deceased_unknown'))}
                         subtitle={[item.mosqueeNom, fmt(item.dateHeurePriere)].filter(Boolean).join(' · ')}
                         extra={[dateDecl ? t('admin.declared_on', { date: dateDecl }) : null, t('admin.declared_by', { name: declarantNom })].filter(Boolean).join(' · ')}
                         onEdit={declSelectMode ? null : () => setEditDecl(item)}
                         onDelete={declSelectMode ? null : () => deleteDeclaration(
                           item.id,
-                          item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? `#${item.id}`)
+                          item.estAnonyme ? t('admin.edit_anonymous') : (formatNomDefunt(item.nomDefunt) || `#${item.id}`)
                         )}
                         selectMode={declSelectMode}
                         selected={selectedDeclIds.has(item.id)}
@@ -1206,7 +1207,7 @@ export default function AdminScreen() {
                     const fmtLocal = (raw) => raw ? new Date(raw).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
                     return (
                       <Row
-                        title={item.estAnonyme ? t('admin.edit_anonymous') : (item.nomDefunt ?? t('admin.deceased_unknown'))}
+                        title={item.estAnonyme ? t('admin.edit_anonymous') : (formatNomDefunt(item.nomDefunt) || t('admin.deceased_unknown'))}
                         subtitle={[item.mosqueeNom, fmt(item.dateHeurePriere)].filter(Boolean).join(' · ')}
                         extra={t('admin.declared_on', { date: fmtLocal(item.dateCreation) ?? '—' })}
                       />
@@ -1764,7 +1765,12 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
           villeEnterrement: extraData.locationFrance || null,
           anneeNaissance: extraData.showYears ? (extraData.birthYear || null) : null,
           anneeDeces: extraData.showYears ? (extraData.deathYear || null) : null,
-        } : {}),
+        } : {
+          paysEnterrement: item.paysEnterrement ?? null,
+          villeEnterrement: item.villeEnterrement ?? null,
+          anneeNaissance: item.anneeNaissance ?? null,
+          anneeDeces: item.anneeDeces ?? null,
+        }),
       });
       Alert.alert(
         t('admin.edit_declaration_success_title'),

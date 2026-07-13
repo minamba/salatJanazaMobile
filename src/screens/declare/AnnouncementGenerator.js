@@ -12,6 +12,7 @@ import { colors, spacing, radius } from '../../utils/theme';
 import { COUNTRIES } from '../../utils/countries';
 import { useTranslation } from 'react-i18next';
 import { detectCountryFromIP } from '../../utils/detectCountry';
+import { parseNomDefunt } from '../../utils/text';
 
 const ACC1_IMG = require('../../../assets/icons/icon3.png');
 const INVOCATION_IMG = require('../../../assets/icons/invocation.png');
@@ -171,7 +172,7 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
   const dateLocale = PREVIEW_LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
 
   const civilite = genre === 'femme' ? t('announcement.civility_female') : genre === 'enfant' ? t('announcement.civility_child') : t('announcement.civility_male');
-  const nameDisplay = nomAnonyme ? null : (nomDefunt || null);
+  const nameDisplay = nomAnonyme ? null : (parseNomDefunt(nomDefunt ?? '').display || null);
   const anonymousLabel = genre === 'femme'
     ? t('announcement.sister_community')
     : genre === 'enfant'
@@ -342,7 +343,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   }, [visible]);
 
   const rawNom = form?.nomAnonyme ? '' : (form?.nomDefunt ?? '');
-  const familleNom = rawNom.trim().split(/\s+/)[0] ?? '';
+  const familleNom = parseNomDefunt(rawNom).familleNom;
 
   const previewData = {
     familleNom,
@@ -576,7 +577,7 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
 
   const date = janaza?.dateHeure ? new Date(janaza.dateHeure) : null;
   const rawNom = janaza?.estAnonyme ? '' : (janaza?.nomDefunt ?? '');
-  const familleNom = rawNom.trim().split(/\s+/)[0] ?? '';
+  const familleNom = parseNomDefunt(rawNom).familleNom;
 
   const previewData = {
     familleNom,
@@ -659,7 +660,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   const viewRef = useRef(null);
 
   const rawNom = form?.nomAnonyme ? '' : (form?.nomDefunt ?? '');
-  const familleNom = rawNom.trim().split(/\s+/)[0] ?? '';
+  const familleNom = parseNomDefunt(rawNom).familleNom;
 
   const previewData = {
     familleNom,

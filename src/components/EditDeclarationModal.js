@@ -293,7 +293,12 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
           villeEnterrement: extraData.locationFrance || null,
           anneeNaissance: extraData.showYears ? (extraData.birthYear || null) : null,
           anneeDeces: extraData.showYears ? (extraData.deathYear || null) : null,
-        } : {}),
+        } : {
+          paysEnterrement: item.paysEnterrement ?? null,
+          villeEnterrement: item.villeEnterrement ?? null,
+          anneeNaissance: item.anneeNaissance ?? null,
+          anneeDeces: item.anneeDeces ?? null,
+        }),
       });
       Alert.alert(
         t('admin.edit_declaration_success_title'),
@@ -323,7 +328,7 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
     nomAnonyme: estAnonyme,
     nomDefunt,
     genre,
-    mosqueeNom: mosqueeSearch,
+    mosqueeNom: selectedMosque?.nom ?? mosqueeSearch,
     mosqueeAdresse: item?.mosqueeAdresse ?? item?.adresse ?? '',
     commentaire,
   };
