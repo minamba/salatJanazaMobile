@@ -17,6 +17,7 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import PriereScreen from '../screens/priere/PriereScreen';
 import ContactScreen from '../screens/contact/ContactScreen';
 import AdminScreen from '../screens/admin/AdminScreen';
+import EditDeclarationModal from '../components/EditDeclarationModal';
 
 // Context permettant aux écrans de changer d'onglet sans React Navigation
 export const TabContext = createContext({ goTo: () => {}, activeIndex: 0 });
@@ -72,7 +73,7 @@ function GuestModal({ visible, onClose, onLogin }) {
   );
 }
 
-function DeclareChoiceModal({ visible, onClose, onSaisir }) {
+function DeclareChoiceModal({ visible, onClose, onSaisir, onViewDeclaration }) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { goTo } = useTabNavigation();
@@ -83,15 +84,21 @@ function DeclareChoiceModal({ visible, onClose, onSaisir }) {
   const [importStatus, setImportStatus] = useState(null);
   const [importMessage, setImportMessage] = useState('');
   const [importTimeUnknown, setImportTimeUnknown] = useState(false);
+  const [importedDecl, setImportedDecl] = useState(null);
   const importPollRef = useRef(null);
+  const fallbackPollRef = useRef(null);
+  const declMaxIdRef = useRef(0);
 
   useEffect(() => {
     if (!visible) {
       if (importPollRef.current) { clearInterval(importPollRef.current); importPollRef.current = null; }
+      if (fallbackPollRef.current) { clearInterval(fallbackPollRef.current); fallbackPollRef.current = null; }
+      declMaxIdRef.current = 0;
       setImportLoading(false);
       setImportStatus(null);
       setImportMessage('');
       setImportTimeUnknown(false);
+      setImportedDecl(null);
     }
   }, [visible]);
 
@@ -127,7 +134,48 @@ function DeclareChoiceModal({ visible, onClose, onSaisir }) {
     setImportStatus('pending');
     setImportMessage(t('declare.import_processing'));
 
+    function applySuccess(timeUnknown) {
+      if (importPollRef.current) { clearInterval(importPollRef.current); importPollRef.current = null; }
+      if (fallbackPollRef.current) { clearInterval(fallbackPollRef.current); fallbackPollRef.current = null; }
+      setImportLoading(false);
+      setImportStatus('success');
+      setImportMessage(t('declare.import_success'));
+      setImportTimeUnknown(!!timeUnknown);
+      dispatch({ type: 'FORCE_DATA_REFRESH' });
+      apiClient.get('/api/prierejanaza/upcoming')
+        .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+        .catch(() => {});
+      if (apiUser?.id) {
+        apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+          .then(res => {
+            dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data });
+            if (res.data?.length > 0) {
+              const latest = [...res.data].sort((a, b) => b.id - a.id)[0];
+              setImportedDecl(latest);
+            }
+          })
+          .catch(() => {});
+        apiClient.get(`/api/abonnement/utilisateur/${apiUser.id}`)
+          .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
+          .catch(() => {});
+      }
+      apiClient.get('/api/mosquee/contributions')
+        .then(res => {
+          res.data.forEach(m => dispatch({
+            type: 'MOSQUE_REGISTER',
+            payload: { id: `db_${m.id}`, nom: m.nom, adresse: m.adresse ?? '', latitude: m.latitude, longitude: m.longitude, source: 'user' },
+          }));
+        })
+        .catch(() => {});
+    }
+
     try {
+      // Mémorise le max ID actuel pour détecter une nouvelle déclaration en fallback
+      try {
+        const snap = await apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`);
+        declMaxIdRef.current = snap.data?.length > 0 ? Math.max(...snap.data.map(d => d.id)) : 0;
+      } catch { declMaxIdRef.current = 0; }
+
       const fd = new FormData();
       fd.append('file', { uri: asset.uri, name: asset.fileName || 'flyer.jpg', type: mime });
       fd.append('utilisateurId', String(apiUser.id));
@@ -138,52 +186,41 @@ function DeclareChoiceModal({ visible, onClose, onSaisir }) {
       });
       const { importToken } = uploadResp.data;
 
+      // Polling principal sur l'endpoint status (1500ms pour ne pas rater la fenêtre courte)
       importPollRef.current = setInterval(async () => {
         try {
           const statusResp = await apiClient.get(`/api/flyer/import-status/${importToken}`);
           const { status: s, message, errorCode, timeUnknown } = statusResp.data;
           if (s === 'success') {
-            clearInterval(importPollRef.current);
-            importPollRef.current = null;
-            setImportLoading(false);
-            setImportStatus('success');
-            setImportMessage(t('declare.import_success'));
-            setImportTimeUnknown(!!timeUnknown);
-            dispatch({ type: 'FORCE_DATA_REFRESH' });
-            apiClient.get('/api/prierejanaza/upcoming')
-              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
-              .catch(() => {});
-            if (apiUser?.id) {
-              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
-                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
-                .catch(() => {});
-              apiClient.get(`/api/abonnement/utilisateur/${apiUser.id}`)
-                .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
-                .catch(() => {});
-            }
-            apiClient.get('/api/mosquee/contributions')
-              .then(res => {
-                res.data.forEach(m => dispatch({
-                  type: 'MOSQUE_REGISTER',
-                  payload: { id: `db_${m.id}`, nom: m.nom, adresse: m.adresse ?? '', latitude: m.latitude, longitude: m.longitude, source: 'user' },
-                }));
-              })
-              .catch(() => {});
+            applySuccess(timeUnknown);
           } else if (s === 'error') {
-            clearInterval(importPollRef.current);
-            importPollRef.current = null;
+            if (importPollRef.current) { clearInterval(importPollRef.current); importPollRef.current = null; }
+            if (fallbackPollRef.current) { clearInterval(fallbackPollRef.current); fallbackPollRef.current = null; }
             setImportLoading(false);
             setImportStatus('error');
             const errMsg = errorCode === 'IMAGE_QUALITY' ? t('declare.import_image_quality') : (message || t('declare.import_error_generic'));
             setImportMessage(errMsg);
           }
         } catch (_) {}
-      }, 3000);
+      }, 1500);
+
+      // Polling de secours : vérifie toutes les 8s si une nouvelle déclaration est apparue
+      fallbackPollRef.current = setInterval(async () => {
+        if (!importPollRef.current) { clearInterval(fallbackPollRef.current); fallbackPollRef.current = null; return; }
+        try {
+          const res = await apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`);
+          const maxId = res.data?.length > 0 ? Math.max(...res.data.map(d => d.id)) : 0;
+          if (maxId > declMaxIdRef.current) {
+            applySuccess(false);
+          }
+        } catch (_) {}
+      }, 8000);
 
       setTimeout(() => {
         if (importPollRef.current) {
           clearInterval(importPollRef.current);
           importPollRef.current = null;
+          if (fallbackPollRef.current) { clearInterval(fallbackPollRef.current); fallbackPollRef.current = null; }
           setImportLoading(false);
           setImportStatus('error');
           setImportMessage(t('declare.import_timeout'));
@@ -221,13 +258,14 @@ function DeclareChoiceModal({ visible, onClose, onSaisir }) {
                   )}
                   <Text style={styles.modalText}>{t('declare.import_verify_body')}</Text>
                   <TouchableOpacity style={styles.modalBtn} onPress={() => {
-                    dispatch({ type: 'UI_OPEN_PROFILE_HISTORIQUE' });
                     onClose();
-                    goTo('Profile');
+                    if (importedDecl && onViewDeclaration) {
+                      setTimeout(() => onViewDeclaration(importedDecl), 350);
+                    }
                   }} activeOpacity={0.8}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-                      <Ionicons name="list-outline" size={18} color={colors.white} />
-                      <Text style={styles.modalBtnText}>{t('declare.import_view_history')}</Text>
+                      <Ionicons name="create-outline" size={18} color={colors.white} />
+                      <Text style={styles.modalBtnText}>{t('declare.import_view_declaration')}</Text>
                     </View>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose} activeOpacity={0.7}>
@@ -381,6 +419,7 @@ function MainTabs() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [showDeclareModal, setShowDeclareModal] = useState(false);
+  const [importedDecl, setImportedDecl] = useState(null);
   const activeIndexRef = useRef(0);
   // Pages visitées : rend l'écran seulement quand l'utilisateur y accède (comme Tab.Navigator lazy)
   const [visitedPages, setVisitedPages] = useState(() => new Set([0]));
@@ -468,6 +507,25 @@ function MainTabs() {
           onSaisir={() => {
             setShowDeclareModal(false);
             if (activeIndex !== DECLARE_IDX) goTo(DECLARE_IDX);
+          }}
+          onViewDeclaration={(decl) => setImportedDecl(decl)}
+        />
+
+        <EditDeclarationModal
+          item={importedDecl}
+          onClose={() => setImportedDecl(null)}
+          onSaved={(updated) => {
+            dispatch({ type: 'JANAZA_UPDATE', payload: updated });
+            setImportedDecl(null);
+            dispatch({ type: 'FORCE_DATA_REFRESH' });
+            apiClient.get('/api/prierejanaza/upcoming')
+              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+              .catch(() => {});
+            if (apiUser?.id) {
+              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+            }
           }}
         />
       </View>
