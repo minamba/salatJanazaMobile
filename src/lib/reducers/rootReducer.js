@@ -1,6 +1,6 @@
 import { combineReducers } from 'redux';
 
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const EXPIRY_MS = 90 * 60 * 1000; // 1h30
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
 
 const initialAuth = { isAuthenticated: false, isGuest: false, user: null, token: null, apiUser: null };
@@ -155,8 +155,9 @@ function janazasReducer(state = initialJanazas, action) {
         list: state.list.filter((i) => {
           if (!i.dateHeure) return false;
           const wallClockMs = i.dateHeure instanceof Date ? i.dateHeure.getTime() : new Date(i.dateHeure).getTime();
-          const trueUtcMs = wallClockMs - (i.utcOffsetMinutes ?? 0) * 60_000;
-          return Date.now() - trueUtcMs < TWO_HOURS_MS;
+          const offset = i.utcOffsetMinutes || (-new Date().getTimezoneOffset());
+          const trueUtcMs = wallClockMs - offset * 60_000;
+          return Date.now() - trueUtcMs < EXPIRY_MS;
         }),
       };
     case 'JANAZA_UPDATE': {

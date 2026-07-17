@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
+import { computeStatut, useMinuteTick } from '../../utils/statut';
+import EditDeclarationModal from '../../components/EditDeclarationModal';
 import {
   View, Text, FlatList, TouchableOpacity, Alert,
   StyleSheet, RefreshControl, Modal, Linking, Platform,
@@ -102,7 +104,7 @@ function distKm(coords, item) {
 const STATUS_COLORS = {
   a_venir: colors.accent,
   en_cours: colors.success,
-  terminee: colors.textMuted,
+  terminee: colors.error,
 };
 
 function StatusBadge({ statut }) {
@@ -122,8 +124,9 @@ function StatusBadge({ statut }) {
 }
 
 // ── Grouped mosque card ────────────────────────────────────────────────────────
-function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRole, onDelete, isSubscribed }) {
+function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRole, onDelete, onEdit, isSubscribed }) {
   const { t, i18n } = useTranslation();
+  useMinuteTick();
   const locale = LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
   const isAr = i18n.language?.startsWith('ar');
   const fmtNum = (n) => isAr ? n.toLocaleString('ar-SA') : String(n);
@@ -257,15 +260,18 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
                 onPress={() => onPressJanaza(item)}
                 activeOpacity={0.65}
               >
-                <View style={styles.janazaTimePill}>
-                  <Text style={styles.janazaTime}>{formatTime(item.dateHeure, locale)}</Text>
+                <View style={styles.janazaLeftCol}>
+                  <StatusBadge statut={computeStatut(item)} />
+                  <View style={styles.janazaTimePill}>
+                    <Text style={styles.janazaTime}>{formatTime(item.dateHeure, locale)}</Text>
+                  </View>
                 </View>
-                <Image source={GENRE_IMAGES[item.genre]} style={styles.janazaGenreImg} resizeMode="contain" />
+                <View style={styles.janazaAvatarCircle}>
+                  <Image source={GENRE_IMAGES[item.genre]} style={styles.janazaGenreImg} resizeMode="contain" />
+                </View>
                 <View style={styles.janazaInfo}>
                   <Text style={styles.janazaNom} numberOfLines={1}>{nom}</Text>
-                  <Text style={styles.janazaGenre}>{genreLabel}</Text>
                 </View>
-                <StatusBadge statut={item.statut} />
                 <TouchableOpacity
                   onPress={(e) => { e.stopPropagation(); setShareItem({ ...item, mosquee: group.mosquee, adresse: group.adresse }); }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -274,6 +280,16 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
                 >
                   <Ionicons name="share-social-outline" size={17} color={colors.primary} />
                 </TouchableOpacity>
+                {canDelete && (
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation(); onEdit?.(item); }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    activeOpacity={0.6}
+                    style={{ marginLeft: 4 }}
+                  >
+                    <Ionicons name="create-outline" size={17} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
                 {canDelete ? (
                   <TouchableOpacity
                     onPress={(e) => { e.stopPropagation(); onDelete(item.id); }}
@@ -328,8 +344,9 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
 }
 
 // ── Detail modal ───────────────────────────────────────────────────────────────
-export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose, onDelete }) {
+export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose, onDelete, onEdit }) {
   const { t, i18n } = useTranslation();
+  useMinuteTick();
   const locale = LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
   const isAr = i18n.language?.startsWith('ar');
   const fmtDist = (d) => isAr
@@ -368,7 +385,7 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
 
           <View style={styles.modalHeaderRow}>
             <Text style={styles.modalMosquee} numberOfLines={2}>{capitalizeFirst(item.mosquee)}</Text>
-            <StatusBadge statut={item.statut} />
+            <StatusBadge statut={computeStatut(item)} />
           </View>
           <View style={styles.modalMetaRow}>
             <Ionicons name="time-outline" size={13} color={colors.textMuted} />
@@ -425,6 +442,16 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
 
           {canDelete && (
             <TouchableOpacity
+              style={[styles.deleteModalBtn, { borderColor: colors.primary }]}
+              onPress={() => { onClose(); setTimeout(() => onEdit?.(item), 350); }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="create-outline" size={16} color={colors.primary} />
+              <Text style={[styles.deleteModalBtnText, { color: colors.primary }]}>{t('profile.edit')}</Text>
+            </TouchableOpacity>
+          )}
+          {canDelete && (
+            <TouchableOpacity
               style={styles.deleteModalBtn}
               onPress={() => { onClose(); setTimeout(() => onDelete(item.id), 300); }}
               activeOpacity={0.8}
@@ -455,7 +482,9 @@ export default function HomeScreen() {
   const subscriptions = useSelector((state) => state.mosques.subscriptions);
   const locationMode = useSelector((state) => state.ui.locationMode);
   const [selected, setSelected] = useState(null);
+  const [editDecl, setEditDecl] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [homeCoords, setHomeCoords] = useState(null);
   const [gpsCoords, setGpsCoords] = useState(null);
 
@@ -562,12 +591,13 @@ export default function HomeScreen() {
   const groups = useMemo(() => {
     const rayon = apiUser?.rayonNotification ?? 5;
 
-    const filtered = activeCoords
+    const filtered = (!showAll && activeCoords)
       ? items.filter((item) => {
           if (subscribedMosqueeIds.has(String(item.mosqueeId))) return true;
           return haversineKm(activeCoords.latitude, activeCoords.longitude, item.latitude, item.longitude) <= rayon;
         })
       : items;
+
 
     const map = {};
     filtered.forEach((item) => {
@@ -665,6 +695,22 @@ export default function HomeScreen() {
         </View>
         {(() => { const count = groups.reduce((sum, g) => sum + g.janazas.length, 0); return (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <TouchableOpacity
+              onPress={() => {
+                setShowAll(v => !v);
+                apiClient.get('/api/prierejanaza/upcoming')
+                  .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+                  .catch(() => {});
+              }}
+              style={[styles.globeToggle, showAll && styles.globeToggleActive]}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name={showAll ? 'planet' : 'planet-outline'}
+                size={20}
+                color={showAll ? colors.accent : colors.textMuted}
+              />
+            </TouchableOpacity>
             {!isGuest && apiUser?.adresseDomicile && (
               <ModeToggle
                 value={locationMode}
@@ -678,7 +724,17 @@ export default function HomeScreen() {
         ); })()}
       </View>
 
-      {apiUser?.adresseDomicile ? (
+      {showAll ? (
+        <View style={[styles.radiusStrip, styles.radiusStripWorld]}>
+          <Ionicons name="planet-outline" size={14} color={colors.accent} />
+          <Text style={[styles.radiusStripText, { color: colors.accent, fontWeight: '600' }]} numberOfLines={1}>
+            {groups.length} {groups.length <= 1 ? t('home.mosque_singular_world') : t('home.mosque_plural_world')}
+          </Text>
+          <View style={[styles.radiusStripBadge, styles.radiusStripBadgeWorld]}>
+            <Text style={[styles.radiusStripBadgeText, { color: colors.white }]}>{t('home.world_all')}</Text>
+          </View>
+        </View>
+      ) : apiUser?.adresseDomicile ? (
         <View style={styles.radiusStrip}>
           <Ionicons name="location-outline" size={14} color={colors.primary} />
           <Text style={styles.radiusStripText} numberOfLines={1}>
@@ -701,7 +757,7 @@ export default function HomeScreen() {
         data={groups}
         keyExtractor={(g) => g.mosqueeId}
         renderItem={({ item: group }) => (
-          <MosqueCard group={group} coords={activeCoords} onPressJanaza={setSelected} currentUserId={apiUserId} currentUserRole={user?.role} onDelete={handleDelete} isSubscribed={notifActiveMosqueeIds.has(String(group.mosqueeId))} />
+          <MosqueCard group={group} coords={activeCoords} onPressJanaza={setSelected} currentUserId={apiUserId} currentUserRole={user?.role} onDelete={handleDelete} onEdit={setEditDecl} isSubscribed={notifActiveMosqueeIds.has(String(group.mosqueeId))} />
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -724,6 +780,21 @@ export default function HomeScreen() {
           currentUserRole={user?.role}
           onClose={() => setSelected(null)}
           onDelete={handleDelete}
+          onEdit={setEditDecl}
+        />
+      )}
+      {editDecl && (
+        <EditDeclarationModal
+          item={editDecl}
+          onClose={() => setEditDecl(null)}
+          onSaved={(updated) => {
+            dispatch({ type: 'JANAZA_UPDATE', payload: updated });
+            setEditDecl(null);
+            dispatch({ type: 'FORCE_DATA_REFRESH' });
+            apiClient.get('/api/prierejanaza/upcoming')
+              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+              .catch(() => {});
+          }}
         />
       )}
     </SafeAreaView>
@@ -794,6 +865,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.white,
+  },
+  radiusStripWorld: {
+    backgroundColor: colors.accent + '0F',
+    borderBottomColor: colors.accent + '33',
+  },
+  radiusStripBadgeWorld: {
+    backgroundColor: colors.accent,
+  },
+
+  globeToggle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  globeToggleActive: {
+    backgroundColor: colors.accent + '18',
+    borderColor: colors.accent + '66',
   },
 
   headerBadge: {
@@ -872,6 +965,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 2,
   },
   janazaRowBorder: { borderTopWidth: 1, borderTopColor: colors.borderLight },
+  janazaLeftCol: { alignItems: 'center', gap: spacing.xs },
   janazaTimePill: {
     backgroundColor: colors.primaryDim,
     borderRadius: radius.sm,
@@ -881,7 +975,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   janazaTime: { fontSize: 13, fontWeight: '700', color: colors.primary },
-  janazaGenreImg: { width: 64, height: 64 },
+  janazaAvatarCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(92, 128, 98, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  janazaGenreImg: { width: 46, height: 46 },
   modalGenreImgBox: {
     width: 48, height: 48,
     borderRadius: 24,
@@ -895,7 +997,6 @@ const styles = StyleSheet.create({
   modalGenreImg: { width: 44, height: 44 },
   janazaInfo: { flex: 1 },
   janazaNom: { ...typography.body, fontWeight: '600', fontSize: 14 },
-  janazaGenre: { ...typography.caption },
 
   badge: {
     borderRadius: radius.full,

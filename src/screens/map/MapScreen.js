@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
+import EditDeclarationModal from '../../components/EditDeclarationModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -184,7 +185,7 @@ function JanazaMapPin({ count }) {
   );
 }
 
-export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, onDelete, currentUserId, currentUserRole, subscribed, onToggleSubscribe, showSubscribe }) {
+export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, onDelete, onEdit, currentUserId, currentUserRole, subscribed, onToggleSubscribe, showSubscribe }) {
   const { t, i18n } = useTranslation();
   const dateLocale = LOCALE_MAP[i18n.language] ?? 'fr-FR';
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -317,10 +318,11 @@ export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, o
                           <View style={styles.janazaTimeBox}>
                             <Text style={styles.janazaTime}>{formatTime(j.dateHeure)}</Text>
                           </View>
-                          <Image source={GENRE_IMAGES[j.genre]} style={styles.janazaGenreImg} resizeMode="contain" />
+                          <View style={styles.janazaAvatarCircle}>
+                            <Image source={GENRE_IMAGES[j.genre]} style={styles.janazaGenreImg} resizeMode="contain" />
+                          </View>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.janazaNom}>{nom}</Text>
-                            <Text style={styles.janazaGenreLabel}>{genreLabels[j.genre]}</Text>
                           </View>
                           <TouchableOpacity
                             onPress={() => onShare?.({ ...j, mosquee: mosque.nom, adresse: mosque.adresse })}
@@ -330,6 +332,16 @@ export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, o
                           >
                             <Ionicons name="share-social-outline" size={17} color={colors.primary} />
                           </TouchableOpacity>
+                          {canDelete && (
+                            <TouchableOpacity
+                              onPress={() => { onClose(); setTimeout(() => onEdit?.(j), 350); }}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              activeOpacity={0.6}
+                              style={{ marginLeft: 4 }}
+                            >
+                              <Ionicons name="create-outline" size={17} color={colors.primary} />
+                            </TouchableOpacity>
+                          )}
                           {canDelete && (
                             <TouchableOpacity
                               onPress={() => setConfirmDeleteId(isPendingConfirm ? null : j.id)}
@@ -479,40 +491,10 @@ function formatNom(raw, lang) {
 }
 
 function hasValidPrefix(text, lang) {
-  if (lang === 'ar') {
-    const t = text.trim();
-    return (
-      t.startsWith('مسجد صغير') ||
-      t.startsWith('جامع') ||
-      t.startsWith('مسجد') ||
-      t.startsWith('مصلى') ||
-      t.startsWith('قاعة صلاة') ||
-      t.startsWith('قاعة') ||
-      t.startsWith('مركز') ||
-      t.startsWith('دار الجنائز') ||
-      t.startsWith('مستشفى') ||
-      t.startsWith('مقبرة') ||
-      t.startsWith('عيادة')
-    );
-  }
+  // Les restrictions de préfixe s'appliquent uniquement en français
+  const baseLang = lang?.toLowerCase().split('-')[0];
+  if (baseLang !== 'fr') return true;
 
-  if (lang === 'en') {
-    const norm = normalizeAccents(text.trim());
-    return (
-      norm.startsWith('grand mosque') ||
-      norm.startsWith('small mosque') ||
-      norm.startsWith('mosque') ||
-      norm.startsWith('prayer hall') ||
-      norm.startsWith('hall') ||
-      norm.startsWith('centr') ||
-      norm.startsWith('funeral') ||
-      norm.startsWith('hospital') ||
-      norm.startsWith('cemetery') ||
-      norm.startsWith('clinic')
-    );
-  }
-
-  // Français (défaut)
   const norm = normalizeAccents(text.trim());
   return (
     norm.startsWith('grande mosquee') ||
@@ -714,6 +696,11 @@ function AddMosqueModal({ onAdd, onClose }) {
                 onChangeText={(v) => { setNom(v); setNomError(''); }}
                 returnKeyType="next"
               />
+              {nom.length > 0 && (
+                <TouchableOpacity onPress={() => { setNom(''); setNomError(''); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.6}>
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
             </View>
             {nomError ? <Text style={styles.fieldError}>{nomError}</Text> : null}
             <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: spacing.xs, marginBottom: spacing.xs }}>
@@ -738,6 +725,11 @@ function AddMosqueModal({ onAdd, onClose }) {
                   returnKeyType="done"
                   onSubmitEditing={Keyboard.dismiss}
                 />
+                {adresse.length > 0 && (
+                  <TouchableOpacity onPress={() => { setAdresse(''); setCoords(null); setSuggestions([]); setAdresseError(''); if (debounceRef.current) clearTimeout(debounceRef.current); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.6} style={{ marginRight: spacing.xs }}>
+                    <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
                   onPress={handleGeolocate}
                   disabled={locating}
@@ -863,6 +855,7 @@ export default function MapScreen() {
   const [search, setSearch] = useState('');
   const [selectedMosque, setSelectedMosque] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editDecl, setEditDecl] = useState(null);
 
   async function refreshGps() {
     try {
@@ -1423,7 +1416,7 @@ export default function MapScreen() {
                 />
               </>
             ) : null}
-            {Object.values(janazaGroups).map((group) => (
+            {Object.values(janazaGroups).filter(g => g.latitude != null && g.longitude != null && !isNaN(g.latitude) && !isNaN(g.longitude)).map((group) => (
               Platform.OS === 'ios' ? (
                 <SmartMarker
                   key={group.mosqueeId}
@@ -1579,11 +1572,26 @@ export default function MapScreen() {
           onClose={() => setSelectedMosque(null)}
           onShare={(janaza) => { setSelectedMosque(null); setTimeout(() => setShareItem(janaza), 350); }}
           onDelete={handleDelete}
+          onEdit={setEditDecl}
           currentUserId={apiUser?.id}
           currentUserRole={user?.role}
           showSubscribe={!isGuest}
           subscribed={subscribedIds.has(selectedMosque.id) || (selectedMosque._dbId != null && subscribedIds.has('_db_' + String(selectedMosque._dbId)))}
           onToggleSubscribe={() => toggleSubscription(selectedMosque)}
+        />
+      )}
+      {editDecl && (
+        <EditDeclarationModal
+          item={editDecl}
+          onClose={() => setEditDecl(null)}
+          onSaved={(updated) => {
+            dispatch({ type: 'JANAZA_UPDATE', payload: updated });
+            setEditDecl(null);
+            dispatch({ type: 'FORCE_DATA_REFRESH' });
+            apiClient.get('/api/prierejanaza/upcoming')
+              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+              .catch(() => {});
+          }}
         />
       )}
       {showAddModal && <AddMosqueModal onAdd={addUserMosque} onClose={() => setShowAddModal(false)} />}
@@ -1712,9 +1720,9 @@ const styles = StyleSheet.create({
   deleteConfirmDeleteText: { ...typography.caption, color: colors.white, fontWeight: '700' },
   janazaTimeBox: { backgroundColor: colors.primaryDim, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minWidth: 56, alignItems: 'center' },
   janazaTime: { ...typography.label, color: colors.primary, fontSize: 14 },
-  janazaGenreImg: { width: 64, height: 64 },
+  janazaAvatarCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(92, 128, 98, 0.28)', alignItems: 'center', justifyContent: 'center' },
+  janazaGenreImg: { width: 42, height: 42 },
   janazaNom: { ...typography.body, fontWeight: '600' },
-  janazaGenreLabel: { ...typography.caption },
   emptyJanazaBox: { alignItems: 'center', paddingVertical: spacing.lg },
   emptyJanazaEmoji: { fontSize: 36, marginBottom: spacing.sm },
   emptyJanazaText: { ...typography.body, color: colors.textSecondary },

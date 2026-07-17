@@ -15,6 +15,7 @@ import apiClient from '../../lib/api/apiClient';
 import { useTranslation } from 'react-i18next';
 import { MosqueDetailModal } from '../map/MapScreen';
 import { JanazaShareModal } from '../declare/AnnouncementGenerator';
+import EditDeclarationModal from '../../components/EditDeclarationModal';
 import { capitalizeFirst } from '../../utils/text';
 
 function SubscriptionCard({ item, onUnsubscribe, onToggleNotif, onPress }) {
@@ -74,6 +75,7 @@ export default function SubscriptionsScreen() {
   const user = useSelector((state) => state.auth.user);
   const [selectedMosque, setSelectedMosque] = useState(null);
   const [shareItem, setShareItem] = useState(null);
+  const [editDecl, setEditDecl] = useState(null);
 
   useEffect(() => {
     if (!apiUser?.id) return;
@@ -222,8 +224,23 @@ export default function SubscriptionsScreen() {
           onClose={() => setSelectedMosque(null)}
           onShare={(janaza) => { setSelectedMosque(null); setTimeout(() => setShareItem(janaza), 350); }}
           onDelete={handleDelete}
+          onEdit={setEditDecl}
           currentUserId={apiUser?.id}
           currentUserRole={user?.role}
+        />
+      )}
+      {editDecl && (
+        <EditDeclarationModal
+          item={editDecl}
+          onClose={() => setEditDecl(null)}
+          onSaved={(updated) => {
+            dispatch({ type: 'JANAZA_UPDATE', payload: updated });
+            setEditDecl(null);
+            dispatch({ type: 'FORCE_DATA_REFRESH' });
+            apiClient.get('/api/prierejanaza/upcoming')
+              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+              .catch(() => {});
+          }}
         />
       )}
       <JanazaShareModal

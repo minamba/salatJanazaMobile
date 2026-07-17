@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { ComplementaryInfoModal } from './AnnouncementGenerator';
 import { DetailModal } from '../home/HomeScreen';
+import EditDeclarationModal from '../../components/EditDeclarationModal';
 import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
 import { searchPlacesByNameOSM } from '../../utils/mosqueSearch';
 
@@ -469,6 +470,7 @@ export default function DeclareScreen() {
     { key: 'enfant', label: t('declare.child') },
   ];
   const apiUser = useSelector((state) => state.auth.apiUser);
+  const [editDecl, setEditDecl] = useState(null);
   const janazaList = useSelector((state) => state.janazas.list);
 
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1063,6 +1065,21 @@ export default function DeclareScreen() {
           currentUserRole={user?.role}
           onClose={() => setSelectedDefunt(null)}
           onDelete={handleDeleteDefunt}
+          onEdit={setEditDecl}
+        />
+      )}
+      {editDecl && (
+        <EditDeclarationModal
+          item={editDecl}
+          onClose={() => setEditDecl(null)}
+          onSaved={(updated) => {
+            dispatch({ type: 'JANAZA_UPDATE', payload: updated });
+            setEditDecl(null);
+            dispatch({ type: 'FORCE_DATA_REFRESH' });
+            apiClient.get('/api/prierejanaza/upcoming')
+              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+              .catch(() => {});
+          }}
         />
       )}
 
