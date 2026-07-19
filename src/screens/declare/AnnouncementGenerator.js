@@ -163,7 +163,7 @@ function YearPickerModal({ visible, selected, onSelect, onClose, title }) {
 
 // ─── Announcement Preview (the captured view) ─────────────────────────────────
 
-const PREVIEW_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA' };
+const PREVIEW_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
 
 const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data }, ref) {
   const { t, i18n } = useTranslation();

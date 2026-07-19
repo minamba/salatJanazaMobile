@@ -37,18 +37,19 @@ function kmToSlider(km) {
   return Math.round(((Math.log(clamped) - _LOG_MIN) / (_LOG_MAX - _LOG_MIN)) * CEO_SLIDER_MAX);
 }
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
+const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
 
-function formatExpiryDate(dateHeure) {
+function formatExpiryDate(dateHeure, locale, t) {
   if (!dateHeure) return null;
-  const t = typeof dateHeure === 'number' ? dateHeure : new Date(dateHeure).getTime();
-  if (!t) return null;
-  const expiry = new Date(t + SIX_MONTHS_MS);
+  const ts = typeof dateHeure === 'number' ? dateHeure : new Date(dateHeure).getTime();
+  if (!ts) return null;
+  const expiry = new Date(ts + SIX_MONTHS_MS);
   const now = Date.now();
   const diffDays = Math.ceil((expiry.getTime() - now) / (24 * 60 * 60 * 1000));
   if (diffDays <= 0) return null;
-  if (diffDays <= 30) return `Supprimée dans ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
-  const expiryStr = expiry.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  return `Supprimée automatiquement le ${expiryStr}`;
+  if (diffDays <= 30) return t('profile.history_expiry', { count: diffDays });
+  const expiryStr = expiry.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
+  return t('profile.history_expiry_date', { date: expiryStr });
 }
 
 function SectionHeader({ icon, label }) {
@@ -62,6 +63,7 @@ function SectionHeader({ icon, label }) {
 
 export default function ProfileScreen() {
   const { t, i18n } = useTranslation();
+  const locale = LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
@@ -406,7 +408,7 @@ export default function ProfileScreen() {
             <View style={styles.ceoSliderWrapper}>
               <View style={styles.ceoSliderRow}>
                 <Text style={styles.ceoSliderBound}>2 km</Text>
-                <Text style={styles.ceoSliderValue}>{rayon.toLocaleString('fr-FR')} km</Text>
+                <Text style={styles.ceoSliderValue}>{rayon.toLocaleString(locale)} km</Text>
                 <Text style={styles.ceoSliderBound}>40 000 km</Text>
               </View>
               <Slider
@@ -555,6 +557,18 @@ export default function ProfileScreen() {
             { code: 'fr', label: t('profile.lang_fr') },
             { code: 'ar', label: t('profile.lang_ar') },
             { code: 'en', label: t('profile.lang_en') },
+            { code: 'tr', label: t('profile.lang_tr') },
+            { code: 'ja', label: t('profile.lang_ja') },
+            { code: 'ko', label: t('profile.lang_ko') },
+            { code: 'ms', label: t('profile.lang_ms') },
+            { code: 'ur', label: t('profile.lang_ur') },
+            { code: 'id', label: t('profile.lang_id') },
+            { code: 'bn', label: t('profile.lang_bn') },
+            { code: 'ru', label: t('profile.lang_ru') },
+            { code: 'pt', label: t('profile.lang_pt') },
+            { code: 'de', label: t('profile.lang_de') },
+            { code: 'it', label: t('profile.lang_it') },
+            { code: 'es', label: t('profile.lang_es') },
           ].map((lang, idx, arr) => {
             const isActive = i18n.language === lang.code || i18n.language?.startsWith(lang.code + '-');
             const isLast = idx === arr.length - 1;
@@ -621,21 +635,18 @@ export default function ProfileScreen() {
                 .map((j) => {
                 const dateObj = j.dateHeure ? new Date(j.dateHeure) : null;
                 const dateStr = dateObj
-                  ? dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
-                  : '';
-                const timeStr = dateObj
-                  ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
+                  ? dateObj.toLocaleString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
                   : '';
                 const createdObj = j.dateCreation ? new Date(j.dateCreation) : null;
                 const createdStr = createdObj
-                  ? createdObj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  ? createdObj.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
                   : null;
                 return (
                   <View key={j.id} style={styles.histoCard}>
                     {!!createdStr && (
                       <View style={styles.histoCreatedRow}>
                         <Ionicons name="time-outline" size={11} color={colors.textMuted} />
-                        <Text style={styles.histoCreatedText}>Déclaré le {createdStr}</Text>
+                        <Text style={styles.histoCreatedText}>{t('profile.declared_on', { date: createdStr })}</Text>
                       </View>
                     )}
                     <View style={styles.histoCardRow}>
@@ -643,14 +654,14 @@ export default function ProfileScreen() {
                       <Text style={styles.histoMosquee} numberOfLines={1}>{j.mosquee}</Text>
                     </View>
                     {!!j.adresse && <Text style={styles.histoAdresse} numberOfLines={1}>{j.adresse}</Text>}
-                    <Text style={styles.histoDate}>{dateStr} à {timeStr}</Text>
+                    <Text style={styles.histoDate}>{dateStr}</Text>
                     {!j.estAnonyme && !!j.nomDefunt && (
                       <Text style={styles.histoNom}>{formatNomDefunt(j.nomDefunt)}</Text>
                     )}
-                    {!!formatExpiryDate(j.dateHeure) && (
+                    {!!formatExpiryDate(j.dateHeure, locale, t) && (
                       <View style={styles.histoExpiry}>
                         <Ionicons name="time-outline" size={11} color={colors.textMuted} />
-                        <Text style={styles.histoExpiryText}>{formatExpiryDate(j.dateHeure)}</Text>
+                        <Text style={styles.histoExpiryText}>{formatExpiryDate(j.dateHeure, locale, t)}</Text>
                       </View>
                     )}
                     <View style={styles.histoCardActions}>

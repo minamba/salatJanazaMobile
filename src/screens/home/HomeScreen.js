@@ -24,7 +24,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadow } from '../../utils/theme';
 import { useTranslation } from 'react-i18next';
+import { getCountryName } from '../../utils/countryNames';
 import { JanazaShareModal } from '../declare/AnnouncementGenerator';
+import { startGpsSync, stopGpsSync } from '../../utils/gpsSync';
 
 function ModeToggle({ value, onToggle }) {
   const anim = useRef(new Animated.Value(value === 'home' ? 1 : 0)).current;
@@ -35,8 +37,8 @@ function ModeToggle({ value, onToggle }) {
   const thumbX = anim.interpolate({ inputRange: [0, 1], outputRange: [3, 29] });
   return (
     <TouchableOpacity onPress={onToggle} activeOpacity={0.85}>
-      <Animated.View style={{ width: 56, height: 30, borderRadius: 15, justifyContent: 'center', backgroundColor: trackColor }}>
-        <Animated.View style={{ position: 'absolute', width: 24, height: 24, borderRadius: 12, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3, transform: [{ translateX: thumbX }] }}>
+      <Animated.View style={{ width: 56, height: 30, borderRadius: 15, justifyContent: 'center', backgroundColor: trackColor, overflow: 'hidden' }}>
+        <Animated.View style={{ position: 'absolute', left: 0, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3, transform: [{ translateX: thumbX }] }}>
           <Ionicons name={value === 'home' ? 'home' : 'navigate'} size={13} color={value === 'home' ? colors.primary : colors.accent} />
         </Animated.View>
       </Animated.View>
@@ -50,7 +52,138 @@ function useGenreLabel() {
 }
 
 
-const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA' };
+const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
+
+// ── Country flag from GPS coords ──────────────────────────────────────────────
+const _geoCache = new Map(); // "lat,lon" → { flag, isoCode } | null
+
+function isoToFlag(code) {
+  if (!code || code.length !== 2) return null;
+  return [...code.toUpperCase()]
+    .map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65))
+    .join('');
+}
+
+// Fast path: French country name at end of address → ISO code, no geocoding needed
+const FR_TO_ISO = {
+  'Afghanistan': 'AF', 'Afrique du Sud': 'ZA', 'Algérie': 'DZ',
+  'Allemagne': 'DE', 'Angola': 'AO', 'Arabie Saoudite': 'SA',
+  'Argentine': 'AR', 'Australie': 'AU', 'Autriche': 'AT',
+  'Azerbaïdjan': 'AZ', 'Bahreïn': 'BH', 'Bangladesh': 'BD',
+  'Belgique': 'BE', 'Bénin': 'BJ', 'Birmanie': 'MM',
+  'Bosnie-Herzégovine': 'BA', 'Bulgarie': 'BG', 'Burkina Faso': 'BF',
+  'Burundi': 'BI', 'Cambodge': 'KH', 'Cameroun': 'CM', 'Canada': 'CA',
+  'Centrafrique': 'CF', 'Comores': 'KM', 'Congo': 'CG', 'RD Congo': 'CD',
+  "Côte d'Ivoire": 'CI', 'Danemark': 'DK', 'Djibouti': 'DJ',
+  'Égypte': 'EG', 'Émirats arabes unis': 'AE', 'Espagne': 'ES',
+  'Éthiopie': 'ET', 'Finlande': 'FI', 'France': 'FR', 'Gabon': 'GA',
+  'Gambie': 'GM', 'Ghana': 'GH', 'Grèce': 'GR', 'Guinée': 'GN',
+  'Guinée-Bissau': 'GW', 'Guinée équatoriale': 'GQ', 'Inde': 'IN',
+  'Indonésie': 'ID', 'Irak': 'IQ', 'Iran': 'IR', 'Irlande': 'IE',
+  'Italie': 'IT', 'Jordanie': 'JO', 'Kazakhstan': 'KZ', 'Kenya': 'KE',
+  'Kirghizistan': 'KG', 'Koweït': 'KW', 'Liban': 'LB', 'Libye': 'LY',
+  'Luxembourg': 'LU', 'Macédoine du Nord': 'MK', 'Madagascar': 'MG',
+  'Malaisie': 'MY', 'Mali': 'ML', 'Maroc': 'MA', 'Mauritanie': 'MR',
+  'Mexique': 'MX', 'Moldavie': 'MD', 'Mozambique': 'MZ', 'Namibie': 'NA',
+  'Niger': 'NE', 'Nigéria': 'NG', 'Norvège': 'NO', 'Oman': 'OM',
+  'Ouganda': 'UG', 'Ouzbékistan': 'UZ', 'Pakistan': 'PK',
+  'Palestine': 'PS', 'Pays-Bas': 'NL', 'Philippines': 'PH',
+  'Pologne': 'PL', 'Portugal': 'PT', 'Qatar': 'QA', 'Roumanie': 'RO',
+  'Royaume-Uni': 'GB', 'Rwanda': 'RW', 'Sénégal': 'SN',
+  'Sierra Leone': 'SL', 'Singapour': 'SG', 'Somalie': 'SO',
+  'Soudan': 'SD', 'Suède': 'SE', 'Suisse': 'CH', 'Syrie': 'SY',
+  'Tadjikistan': 'TJ', 'Tanzanie': 'TZ', 'Tchad': 'TD', 'Togo': 'TG',
+  'Tunisie': 'TN', 'Turquie': 'TR', 'Turkménistan': 'TM',
+  'Ukraine': 'UA', 'États-Unis': 'US', 'Yémen': 'YE', 'Zambie': 'ZM',
+  'Zimbabwe': 'ZW', 'Chine': 'CN', 'Japon': 'JP', 'Corée du Sud': 'KR',
+  'Thaïlande': 'TH', 'Vietnam': 'VN',
+  // Europe
+  'Albanie': 'AL', 'Andorre': 'AD', 'Arménie': 'AM', 'Biélorussie': 'BY',
+  'Chypre': 'CY', 'Croatie': 'HR', 'République tchèque': 'CZ', 'Estonie': 'EE',
+  'Géorgie': 'GE', 'Hongrie': 'HU', 'Islande': 'IS', 'Kosovo': 'XK',
+  'Lettonie': 'LV', 'Liechtenstein': 'LI', 'Lituanie': 'LT', 'Malte': 'MT',
+  'Monaco': 'MC', 'Monténégro': 'ME', 'Russie': 'RU', 'Saint-Marin': 'SM',
+  'Serbie': 'RS', 'Slovaquie': 'SK', 'Slovénie': 'SI', 'Vatican': 'VA',
+  // Asie
+  'Brunéi': 'BN', 'Bhoutan': 'BT', 'Israël': 'IL', 'Corée du Nord': 'KP',
+  'Laos': 'LA', 'Sri Lanka': 'LK', 'Mongolie': 'MN', 'Maldives': 'MV',
+  'Népal': 'NP', 'Timor oriental': 'TL', 'Taïwan': 'TW',
+  // Afrique
+  'Botswana': 'BW', 'Cap-Vert': 'CV', 'Érythrée': 'ER', 'Eswatini': 'SZ',
+  'Lesotho': 'LS', 'Libéria': 'LR', 'Malawi': 'MW', 'Maurice': 'MU',
+  'Seychelles': 'SC', 'Soudan du Sud': 'SS', 'Sao Tomé-et-Principe': 'ST',
+  // Amériques
+  'Antigua-et-Barbuda': 'AG', 'Barbade': 'BB', 'Belize': 'BZ', 'Bolivie': 'BO',
+  'Brésil': 'BR', 'Bahamas': 'BS', 'Chili': 'CL', 'Colombie': 'CO',
+  'Costa Rica': 'CR', 'Cuba': 'CU', 'Dominique': 'DM', 'République dominicaine': 'DO',
+  'Équateur': 'EC', 'Grenade': 'GD', 'Guatemala': 'GT', 'Guyana': 'GY',
+  'Haïti': 'HT', 'Honduras': 'HN', 'Jamaïque': 'JM',
+  'Saint-Kitts-et-Nevis': 'KN', 'Sainte-Lucie': 'LC', 'Nicaragua': 'NI',
+  'Panama': 'PA', 'Pérou': 'PE', 'Paraguay': 'PY', 'Suriname': 'SR',
+  'Salvador': 'SV', 'Trinité-et-Tobago': 'TT', 'Uruguay': 'UY',
+  'Saint-Vincent-et-les-Grenadines': 'VC', 'Venezuela': 'VE',
+  // Océanie
+  'Fidji': 'FJ', 'Micronésie': 'FM', 'Kiribati': 'KI', 'Îles Marshall': 'MH',
+  'Nauru': 'NR', 'Nouvelle-Zélande': 'NZ', 'Papouasie-Nouvelle-Guinée': 'PG',
+  'Palaos': 'PW', 'Îles Salomon': 'SB', 'Tonga': 'TO', 'Tuvalu': 'TV',
+  'Vanuatu': 'VU', 'Samoa': 'WS',
+};
+
+function getIsoFromAddress(adresse) {
+  if (!adresse) return null;
+  const parts = adresse.split(',').map(p => p.trim());
+  return FR_TO_ISO[parts[parts.length - 1]] ?? null;
+}
+
+function useCountryFlag(lat, lon, adresse, enabled) {
+  const [result, setResult] = useState(null); // { flag, isoCode, country } | null
+  const hasCoords = lat != null && lon != null && !(lat === 0 && lon === 0);
+  const key = hasCoords
+    ? `${lat.toFixed(4)},${lon.toFixed(4)}`
+    : (adresse ? `addr:${adresse}` : null);
+
+  useEffect(() => {
+    if (!enabled || !key) { setResult(null); return; }
+    if (_geoCache.has(key)) { setResult(_geoCache.get(key)); return; }
+    let cancelled = false;
+
+    function applyGeoResult(results) {
+      if (cancelled) return;
+      const r = results?.[0];
+      const isoCode = r?.isoCountryCode ?? null;
+      const country = r?.country ?? null;
+      const entry = isoCode ? { flag: isoToFlag(isoCode), isoCode, country } : null;
+      _geoCache.set(key, entry);
+      setResult(entry);
+    }
+
+    if (hasCoords) {
+      Location.reverseGeocodeAsync({ latitude: lat, longitude: lon })
+        .then(applyGeoResult)
+        .catch(() => {});
+    } else if (adresse) {
+      // Fast path: extract country directly from French address (works on all platforms)
+      const directIso = getIsoFromAddress(adresse);
+      if (directIso) {
+        const entry = { flag: isoToFlag(directIso), isoCode: directIso, country: null };
+        _geoCache.set(key, entry);
+        if (!cancelled) setResult(entry);
+        return;
+      }
+      // Slow path: geocode the address (may fail on iOS with non-English country names)
+      Location.geocodeAsync(adresse)
+        .then(coords => {
+          if (cancelled || !coords?.[0]) return;
+          return Location.reverseGeocodeAsync({ latitude: coords[0].latitude, longitude: coords[0].longitude })
+            .then(applyGeoResult);
+        })
+        .catch(() => {});
+    }
+
+    return () => { cancelled = true; };
+  }, [key, enabled]);
+  return result;
+}
 
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -124,7 +257,7 @@ function StatusBadge({ statut }) {
 }
 
 // ── Grouped mosque card ────────────────────────────────────────────────────────
-function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRole, onDelete, onEdit, isSubscribed }) {
+function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRole, onDelete, onEdit, isSubscribed, showWorldFlag }) {
   const { t, i18n } = useTranslation();
   useMinuteTick();
   const locale = LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
@@ -138,6 +271,12 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
   const earliest = group.janazas[0];
   const [reminder, setReminder] = useState(null);
   const [shareItem, setShareItem] = useState(null);
+  const [showCountryName, setShowCountryName] = useState(false);
+  const countryResult = useCountryFlag(group.latitude, group.longitude, group.adresse, !!showWorldFlag);
+  const countryFlag = countryResult?.flag ?? null;
+  const countryName = countryResult?.isoCode
+    ? getCountryName(countryResult.isoCode, locale)
+    : (countryResult?.country ?? null);
 
   const prayerTime = earliest.dateHeure instanceof Date ? earliest.dateHeure : new Date(earliest.dateHeure);
   const prayerMs = isNaN(prayerTime.getTime()) ? 0 : prayerTime.getTime();
@@ -315,6 +454,18 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
 
       {/* Footer */}
       <View style={styles.cardFooter}>
+        {showWorldFlag && countryFlag ? (
+          <TouchableOpacity
+            onPress={() => setShowCountryName(v => !v)}
+            style={styles.countryFlagBtn}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.countryFlag}>{countryFlag}</Text>
+            {showCountryName && countryName && (
+              <Text style={styles.countryName}>{countryName}</Text>
+            )}
+          </TouchableOpacity>
+        ) : <View />}
         {isSubscribed ? (
           <View style={[styles.notifBtn, styles.notifBtnActive]}>
             <Ionicons name="notifications" size={13} color={colors.white} />
@@ -529,6 +680,9 @@ export default function HomeScreen() {
   function persistLocationMode(mode) {
     dispatch({ type: 'SET_LOCATION_MODE', payload: mode });
     AsyncStorage.setItem('map_location_mode', mode).catch(() => {});
+    if (apiUserId) {
+      apiClient.put(`/api/utilisateur/${apiUserId}`, { modeLocalisation: mode }).catch(() => {});
+    }
   }
 
   useEffect(() => {
@@ -564,6 +718,17 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!apiUser?.adresseDomicile || locationMode === 'gps') refreshGps();
   }, [apiUser?.adresseDomicile, locationMode]);
+
+  // Sync GPS position vers le serveur toutes les 5 min en mode GPS
+  useEffect(() => {
+    const isGpsMode = !apiUser?.adresseDomicile || locationMode === 'gps';
+    if (isGpsMode && apiUserId) {
+      startGpsSync(apiUserId);
+    } else {
+      stopGpsSync();
+    }
+    return () => stopGpsSync();
+  }, [locationMode, apiUser?.adresseDomicile, apiUserId]);
 
 
   const activeCoords = useMemo(() => {
@@ -757,7 +922,7 @@ export default function HomeScreen() {
         data={groups}
         keyExtractor={(g) => g.mosqueeId}
         renderItem={({ item: group }) => (
-          <MosqueCard group={group} coords={activeCoords} onPressJanaza={setSelected} currentUserId={apiUserId} currentUserRole={user?.role} onDelete={handleDelete} onEdit={setEditDecl} isSubscribed={notifActiveMosqueeIds.has(String(group.mosqueeId))} />
+          <MosqueCard group={group} coords={activeCoords} onPressJanaza={setSelected} currentUserId={apiUserId} currentUserRole={user?.role} onDelete={handleDelete} onEdit={setEditDecl} isSubscribed={notifActiveMosqueeIds.has(String(group.mosqueeId))} showWorldFlag={showAll} />
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -1009,7 +1174,8 @@ const styles = StyleSheet.create({
   // ── Card footer ──
   cardFooter: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: spacing.sm,
     paddingHorizontal: spacing.md,
     borderTopWidth: 1,
@@ -1018,6 +1184,10 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: radius.md,
     borderBottomRightRadius: radius.md,
   },
+  countryFlagBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  countryFlag: { fontSize: 22, lineHeight: 28 },
+  countryName: { fontSize: 13, fontWeight: '500', color: colors.textSecondary },
+
   notifBtn: {
     flexDirection: 'row',
     alignItems: 'center',

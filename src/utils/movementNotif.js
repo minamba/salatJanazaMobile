@@ -5,10 +5,12 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatNomDefunt } from './text';
+import i18n, { SUPPORTED_LANGUAGES } from '../i18n';
 
 export const MOVEMENT_TASK = 'MOVEMENT_JANAZA_TASK';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.salatjanaza.org';
+const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
 const PROXIMITY_KM = 10; // 10 km
 
 function distKm(lat1, lon1, lat2, lon2) {
@@ -77,6 +79,10 @@ TaskManager.defineTask(MOVEMENT_TASK, async ({ data, error }) => {
     );
 
     const notified = await getNotifiedToday();
+    const savedLang = await AsyncStorage.getItem('@app_language').catch(() => null);
+    const lang = savedLang && SUPPORTED_LANGUAGES.includes(savedLang) ? savedLang : 'fr';
+    const locale = LOCALE_MAP[lang] ?? 'fr-FR';
+    if (i18n.language !== lang) await i18n.changeLanguage(lang);
     let changed = false;
 
     for (const j of relevant) {
@@ -88,12 +94,12 @@ TaskManager.defineTask(MOVEMENT_TASK, async ({ data, error }) => {
         const prayerDate = parseDate(j.dateHeurePriere);
         const prayerLocal = toLocalTime(j.dateHeurePriere);
         const minutesLeft = Math.round((prayerLocal - now) / 60000);
-        const heure = prayerDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+        const heure = prayerDate.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 
-        const defunt = j.estAnonyme || !j.nomDefunt ? 'Défunt anonyme' : formatNomDefunt(j.nomDefunt);
+        const defunt = j.estAnonyme || !j.nomDefunt ? i18n.t('home.anonymous') : formatNomDefunt(j.nomDefunt);
         const genre = j.genre?.toLowerCase();
-        const genreLabel = genre === 'homme' ? 'Homme' : genre === 'femme' ? 'Femme' : genre === 'enfant' ? 'Enfant' : null;
-        const timeLabel = minutesLeft <= 60 ? `dans ${minutesLeft} min` : `à ${heure}`;
+        const genreLabel = genre === 'homme' ? i18n.t('home.male') : genre === 'femme' ? i18n.t('home.female') : genre === 'enfant' ? i18n.t('home.child') : null;
+        const timeLabel = minutesLeft <= 60 ? i18n.t('home.notif_in_min', { count: minutesLeft }) : i18n.t('home.notif_at', { time: heure });
 
         await Notifications.scheduleNotificationAsync({
           content: {
@@ -128,7 +134,7 @@ export async function startMovementTracking() {
       ...(Platform.OS === 'android' && {
         foregroundService: {
           notificationTitle: 'Salat Janaza',
-          notificationBody: 'Surveillance des mosquées environnantes active',
+          notificationBody: i18n.t('profile.movement_tracking_body'),
           notificationColor: '#238636',
         },
       }),

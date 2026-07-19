@@ -47,7 +47,7 @@ function formatTime(date) {
   return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 }
 
-const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA' };
+const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
 
 // ── Components ─────────────────────────────────────────────────────────────────
 function ModeToggle({ value, onToggle }) {
@@ -843,7 +843,10 @@ export default function MapScreen() {
   const persistLocationMode = useCallback((mode) => {
     dispatch({ type: 'SET_LOCATION_MODE', payload: mode });
     AsyncStorage.setItem('map_location_mode', mode).catch(() => {});
-  }, [dispatch]);
+    if (apiUser?.id) {
+      apiClient.put(`/api/utilisateur/${apiUser.id}`, { modeLocalisation: mode }).catch(() => {});
+    }
+  }, [dispatch, apiUser?.id]);
   const [homeCoords, setHomeCoords] = useState(null);
   const [showGpsModal, setShowGpsModal] = useState(false);
   const [osmMosques, setOsmMosques] = useState([]);
