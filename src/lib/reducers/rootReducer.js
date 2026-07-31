@@ -260,6 +260,15 @@ function uiReducer(state = { openProfileHistorique: false, locationMode: 'gps' }
   }
 }
 
+function featuresReducer(state = { donationButtonVisible: true }, action) {
+  switch (action.type) {
+    case 'FEATURES_LOADED':
+      return { ...state, ...action.payload };
+    default:
+      return state;
+  }
+}
+
 export default combineReducers({
   auth: authReducer,
   mosques: mosquesReducer,
@@ -267,4 +276,5 @@ export default combineReducers({
   myDeclarations: myDeclarationsReducer,
   appRefresh: appRefreshReducer,
   ui: uiReducer,
+  features: featuresReducer,
 });

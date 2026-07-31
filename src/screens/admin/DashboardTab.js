@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet,
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Switch, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../lib/api/apiClient';
 import { colors, spacing, radius, shadow } from '../../utils/theme';
@@ -250,8 +250,28 @@ export default function DashboardTab() {
   const [selectedUserSlot, setSelectedUserSlot] = useState(null);
   const [userSlotLoading,  setUserSlotLoading]  = useState(false);
 
+  const [savingFeature, setSavingFeature] = useState(false);
+
+  const dispatch = useDispatch();
   const janazasCount   = useSelector(s => s.janazas?.list?.length ?? 0);
+  const donationButtonVisible = useSelector(s => s.features?.donationButtonVisible ?? true);
   const prevJanazasRef = useRef(janazasCount);
+
+  const toggleDonationButton = useCallback(async (value) => {
+    // Mise à jour optimiste immédiate
+    dispatch({ type: 'FEATURES_LOADED', payload: { donationButtonVisible: value } });
+    setSavingFeature(true);
+    try {
+      const res = await apiClient.put('/api/features/donation-button', { visible: value });
+      dispatch({ type: 'FEATURES_LOADED', payload: { donationButtonVisible: res.data.donationButtonVisible } });
+    } catch (e) {
+      // Rollback si erreur serveur
+      dispatch({ type: 'FEATURES_LOADED', payload: { donationButtonVisible: !value } });
+      Alert.alert('Erreur', `Impossible de sauvegarder (${e?.response?.status ?? 'réseau'})`);
+    } finally {
+      setSavingFeature(false);
+    }
+  }, [dispatch]);
 
   // Load saved card order on mount
   useEffect(() => {
@@ -629,6 +649,30 @@ export default function DashboardTab() {
         visibleCards.map((cardKey, idx) => renderCard(cardKey, idx))
       )}
 
+      {/* ── Fonctionnalités ───────────────────────────── */}
+      <View style={styles.featureCard}>
+        <Text style={styles.featureCardTitle}>FONCTIONNALITÉS</Text>
+        <View style={styles.featureRow}>
+          <View style={styles.featureRowLeft}>
+            <Ionicons name="heart-outline" size={18} color={colors.primary} style={{ marginRight: spacing.sm }} />
+            <View>
+              <Text style={styles.featureRowLabel}>Bouton "Nous soutenir"</Text>
+              <Text style={styles.featureRowSub}>Visible sur mobile et web</Text>
+            </View>
+          </View>
+          {savingFeature ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Switch
+              value={donationButtonVisible}
+              onValueChange={toggleDonationButton}
+              trackColor={{ false: colors.border, true: colors.primary + '60' }}
+              thumbColor={donationButtonVisible ? colors.primary : colors.textMuted}
+            />
+          )}
+        </View>
+      </View>
+
     </ScrollView>
   );
 }
@@ -730,4 +774,12 @@ const styles = StyleSheet.create({
   platformCount:   { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
   platformLabel:   { fontSize: 11, fontWeight: '600', color: colors.textMuted, letterSpacing: 0.5 },
   platformDivider: { width: 1, height: 48, backgroundColor: colors.border },
+
+  // Feature flags card
+  featureCard:      { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md, ...shadow.sm },
+  featureCardTitle: { fontSize: 10, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: spacing.sm },
+  featureRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  featureRowLeft:   { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  featureRowLabel:  { fontSize: 14, fontWeight: '600', color: colors.text },
+  featureRowSub:    { fontSize: 12, color: colors.textMuted, marginTop: 2 },
 });

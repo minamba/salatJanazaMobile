@@ -5,9 +5,10 @@ import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
 import { computeStatut, useMinuteTick } from '../../utils/statut';
 import EditDeclarationModal from '../../components/EditDeclarationModal';
 import {
-  View, Text, FlatList, TouchableOpacity, Alert,
+  View, Text, FlatList, TouchableOpacity, Alert, ActivityIndicator,
   StyleSheet, RefreshControl, Modal, Linking, Platform,
   TouchableWithoutFeedback, Image, AppState, Animated, TextInput,
+  KeyboardAvoidingView, ScrollView, Dimensions,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
@@ -17,13 +18,16 @@ const GENRE_IMAGES = {
   femme: require('../../../assets/icons/femme.png'),
   enfant: require('../../../assets/icons/enfant.png'),
 };
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const SHEET_H = Dimensions.get('window').height * 0.88;
 import { useSelector, useDispatch } from 'react-redux';
 import * as Location from 'expo-location';
 import apiClient from '../../lib/api/apiClient';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, radius, typography, shadow } from '../../utils/theme';
 import { useTranslation } from 'react-i18next';
 import { getCountryName } from '../../utils/countryNames';
@@ -715,6 +719,7 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
 // ── Screen ─────────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const { t } = useTranslation();
+  const { bottom: insetBottom } = useSafeAreaInsets();
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
   const apiUser = useSelector((state) => state.auth.apiUser);
@@ -723,6 +728,7 @@ export default function HomeScreen() {
   const items = useSelector((state) => state.janazas.list);
   const subscriptions = useSelector((state) => state.mosques.subscriptions);
   const locationMode = useSelector((state) => state.ui.locationMode);
+  const donationButtonVisible = useSelector((state) => state.features.donationButtonVisible);
   const [selected, setSelected] = useState(null);
   const [editDecl, setEditDecl] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -745,6 +751,13 @@ export default function HomeScreen() {
       setGpsCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
     } catch {}
   }
+
+  // Feature flags (public, pas besoin d'auth)
+  useEffect(() => {
+    apiClient.get('/api/features')
+      .then(res => dispatch({ type: 'FEATURES_LOADED', payload: { donationButtonVisible: res.data.donationButtonVisible } }))
+      .catch(() => {});
+  }, []);
 
   // Charger les abonnements au montage pour que isSubscribed soit correct
   useEffect(() => {
@@ -915,13 +928,38 @@ export default function HomeScreen() {
     ? groups.filter(g => haversineKm(activeCoords.latitude, activeCoords.longitude, g.latitude, g.longitude) <= rayon).length
     : groups.length;
 
-  const [filSearch, setFilSearch]   = useState('');
-  const [filGenre, setFilGenre]     = useState(null);
-  const [filOpen, setFilOpen]       = useState(false);
+  const [filSearch, setFilSearch]     = useState('');
+  const [filGenre, setFilGenre]       = useState(null);
+  const [filOpen, setFilOpen]         = useState(false);
+  const [donationVisible, setDonationVisible]   = useState(false);
+  const [donationAmount, setDonationAmount]     = useState(null);
+  const [donationCustom, setDonationCustom]     = useState('');
+  const [donationLoading, setDonationLoading]   = useState(false);
 
   const totalJanazas = items.length;
   const showFilSearch = totalJanazas >= 4;
   const hasActiveFilter = !!filSearch || !!filGenre;
+
+  const parsedCustom = parseFloat(donationCustom);
+  const effectiveAmount = donationCustom && !isNaN(parsedCustom) ? parsedCustom : donationAmount;
+
+  const handleDonate = async () => {
+    if (!effectiveAmount || donationLoading) return;
+    setDonationLoading(true);
+    try {
+      const res = await apiClient.post('/api/payment/checkout', {
+        amountCents: Math.round(effectiveAmount * 100),
+      });
+      await WebBrowser.openAuthSessionAsync(res.data.url, 'qabr://');
+      setDonationVisible(false);
+      setDonationAmount(null);
+      setDonationCustom('');
+    } catch {
+      Alert.alert('Erreur', 'Impossible de créer le lien de paiement.');
+    } finally {
+      setDonationLoading(false);
+    }
+  };
 
   const filteredGroups = useMemo(() => {
     if (!filSearch && !filGenre) return groups;
@@ -1057,6 +1095,18 @@ export default function HomeScreen() {
               <Ionicons name="close-circle" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           )}
+          <View style={{ flex: 1 }} />
+          {donationButtonVisible && (
+            <TouchableOpacity
+              onPress={() => setDonationVisible(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              activeOpacity={0.7}
+              style={styles.donationSupportBtn}
+            >
+              <Ionicons name="heart" size={13} color="#e53e3e" />
+              <Text style={styles.donationSupportText}>{t('home.support_btn')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -1137,6 +1187,110 @@ export default function HomeScreen() {
           }}
         />
       )}
+
+      <Modal
+        visible={donationVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDonationVisible(false)}
+      >
+        <View style={styles.donationOverlay}>
+          <TouchableWithoutFeedback onPress={() => setDonationVisible(false)}>
+            <View style={StyleSheet.absoluteFillObject} />
+          </TouchableWithoutFeedback>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[styles.donationSheet, { minHeight: SHEET_H, paddingBottom: insetBottom + spacing.xxl }]}
+            style={{ maxHeight: SHEET_H }}
+          >
+          <View style={styles.donationHandleBar} />
+          <TouchableOpacity style={styles.donationCloseBtn} onPress={() => setDonationVisible(false)}>
+            <Ionicons name="close" size={22} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <View style={styles.donationIconRing}>
+            <Ionicons name="heart" size={30} color="#e53e3e" />
+          </View>
+          <Text style={styles.donationTitle}>{t('home.support_title')}</Text>
+          <Text style={styles.donationDesc}>{t('home.support_desc')}</Text>
+
+          <View style={styles.donationUsage}>
+            <Text style={styles.donationUsageTitle}>{t('home.support_usage_title')}</Text>
+            {[
+              { icon: 'server-outline',    key: 'support_usage_hosting' },
+              { icon: 'code-slash-outline', key: 'support_usage_dev' },
+              { icon: 'construct-outline',  key: 'support_usage_maintenance' },
+            ].map(({ icon, key }) => (
+              <View key={key} style={styles.donationUsageRow}>
+                <View style={styles.donationUsageIconWrap}>
+                  <Ionicons name={icon} size={14} color={colors.primary} />
+                </View>
+                <Text style={styles.donationUsageText}>{t(`home.${key}`)}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.donationHadith}>
+            <Text style={styles.donationHadithAr}>اللَّهُمَّ اجْزِهِ خَيْرًا فِي الدُّنْيَا وَالْآخِرَةِ</Text>
+            <Text style={styles.donationHadithText}>{t('home.support_dua')}</Text>
+          </View>
+
+          <View style={styles.donationAmountsGrid}>
+            {[1, 2, 5, 10, 20, 50].map(a => (
+              <TouchableOpacity
+                key={a}
+                style={[styles.donationAmountBtn, donationAmount === a && !donationCustom && styles.donationAmountBtnActive]}
+                onPress={() => { setDonationAmount(a); setDonationCustom(''); }}
+              >
+                <Text style={[styles.donationAmountText, donationAmount === a && !donationCustom && styles.donationAmountTextActive]}>
+                  {a}€
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TextInput
+            style={[styles.donationCustomInput, !!donationCustom && styles.donationCustomInputActive]}
+            placeholder={t('home.support_custom')}
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numeric"
+            value={donationCustom}
+            onChangeText={v => { setDonationCustom(v.replace(/[^0-9.]/g, '')); setDonationAmount(null); }}
+          />
+
+          {effectiveAmount ? (
+            <View style={styles.donationRecap}>
+              <Text style={styles.donationRecapLabel}>{t('home.support_recap')}</Text>
+              <Text style={styles.donationRecapAmount}>{effectiveAmount} €</Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={[styles.donationCta, (!effectiveAmount || donationLoading) && styles.donationCtaDisabled]}
+            onPress={handleDonate}
+            disabled={!effectiveAmount || donationLoading}
+            activeOpacity={0.8}
+          >
+            {donationLoading
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Ionicons name="card-outline" size={18} color="#fff" />
+            }
+            <Text style={styles.donationCtaText}>
+              {donationLoading ? '...' : (effectiveAmount ? t('home.support_cta_confirm') : t('home.support_choose'))}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setDonationVisible(false)} style={styles.donationBack}>
+            <Ionicons name="arrow-back" size={14} color={colors.textMuted} />
+            <Text style={styles.donationBackText}>{t('home.support_back')}</Text>
+          </TouchableOpacity>
+          </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1483,6 +1637,226 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: spacing.xxl },
   emptyEmoji: { fontSize: 48, marginBottom: spacing.md },
   emptyText: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
+
+  donationSupportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1.5,
+    borderColor: '#e53e3e',
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    backgroundColor: '#fff0f0',
+  },
+  donationSupportText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#e53e3e',
+  },
+  donationOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  donationSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.sm,
+    alignItems: 'center',
+  },
+  donationHandleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.md,
+  },
+  donationCloseBtn: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    padding: 6,
+  },
+  donationIconRing: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#fff0f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  donationTitle: {
+    ...typography.h3,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  donationDesc: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: spacing.lg,
+  },
+  donationAmountsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    width: '100%',
+  },
+  donationAmountBtn: {
+    width: '30%',
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  donationAmountBtnActive: {
+    borderColor: '#e53e3e',
+    backgroundColor: '#fff0f0',
+  },
+  donationAmountText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  donationAmountTextActive: {
+    color: '#e53e3e',
+  },
+  donationCustomInput: {
+    width: '100%',
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    fontSize: 15,
+    color: colors.text,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  donationCustomInputActive: {
+    borderColor: '#e53e3e',
+  },
+  donationRecap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    backgroundColor: colors.primaryDim,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    marginBottom: spacing.sm,
+  },
+  donationRecapLabel: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  donationRecapAmount: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  donationCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#635BFF',
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    width: '100%',
+    marginBottom: spacing.md,
+  },
+  donationCtaDisabled: {
+    backgroundColor: colors.border,
+  },
+  donationCtaText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  donationBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: spacing.sm,
+  },
+  donationBackText: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  donationUsage: {
+    width: '100%',
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  donationUsageTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  donationUsageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  donationUsageIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: colors.primary + '18',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  donationUsageText: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  donationHadith: {
+    backgroundColor: colors.primaryDim,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    marginBottom: spacing.lg,
+    width: '100%',
+  },
+  donationHadithAr: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+    textAlign: 'right',
+    lineHeight: 26,
+    marginBottom: 6,
+  },
+  donationHadithText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: colors.textSecondary,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
 
   filBar: {
     flexDirection: 'row',
