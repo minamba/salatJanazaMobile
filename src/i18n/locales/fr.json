@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "Fil",
     "map": "Mosquées",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "lieu de prière",
     "mosque_plural_world": "lieux de prière",
     "world_all": "Monde entier",
+    "all": "Tous",
+    "filter": "Filtrer",
+    "search_placeholder": "Nom, mosquée, ville, pays…",
+    "search_no_results": "Aucun résultat",
     "address_banner": "Renseignez votre adresse dans le {{profile}} pour voir les prières près de chez vous",
     "profile_link": "Profil",
     "empty": "Aucune prière déclarée dans votre rayon",
@@ -170,14 +174,20 @@
     "name_section": "Nom du défunt",
     "name_anonymous": "Rester anonyme",
     "name_placeholder": "Nom et prénom",
+    "nom_famille_placeholder": "Nom",
+    "prenom_placeholder": "Prénom",
     "info_section": "Informations supplémentaires",
     "info_placeholder": "Lieu du lavage, informations sur la famille...",
     "generate_announcement": "Informations / Générer l'annonce",
+    "complementary_btn": "Informations complémentaires / Aperçu Affiche",
     "publish": "Publier la prière",
     "error_mosque": "Veuillez sélectionner une mosquée.",
     "error_date": "Veuillez choisir une date pour la prière.",
-    "error_name_title": "Nom manquant",
-    "error_name_body": "Veuillez saisir le nom et prénom du défunt, ou activez \"Rester anonyme\".",
+    "error_name_title": "Prénom manquant",
+    "error_name_body": "Veuillez saisir au moins le prénom du défunt, ou activez l'option Rester anonyme.",
+    "error_duplicate_person": "Une janaza a déjà été déclarée pour cette personne dans cette mosquée à cette heure.",
+    "error_inverted_name": "Une janaza existe déjà pour {{existing}} dans cette mosquée aujourd'hui. Le nom et le prénom semblent être inversés.",
+    "error_publish_title": "Erreur de publication",
     "error_publish": "Erreur lors de la publication. Vérifiez votre connexion.",
     "male": "Homme",
     "female": "Femme",
@@ -194,6 +204,10 @@
     "import_error_generic": "Une erreur est survenue lors de l'importation.",
     "import_timeout": "Le délai d'attente est dépassé. Vérifiez vos déclarations plus tard.",
     "import_image_quality": "L'image est de mauvaise qualité ou illisible. Veuillez fournir une photo plus nette pour que l'IA puisse lire l'adresse de la mosquée.",
+    "import_validate_btn": "Valider la déclaration",
+    "import_banner": "Informations extraites du flyer",
+    "import_banner_sub": "Vérifiez et corrigez si nécessaire avant de publier.",
+    "import_cancel": "Annuler l'importation",
     "import_verify_title": "Vérifiez les informations",
     "import_verify_body": "L'IA a extrait les informations du flyer. Elle n'est pas infaillible : vérifiez que toutes les informations sont correctes.",
     "import_verify_time_unknown": "⚠️ L'horaire de la prière est à 00h00 — l'IA n'a pas pu extraire cette information. Veuillez la renseigner manuellement.",
@@ -284,6 +298,8 @@
     "address_label": "Adresse de domicile",
     "address_placeholder": "Votre adresse complète",
     "address_description": "Utilisée pour calculer les distances des mosquées proches",
+    "address_invalid_title": "Adresse introuvable",
+    "address_invalid_message": "Impossible de localiser cette adresse. Veuillez sélectionner une suggestion dans la liste ou saisir une adresse valide.",
     "radius_label": "Rayon de notification",
     "radius_description": "Lieux de prière dans ce rayon autour de votre domicile",
     "movement_title": "Notifications en mouvement",
@@ -316,7 +332,10 @@
     "delete_cancel": "Annuler",
     "delete_confirm": "Supprimer définitivement",
     "history_title": "Mes déclarations",
+    "history_title_monde": "Janazas du monde",
     "history_empty": "Aucune déclaration pour le moment",
+    "search_placeholder": "Nom, mosquée, ville, pays…",
+    "search_no_results": "Aucun résultat",
     "history_expiry": "Supprimée dans {{count}} jour",
     "history_expiry_plural": "Supprimée dans {{count}} jours",
     "history_expiry_date": "Supprimée automatiquement le {{date}}",
@@ -367,7 +386,8 @@
     "lang_pt": "Português",
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
-    "lang_es": "Español"
+    "lang_es": "Español",
+    "lang_bm": "Bamanankan"
   },
   "admin": {
     "title": "Administration",
@@ -421,6 +441,10 @@
     "edit_anonymous": "Défunt anonyme",
     "edit_deceased_name": "Nom du défunt",
     "edit_deceased_placeholder": "Nom complet",
+    "edit_deceased_nom": "Nom de famille",
+    "edit_deceased_nom_placeholder": "Nom",
+    "edit_deceased_prenom": "Prénom",
+    "edit_deceased_prenom_placeholder": "Prénom",
     "edit_genre": "Genre",
     "edit_male": "Homme",
     "edit_female": "Femme",
@@ -538,6 +562,11 @@
     "dua_final_fr": "Ô Allah, ne nous prive pas de sa récompense, ne nous éprouve pas après lui, et pardonne-nous ainsi qu'à lui.",
     "salam_fr": "Que la paix et la miséricorde d'Allah soient sur vous."
   },
+  "errors": {
+    "crash_title": "Oups, une erreur s'est produite",
+    "crash_message": "Une erreur inattendue s'est produite. Veuillez recharger l'application.",
+    "reload_button": "Recharger l'application"
+  },
   "contact": {
     "title": "Nous contacter",
     "intro": "Une question, une suggestion ou un problème ? Écrivez-nous, nous vous répondrons dans les meilleurs délais.",
@@ -581,6 +610,7 @@
     "preview_title": "Aperçu",
     "years_toggle": "Années de naissance et de décès",
     "years_toggle_description": "Désactiver si vous ne disposez pas de cette information",
+    "years_toggle_off_description": "Activer si vous disposez de cette information",
     "birth_year": "Année de naissance",
     "death_year": "Année de décès",
     "country": "Pays d'enterrement",
@@ -600,7 +630,7 @@
     "death_announcement": "Annonce de décès",
     "anonymous_announces": "Nous vous annonçons le décès de :",
     "family_announces_named": "La famille {{name}} est triste de vous annoncer le décès de :",
-    "family_announces_unnamed": "La famille est triste de vous annoncer le décès de :",
+    "family_announces_unnamed": "Nous vous annonçons avec tristesse le décès de :",
     "civility_male": "M.",
     "civility_female": "Mme",
     "civility_child": "L'enfant",
@@ -613,6 +643,8 @@
     "prayer_section": "Prière",
     "burial_prep_en": "Enterrement en",
     "burial_prep_au": "Enterrement au",
-    "burial_prep_aux": "Enterrement aux"
+    "burial_prep_aux": "Enterrement aux",
+    "optional": "optionnel",
+    "modal_title": "Informations complémentaires"
   }
 }

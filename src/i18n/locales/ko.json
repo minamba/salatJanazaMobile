@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "피드",
     "map": "모스크",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "예배 장소",
     "mosque_plural_world": "예배 장소",
     "world_all": "전 세계",
+    "all": "전체",
+    "filter": "필터",
+    "search_placeholder": "이름, 모스크, 도시, 국가…",
+    "search_no_results": "결과 없음",
     "address_banner": "근처 예배를 보려면 {{profile}}에서 주소를 설정하십시오",
     "profile_link": "프로필",
     "empty": "반경 내에 신고된 예배가 없습니다",
@@ -168,14 +172,20 @@
     "name_section": "고인의 이름",
     "name_anonymous": "익명으로 유지",
     "name_placeholder": "성명",
+    "nom_famille_placeholder": "성",
+    "prenom_placeholder": "이름",
     "info_section": "추가 정보",
     "info_placeholder": "세정 장소, 가족 정보...",
     "generate_announcement": "정보 / 공지 생성",
+    "complementary_btn": "추가 정보 / 미리보기",
     "publish": "예배 게시",
     "error_mosque": "모스크를 선택해 주십시오.",
     "error_date": "예배 날짜를 선택해 주십시오.",
     "error_name_title": "이름 누락",
-    "error_name_body": "고인의 이름을 입력하거나 \"익명으로 유지\"를 활성화하십시오.",
+    "error_name_body": "고인의 이름을 최소한 입력하거나 익명으로 유지 옵션을 활성화하세요.",
+    "error_duplicate_person": "이 시간에 이 모스크에서 이 사람을 위한 자나자가 이미 선언되었습니다.",
+    "error_inverted_name": "오늘 이 모스크에서 {{existing}}을 위한 자나자가 이미 선언되었습니다. 성과 이름이 뒤바뀐 것 같습니다.",
+    "error_publish_title": "게시 오류",
     "error_publish": "게시 오류. 연결을 확인하십시오.",
     "male": "남성",
     "female": "여성",
@@ -192,6 +202,10 @@
     "import_error_generic": "가져오기 중 오류가 발생했습니다.",
     "import_timeout": "시간이 초과되었습니다. 나중에 신고 내역을 확인하십시오.",
     "import_image_quality": "이미지 품질이 낮거나 읽기 어렵습니다. AI가 모스크 주소를 읽을 수 있도록 더 선명한 사진을 제공해 주십시오.",
+    "import_validate_btn": "신고 확인",
+    "import_banner": "전단에서 추출된 정보",
+    "import_banner_sub": "게시 전에 필요한 경우 검토하고 수정하세요.",
+    "import_cancel": "가져오기 취소",
     "import_verify_title": "정보 확인",
     "import_verify_body": "AI가 전단지에서 정보를 추출했습니다. 완벽하지 않을 수 있으니 모든 정보가 올바른지 확인해 주십시오.",
     "import_verify_time_unknown": "⚠️ 예배 시간이 00:00으로 설정되었습니다 — AI가 이 정보를 추출하지 못했습니다. 직접 입력해 주십시오.",
@@ -282,6 +296,8 @@
     "address_label": "집 주소",
     "address_placeholder": "전체 주소",
     "address_description": "근처 모스크까지의 거리를 계산하는 데 사용됩니다",
+    "address_invalid_title": "주소를 찾을 수 없음",
+    "address_invalid_message": "이 주소를 찾을 수 없습니다. 목록에서 제안을 선택하거나 유효한 주소를 입력해 주세요.",
     "radius_label": "알림 반경",
     "radius_description": "집 주변 이 반경 내의 예배 장소",
     "movement_title": "이동 알림",
@@ -314,6 +330,9 @@
     "delete_cancel": "취소",
     "delete_confirm": "영구 삭제",
     "history_title": "내 신고",
+    "history_title_monde": "세계 자나자",
+    "search_placeholder": "이름, 모스크, 도시, 국가…",
+    "search_no_results": "결과 없음",
     "history_empty": "현재 신고 내역이 없습니다",
     "history_expiry": "{{count}}일 후 삭제",
     "history_expiry_plural": "{{count}}일 후 삭제",
@@ -365,7 +384,8 @@
     "lang_pt": "Português",
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
-    "lang_es": "Español"
+    "lang_es": "Español",
+    "lang_bm": "Bamanankan"
   },
   "admin": {
     "title": "관리자",
@@ -415,6 +435,10 @@
     "edit_anonymous": "익명 고인",
     "edit_deceased_name": "고인 이름",
     "edit_deceased_placeholder": "전체 이름",
+    "edit_deceased_nom": "성",
+    "edit_deceased_nom_placeholder": "성",
+    "edit_deceased_prenom": "이름",
+    "edit_deceased_prenom_placeholder": "이름",
     "edit_genre": "성별",
     "edit_male": "남성",
     "edit_female": "여성",
@@ -532,6 +556,11 @@
     "dua_final_fr": "오 알라여, 그의 보상을 우리에게서 빼앗지 마시고, 그 이후 우리를 시험하지 마시며, 우리와 그를 모두 용서하여 주십시오.",
     "salam_fr": "알라의 평화와 자비가 여러분 위에 있기를 바랍니다."
   },
+  "errors": {
+    "crash_title": "오류가 발생했습니다",
+    "crash_message": "예기치 않은 오류가 발생했습니다. 앱을 다시 로드해 주세요.",
+    "reload_button": "앱 다시 로드"
+  },
   "contact": {
     "title": "문의하기",
     "intro": "질문, 제안 또는 문제가 있으신가요? 최대한 빨리 답변드리겠습니다.",
@@ -575,6 +604,7 @@
     "preview_title": "미리보기",
     "years_toggle": "출생 및 사망 연도",
     "years_toggle_description": "이 정보가 없는 경우 비활성화하세요",
+    "years_toggle_off_description": "이 정보가 있는 경우 활성화하세요",
     "birth_year": "출생 연도",
     "death_year": "사망 연도",
     "country": "매장 국가",
@@ -593,8 +623,8 @@
     "website": "salatjanaza.org",
     "death_announcement": "사망 공지",
     "anonymous_announces": "다음 분의 별세를 알려드립니다:",
-    "family_announces_named": "{{name}} 가족이 슬픔 속에 다음 분의 별세를 알려드립니다:",
-    "family_announces_unnamed": "가족이 슬픔 속에 다음 분의 별세를 알려드립니다:",
+    "family_announces_named": "{{name}} 삼가 다음 분의 별세를 알려드립니다:",
+    "family_announces_unnamed": "삼가 다음 분의 별세를 알려드립니다:",
     "civility_male": "故",
     "civility_female": "故",
     "civility_child": "어린이",
@@ -607,6 +637,8 @@
     "prayer_section": "예배",
     "burial_prep_en": "매장지:",
     "burial_prep_au": "매장지:",
-    "burial_prep_aux": "매장지:"
+    "burial_prep_aux": "매장지:",
+    "optional": "선택",
+    "modal_title": "추가 정보"
   }
 }

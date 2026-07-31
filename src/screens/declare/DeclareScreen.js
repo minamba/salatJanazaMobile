@@ -8,8 +8,10 @@ import {
 import { ComplementaryInfoModal } from './AnnouncementGenerator';
 import { DetailModal } from '../home/HomeScreen';
 import EditDeclarationModal from '../../components/EditDeclarationModal';
-import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
+import { capitalizeFirst, formatNomDefunt, buildNomDefunt, splitNomDefunt } from '../../utils/text';
+import { useTabNavigation } from '../../navigation/MainNavigator';
 import { searchPlacesByNameOSM } from '../../utils/mosqueSearch';
+import { geocodeAddress } from '../../utils/geocode';
 
 const GENRE_IMAGES = {
   homme: require('../../../assets/icons/homme.png'),
@@ -30,7 +32,8 @@ const EMPTY_FORM = {
   mosqueeLatitude: null,
   mosqueeLongitude: null,
   genre: 'homme',
-  nomDefunt: '',
+  nomFamille: '',
+  prenomDefunt: '',
   dateHeure: '',
   nomAnonyme: false,
   commentaire: '',
@@ -39,35 +42,6 @@ const EMPTY_FORM = {
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 }, (_, i) => i);
 const CAL_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
-
-
-function getUtcOffsetMinutes(ianaTimezone, refDate) {
-  try {
-    const d = refDate ?? new Date();
-    const formatter = new Intl.DateTimeFormat('en', { timeZone: ianaTimezone, timeZoneName: 'shortOffset' });
-    const parts = formatter.formatToParts(d);
-    const offsetStr = parts.find(p => p.type === 'timeZoneName')?.value ?? 'UTC';
-    const m = offsetStr.match(/GMT([+-])(\d+)(?::(\d+))?/);
-    if (!m) return 0;
-    const sign = m[1] === '+' ? 1 : -1;
-    return sign * (parseInt(m[2], 10) * 60 + parseInt(m[3] ?? '0', 10));
-  } catch {
-    return 0;
-  }
-}
-
-async function fetchTimezoneFromCoords(lat, lon) {
-  try {
-    const res = await fetch(
-      `https://timeapi.io/api/timezone/coordinate?latitude=${lat}&longitude=${lon}`,
-      { headers: { 'User-Agent': 'QabrApp/1.0' } }
-    );
-    const data = await res.json();
-    return data.timeZone ?? null;
-  } catch {
-    return null;
-  }
-}
 
 function CalendarModal({ visible, selectedDate, onSelect, onClose }) {
   const { i18n } = useTranslation();
@@ -115,26 +89,31 @@ function CalendarModal({ visible, selectedDate, onSelect, onClose }) {
                 {dayNames.map((d, i) => <Text key={i} style={styles.calDayName}>{d}</Text>)}
               </View>
               <View style={styles.calGrid}>
-                {cells.map((day, i) => {
-                  const isSelected = selectedDate && day === selectedDate.getDate()
-                    && viewMonth === selectedDate.getMonth() && viewYear === selectedDate.getFullYear();
-                  const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
-                  return (
-                    <TouchableOpacity
-                      key={i}
-                      style={[styles.calCell, isSelected && styles.calCellSelected, isToday && !isSelected && styles.calCellToday]}
-                      onPress={() => day && onSelect(new Date(viewYear, viewMonth, day))}
-                      disabled={!day}
-                      activeOpacity={0.7}
-                    >
-                      {day ? (
-                        <Text style={[styles.calCellText, isSelected && styles.calCellTextSelected, isToday && !isSelected && styles.calCellTextToday]}>
-                          {day}
-                        </Text>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
+                {Array.from({ length: Math.ceil(cells.length / 7) }, (_, ri) => (
+                  <View key={ri} style={styles.calRow}>
+                    {Array.from({ length: 7 }, (_, ci) => {
+                      const day = cells[ri * 7 + ci] ?? null;
+                      const isSelected = selectedDate && day === selectedDate.getDate()
+                        && viewMonth === selectedDate.getMonth() && viewYear === selectedDate.getFullYear();
+                      const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+                      return (
+                        <TouchableOpacity
+                          key={ci}
+                          style={[styles.calCell, isSelected && styles.calCellSelected, isToday && !isSelected && styles.calCellToday]}
+                          onPress={() => day && onSelect(new Date(viewYear, viewMonth, day))}
+                          disabled={!day}
+                          activeOpacity={0.7}
+                        >
+                          {day ? (
+                            <Text style={[styles.calCellText, isSelected && styles.calCellTextSelected, isToday && !isSelected && styles.calCellTextToday]}>
+                              {day}
+                            </Text>
+                          ) : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ))}
               </View>
             </View>
           </TouchableWithoutFeedback>
@@ -265,17 +244,8 @@ function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId })
     let lat = selectedLat;
     let lon = selectedLon;
     if (lat == null || lon == null) {
-      try {
-        const geoRes = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(adresse.trim())}&format=json&limit=1`,
-          { headers: { 'User-Agent': 'QabrApp/1.0 (contact@myjanaza.fr)' } }
-        );
-        const geoData = await geoRes.json();
-        if (geoData.length > 0) {
-          lat = parseFloat(geoData[0].lat);
-          lon = parseFloat(geoData[0].lon);
-        }
-      } catch { /* geocodage optionnel, on continue sans coordonnées */ }
+      const c = await geocodeAddress(adresse.trim()).catch(() => null);
+      if (c) { lat = c.lat; lon = c.lon; }
     }
     try {
       const res = await apiClient.post('/api/mosquee/suggestion', {
@@ -472,11 +442,13 @@ export default function DeclareScreen() {
   const apiUser = useSelector((state) => state.auth.apiUser);
   const [editDecl, setEditDecl] = useState(null);
   const janazaList = useSelector((state) => state.janazas.list);
+  const { pendingImport, setPendingImport } = useTabNavigation();
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
+  const [apiError, setApiError] = useState(null);
   const [mosqueSearch, setMosqueSearch] = useState('');
   const [mosqueResults, setMosqueResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -495,6 +467,50 @@ export default function DeclareScreen() {
   const [mosqueUtcOffsetMinutes, setMosqueUtcOffsetMinutes] = useState(0);
   const [defuntSearch, setDefuntSearch] = useState('');
   const [selectedDefunt, setSelectedDefunt] = useState(null);
+  // Pré-remplissage depuis un import flyer
+  useEffect(() => {
+    if (!pendingImport) return;
+    const split = splitNomDefunt(pendingImport.nomDefunt ?? '');
+    setForm({
+      ...EMPTY_FORM,
+      mosqueeId: `db_${pendingImport.mosqueeId}`,
+      mosqueeDbId: pendingImport.mosqueeId,
+      mosqueeNom: pendingImport.mosqueeNom ?? pendingImport.mosquee ?? '',
+      mosqueeAdresse: pendingImport.mosqueeAdresse ?? pendingImport.adresse ?? '',
+      mosqueeLatitude: pendingImport.latitude ?? null,
+      mosqueeLongitude: pendingImport.longitude ?? null,
+      genre: pendingImport.genre ?? 'homme',
+      nomFamille: split.nom,
+      prenomDefunt: split.prenom,
+      nomAnonyme: pendingImport.estAnonyme ?? false,
+      commentaire: pendingImport.commentaire ?? '',
+    });
+    const raw = pendingImport.dateHeurePriere;
+    if (raw) {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        setSelectedDate(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+        setSelectedHour(d.getUTCHours());
+        setSelectedMinute(d.getUTCMinutes());
+      }
+    }
+  }, [pendingImport]);
+
+  const importInitialValues = (() => {
+    if (!pendingImport) return null;
+    const birthYearVal = pendingImport.anneeNaissance > 0 ? pendingImport.anneeNaissance : null;
+    const deathYearVal = pendingImport.anneeDeces > 0 ? pendingImport.anneeDeces : null;
+    return {
+      country: pendingImport.paysEnterrement ?? '',
+      countryKnown: !!(pendingImport.paysEnterrement),
+      locationFrance: pendingImport.villeEnterrement ?? '',
+      showYears: !!birthYearVal,
+      birthYear: birthYearVal ?? 1950,
+      deathYear: deathYearVal ?? new Date().getFullYear(),
+      commentaire: pendingImport.commentaire ?? '',
+    };
+  })();
+
   // Recherche textuelle directe en DB, sans limite de rayon
   const searchDebounceRef = useRef(null);
   const latestQueryRef = useRef('');
@@ -587,16 +603,6 @@ export default function DeclareScreen() {
     setShowDrop(false);
     Keyboard.dismiss();
 
-    // Immediate fallback: device timezone (synchronous, avoids race condition on submission).
-    // Then refine with mosque's actual GPS timezone — handles all countries + multi-timezone ones (USA, etc.).
-    setMosqueUtcOffsetMinutes(-new Date().getTimezoneOffset());
-    if (mosque.latitude != null && mosque.longitude != null) {
-      fetchTimezoneFromCoords(mosque.latitude, mosque.longitude).then(ianaTimezone => {
-        if (!ianaTimezone) return;
-        const offset = getUtcOffsetMinutes(ianaTimezone, new Date());
-        setMosqueUtcOffsetMinutes(offset);
-      });
-    }
   }
 
   function clearMosque() {
@@ -650,75 +656,95 @@ export default function DeclareScreen() {
   }
 
   function handlePublishPress() {
-    if (!form.nomAnonyme && !form.nomDefunt?.trim()) {
+    if (!form.nomAnonyme && !form.nomFamille?.trim() && !form.prenomDefunt?.trim()) {
       Alert.alert(t('declare.error_name_title'), t('declare.error_name_body'));
       return;
     }
     const err = validate();
     if (err) { setError(err); return; }
-
-    if (announcementData?.country) {
-      doSubmit(announcementData);
-    } else {
-      setShowComplementaryInfo(true);
-    }
+    doSubmit(announcementData ?? importInitialValues);
   }
 
   async function doSubmit(extraData) {
-    if (!form.nomAnonyme && !form.nomDefunt?.trim()) {
+    if (!form.nomAnonyme && !form.nomFamille?.trim() && !form.prenomDefunt?.trim()) {
       Alert.alert(t('declare.error_name_title'), t('declare.error_name_body'));
       return;
     }
     setError(null);
     setLoading(true);
 
-    // Duplicate detection
-    if (selectedDate) {
+    // Duplicate detection — bloque uniquement si même personne (nom identique) dans la même mosquée au même créneau
+    if (selectedDate && !form.nomAnonyme) {
       const norm = (s) => (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-      const proposedDay = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
+      const builtNom = buildNomDefunt(form.nomFamille, form.prenomDefunt);
+      if (builtNom.trim()) {
+        const proposedDay = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
+        const exactDuplicate = janazaList.find((j) => {
+          if (!j.dateHeure || !j.nomDefunt) return false;
+          if (pendingImport && String(j.id) === String(pendingImport.id)) return false;
+          if (norm(j.nomDefunt) !== norm(builtNom)) return false;
+          const jDate = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
+          const jDay = `${jDate.getUTCFullYear()}-${jDate.getUTCMonth()}-${jDate.getUTCDate()}`;
+          if (jDay !== proposedDay || jDate.getUTCHours() !== selectedHour || jDate.getUTCMinutes() !== selectedMinute) return false;
+          if (form.mosqueeDbId) return String(j.mosqueeId) === String(form.mosqueeDbId);
+          return norm(j.mosquee) === norm(form.mosqueeNom);
+        });
+        if (exactDuplicate) {
+          setApiError(t('declare.error_duplicate_person'));
+          setLoading(false);
+          return;
+        }
 
-      const sameHourConflict = janazaList.find((j) => {
-        if (!j.dateHeure) return false;
-        const jDate = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
-        // Wall-clock stored as UTC — compare UTC fields directly
-        const jDay = `${jDate.getUTCFullYear()}-${jDate.getUTCMonth()}-${jDate.getUTCDate()}`;
-        if (jDay !== proposedDay || jDate.getUTCHours() !== selectedHour || jDate.getUTCMinutes() !== selectedMinute) return false;
-        if (form.mosqueeDbId) return String(j.mosqueeId) === String(form.mosqueeDbId);
-        return norm(j.mosquee) === norm(form.mosqueeNom);
-      });
-
-      if (sameHourConflict) {
-        const isExactDuplicate = !form.nomAnonyme && form.nomDefunt?.trim()
-          && norm(sameHourConflict.nomDefunt) === norm(form.nomDefunt);
-        setError(
-          isExactDuplicate
-            ? 'Une janaza a déjà été déclarée pour cette personne dans cette mosquée à cette heure.'
-            : 'Une salat janaza est déjà programmée pour cette heure dans cette mosquée.'
-        );
-        setLoading(false);
-        return;
+        // Inverted name detection: "DRAME Saro" vs "SARO Drame" → même personne
+        if (form.nomFamille.trim() && form.prenomDefunt.trim()) {
+          const normNom    = norm(form.nomFamille);
+          const normPrenom = norm(form.prenomDefunt);
+          const invertedDuplicate = janazaList.find((j) => {
+            if (!j.nomDefunt) return false;
+            if (pendingImport && String(j.id) === String(pendingImport.id)) return false;
+            const split = splitNomDefunt(j.nomDefunt);
+            if (!split.nom || !split.prenom) return false;
+            if (norm(split.nom) !== normPrenom || norm(split.prenom) !== normNom) return false;
+            const jDate = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
+            const jDay = `${jDate.getUTCFullYear()}-${jDate.getUTCMonth()}-${jDate.getUTCDate()}`;
+            if (jDay !== proposedDay) return false;
+            if (form.mosqueeDbId) return String(j.mosqueeId) === String(form.mosqueeDbId);
+            return norm(j.mosquee) === norm(form.mosqueeNom);
+          });
+          if (invertedDuplicate) {
+            setApiError(t('declare.error_inverted_name', { existing: formatNomDefunt(invertedDuplicate.nomDefunt) }));
+            setLoading(false);
+            return;
+          }
+        }
       }
     }
 
     try {
       const mosqueeApiId = await resolveMosqueeApiId();
       const dateHeure = buildDateHeure() ?? new Date();
-      console.log('[Declare] apiUser.id:', apiUser?.id, 'mosqueeApiId:', mosqueeApiId);
 
-      const res = await apiClient.post('/api/prierejanaza', {
+      const payload = {
         mosqueeId: mosqueeApiId,
         utilisateurId: apiUser?.id ?? apiUser?.Id ?? null,
-        nomDefunt: form.nomAnonyme ? null : form.nomDefunt || null,
+        nomDefunt: form.nomAnonyme ? null : buildNomDefunt(form.nomFamille, form.prenomDefunt) || null,
         estAnonyme: form.nomAnonyme,
         genre: form.genre,
         dateHeurePriere: dateHeure.toISOString(),
-        utcOffsetMinutes: mosqueUtcOffsetMinutes,
+        utcOffsetMinutes: 0,
         commentaire: extraData?.commentaire || null,
         paysEnterrement: extraData?.country || null,
         villeEnterrement: extraData?.locationFrance || null,
         anneeNaissance: (extraData?.showYears && extraData?.birthYear) ? extraData.birthYear : null,
         anneeDeces: (extraData?.showYears && extraData?.deathYear) ? extraData.deathYear : null,
-      });
+      };
+
+      const endpoint = pendingImport
+        ? `/api/prierejanaza/${pendingImport.id}/publish`
+        : '/api/prierejanaza';
+      const res = pendingImport
+        ? await apiClient.post(endpoint, payload)
+        : await apiClient.post(endpoint, payload);
 
       const created = res.data;
 
@@ -744,10 +770,10 @@ export default function DeclareScreen() {
           latitude: form.mosqueeLatitude,
           longitude: form.mosqueeLongitude,
           dateHeure,
-          utcOffsetMinutes: mosqueUtcOffsetMinutes,
+          utcOffsetMinutes: 0,
           statut: isNewLieu ? 'en_attente' : 'a_venir',
           genre: form.genre,
-          nomDefunt: form.nomAnonyme ? '' : form.nomDefunt,
+          nomDefunt: form.nomAnonyme ? '' : buildNomDefunt(form.nomFamille, form.prenomDefunt),
           estAnonyme: form.nomAnonyme,
           commentaire: form.commentaire,
           declarantEmail: user?.email ?? '',
@@ -757,6 +783,15 @@ export default function DeclareScreen() {
           anneeDeces: (extraData?.showYears && extraData?.deathYear) ? extraData.deathYear : null,
         },
       });
+
+      apiClient.get('/api/prierejanaza/upcoming')
+        .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
+        .catch(() => {});
+      if (user?.id) {
+        apiClient.get(`/api/prierejanaza/utilisateur/${user.id}`)
+          .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+          .catch(() => {});
+      }
 
       const wasNewLieu = isNewLieu;
       setForm(EMPTY_FORM);
@@ -769,11 +804,13 @@ export default function DeclareScreen() {
       setAnnouncementData(null);
       setIsNewLieu(false);
       setMosqueUtcOffsetMinutes(0);
+      setPendingImport(null);
       Keyboard.dismiss();
       setSuccess(wasNewLieu ? 'pending' : true);
     } catch (e) {
       console.error('handleSubmit error:', e?.response?.status, e?.response?.data, e?.message);
-      setError(t('declare.error_publish'));
+      const serverMsg = e?.response?.data?.error || e?.response?.data?.title || null;
+      setApiError(serverMsg || t('declare.error_publish'));
     } finally {
       setLoading(false);
     }
@@ -790,6 +827,19 @@ export default function DeclareScreen() {
             <View style={styles.errorBox}>
               <Ionicons name="alert-circle-outline" size={18} color={colors.error} />
               <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          {pendingImport && (
+            <View style={styles.importBanner}>
+              <Ionicons name="scan-outline" size={16} color="#92400e" style={{ flexShrink: 0 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.importBannerTitle}>{t('declare.import_banner')}</Text>
+                <Text style={styles.importBannerSub}>{t('declare.import_banner_sub')}</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setPendingImport(null); setForm(EMPTY_FORM); setSelectedDate(null); setSelectedHour(12); setSelectedMinute(0); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={18} color="#92400e" />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -985,13 +1035,30 @@ export default function DeclareScreen() {
               <Switch value={form.nomAnonyme} onValueChange={set('nomAnonyme')} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.white} />
             </View>
             {!form.nomAnonyme && (
-              <View style={styles.inputWrapper}>
-                <Ionicons name="person-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
-                <TextInput style={styles.inputWithIcon} placeholder={t('declare.name_placeholder')} placeholderTextColor={colors.textMuted} value={form.nomDefunt} onChangeText={set('nomDefunt')} />
-              </View>
+              <>
+                <Text style={styles.fieldLabel}>{t('admin.edit_deceased_nom')}</Text>
+                <View style={[styles.inputWrapper, { marginBottom: spacing.sm }]}>
+                  <Ionicons name="person-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput style={styles.inputWithIcon} placeholder={t('declare.nom_famille_placeholder')} placeholderTextColor={colors.textMuted} value={form.nomFamille} onChangeText={set('nomFamille')} />
+                </View>
+                <Text style={styles.fieldLabel}>{t('admin.edit_deceased_prenom')}</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="person-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput style={styles.inputWithIcon} placeholder={t('declare.prenom_placeholder')} placeholderTextColor={colors.textMuted} value={form.prenomDefunt} onChangeText={set('prenomDefunt')} />
+                </View>
+              </>
             )}
           </View>
 
+
+          <TouchableOpacity
+            style={[styles.btn, styles.btnOutline, styles.btnComplementary, (announcementData || importInitialValues) && styles.btnComplementaryFilled]}
+            onPress={() => setShowComplementaryInfo(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name={(announcementData || importInitialValues) ? 'checkmark-circle-outline' : 'information-circle-outline'} size={18} color={(announcementData || importInitialValues) ? colors.success : colors.primary} />
+            <Text style={[styles.btnTextOutline, (announcementData || importInitialValues) && { color: colors.success }]}>{t('declare.complementary_btn')}</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handlePublishPress} disabled={loading} activeOpacity={0.8}>
             {loading ? (
@@ -1003,6 +1070,25 @@ export default function DeclareScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          {pendingImport && (
+            <TouchableOpacity
+              style={styles.cancelImportBtn}
+              onPress={() => {
+                setPendingImport(null);
+                setForm(EMPTY_FORM);
+                setSelectedDate(null);
+                setSelectedHour(12);
+                setSelectedMinute(0);
+                setAnnouncementData(null);
+                setError(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
+              <Text style={styles.cancelImportText}>{t('declare.import_cancel')}</Text>
+            </TouchableOpacity>
+          )}
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -1031,10 +1117,11 @@ export default function DeclareScreen() {
       />
 
       <ComplementaryInfoModal
+        key={pendingImport?.id ?? 'new'}
         visible={showComplementaryInfo}
-        onClose={() => setShowComplementaryInfo(false)}
-        initialValues={announcementData}
-        form={form}
+        onClose={(draft) => { setShowComplementaryInfo(false); if (draft) setAnnouncementData(draft); }}
+        initialValues={announcementData ?? importInitialValues}
+        form={{ ...form, nomDefunt: buildNomDefunt(form.nomFamille, form.prenomDefunt) }}
         date={selectedDate ? new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())) : null}
         hour={selectedHour}
         minute={selectedMinute}
@@ -1079,6 +1166,11 @@ export default function DeclareScreen() {
             apiClient.get('/api/prierejanaza/upcoming')
               .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
               .catch(() => {});
+            if (apiUser?.id) {
+              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+            }
           }}
         />
       )}
@@ -1097,6 +1189,22 @@ export default function DeclareScreen() {
               {success === 'pending' ? t('declare.nouveau_lieu_pending') : t('declare.success_popup_body')}
             </Text>
             <TouchableOpacity style={styles.successModalBtn} onPress={() => setSuccess(false)} activeOpacity={0.8}>
+              <Text style={styles.successModalBtnText}>{t('declare.success_popup_close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Popup erreur API */}
+      <Modal transparent animationType="fade" visible={!!apiError} onRequestClose={() => setApiError(null)}>
+        <View style={styles.successOverlay}>
+          <View style={styles.successModal}>
+            <View style={[styles.successIconCircle, { backgroundColor: 'rgba(220,38,38,0.1)' }]}>
+              <Ionicons name="close-circle" size={48} color={colors.error} />
+            </View>
+            <Text style={[styles.successModalTitle, { color: colors.error }]}>{t('declare.error_publish_title')}</Text>
+            <Text style={styles.successModalBody}>{apiError}</Text>
+            <TouchableOpacity style={[styles.successModalBtn, { backgroundColor: colors.error }]} onPress={() => setApiError(null)} activeOpacity={0.8}>
               <Text style={styles.successModalBtnText}>{t('declare.success_popup_close')}</Text>
             </TouchableOpacity>
           </View>
@@ -1161,6 +1269,7 @@ const styles = StyleSheet.create({
 
   anonymeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
   anonymeLabel: { ...typography.body },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.textMuted, marginBottom: 4, marginLeft: 2 },
 
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.md, marginTop: spacing.sm },
   btnDisabled: { opacity: 0.6 },
@@ -1197,8 +1306,9 @@ const styles = StyleSheet.create({
   calMonthTitle: { ...typography.h3, textTransform: 'capitalize' },
   calDayNamesRow: { flexDirection: 'row', marginBottom: spacing.sm },
   calDayName: { flex: 1, textAlign: 'center', ...typography.caption, fontWeight: '700', color: colors.textMuted },
-  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
+  calGrid: {},
+  calRow: { flexDirection: 'row' },
+  calCell: { flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   calCellSelected: { backgroundColor: colors.primary },
   calCellToday: { borderWidth: 1.5, borderColor: colors.primary },
   calCellText: { fontSize: 14, fontWeight: '500', color: colors.text },
@@ -1214,4 +1324,18 @@ const styles = StyleSheet.create({
   comboItemSelected: { backgroundColor: colors.primaryDim },
   comboItemText: { fontSize: 18, fontWeight: '500', color: colors.text },
   comboItemTextSelected: { color: colors.primary, fontWeight: '700' },
+  importBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,
+    backgroundColor: '#fef3c7', borderRadius: radius.md,
+    borderWidth: 1, borderColor: '#f59e0b',
+    paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
+  importBannerTitle: { fontSize: 13, fontWeight: '700', color: '#92400e', marginBottom: 2 },
+  importBannerSub: { fontSize: 12, color: '#92400e', lineHeight: 16 },
+
+  btnComplementary: { marginTop: spacing.md },
+  btnComplementaryFilled: { borderColor: colors.success },
+  cancelImportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.sm, paddingVertical: spacing.sm },
+  cancelImportText: { fontSize: 14, color: colors.textMuted },
 });

@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "Beranda",
     "map": "Masjid",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "tempat sholat",
     "mosque_plural_world": "tempat sholat",
     "world_all": "Seluruh dunia",
+    "all": "Semua",
+    "filter": "Filter",
+    "search_placeholder": "Nama, masjid, kota, negara…",
+    "search_no_results": "Tidak ada hasil",
     "address_banner": "Masukkan alamat Anda di {{profile}} untuk melihat sholat di dekat Anda",
     "profile_link": "Profil",
     "empty": "Tidak ada sholat yang dilaporkan dalam radius Anda",
@@ -168,14 +172,20 @@
     "name_section": "Nama almarhum/ah",
     "name_anonymous": "Tetap anonim",
     "name_placeholder": "Nama lengkap",
+    "nom_famille_placeholder": "Nama keluarga",
+    "prenom_placeholder": "Nama depan",
     "info_section": "Informasi tambahan",
     "info_placeholder": "Tempat pemandian, informasi keluarga...",
     "generate_announcement": "Informasi / Buat pengumuman",
+    "complementary_btn": "Informasi tambahan / Pratinjau",
     "publish": "Terbitkan sholat",
     "error_mosque": "Harap pilih masjid.",
     "error_date": "Harap pilih tanggal sholat.",
-    "error_name_title": "Nama tidak ada",
-    "error_name_body": "Harap masukkan nama lengkap almarhum/ah, atau aktifkan \"Tetap anonim\".",
+    "error_name_title": "Nama depan diperlukan",
+    "error_name_body": "Masukkan setidaknya nama depan almarhum/ah, atau aktifkan opsi Tetap anonim.",
+    "error_duplicate_person": "Janaza untuk orang ini sudah dideklarasikan di masjid ini pada waktu ini.",
+    "error_inverted_name": "Janaza untuk {{existing}} sudah dideklarasikan di masjid ini hari ini. Nama depan dan belakang mungkin tertukar.",
+    "error_publish_title": "Kesalahan penerbitan",
     "error_publish": "Terjadi kesalahan saat menerbitkan. Periksa koneksi Anda.",
     "male": "Laki-laki",
     "female": "Perempuan",
@@ -192,6 +202,10 @@
     "import_error_generic": "Terjadi kesalahan saat mengimpor.",
     "import_timeout": "Waktu habis. Periksa laporan Anda nanti.",
     "import_image_quality": "Gambar berkualitas buruk atau tidak terbaca. Harap berikan foto yang lebih jelas agar AI dapat membaca alamat masjid.",
+    "import_validate_btn": "Validasi deklarasi",
+    "import_banner": "Informasi yang diekstrak dari brosur",
+    "import_banner_sub": "Tinjau dan koreksi jika perlu sebelum menerbitkan.",
+    "import_cancel": "Batalkan impor",
     "import_verify_title": "Verifikasi informasi",
     "import_verify_body": "AI telah mengekstrak informasi dari flyer. AI tidak sempurna: verifikasi bahwa semua informasi sudah benar.",
     "import_verify_time_unknown": "⚠️ Waktu sholat adalah 00:00 — AI tidak dapat mengekstrak informasi ini. Harap isi secara manual.",
@@ -282,6 +296,8 @@
     "address_label": "Alamat rumah",
     "address_placeholder": "Alamat lengkap Anda",
     "address_description": "Digunakan untuk menghitung jarak masjid terdekat",
+    "address_invalid_title": "Alamat tidak ditemukan",
+    "address_invalid_message": "Tidak dapat menemukan alamat ini. Silakan pilih saran dari daftar atau masukkan alamat yang valid.",
     "radius_label": "Radius notifikasi",
     "radius_description": "Tempat sholat dalam radius ini di sekitar rumah Anda",
     "movement_title": "Notifikasi saat bergerak",
@@ -314,6 +330,9 @@
     "delete_cancel": "Batal",
     "delete_confirm": "Hapus permanen",
     "history_title": "Laporan saya",
+    "history_title_monde": "Janaza dunia",
+    "search_placeholder": "Nama, masjid, kota, negara…",
+    "search_no_results": "Tidak ada hasil",
     "history_empty": "Belum ada laporan",
     "history_expiry": "Dihapus dalam {{count}} hari",
     "history_expiry_plural": "Dihapus dalam {{count}} hari",
@@ -365,7 +384,8 @@
     "lang_pt": "Português",
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
-    "lang_es": "Español"
+    "lang_es": "Español",
+    "lang_bm": "Bamanankan"
   },
   "admin": {
     "title": "Administrasi",
@@ -415,6 +435,10 @@
     "edit_anonymous": "Almarhum/ah anonim",
     "edit_deceased_name": "Nama almarhum/ah",
     "edit_deceased_placeholder": "Nama lengkap",
+    "edit_deceased_nom": "Nama keluarga",
+    "edit_deceased_nom_placeholder": "Nama keluarga",
+    "edit_deceased_prenom": "Nama depan",
+    "edit_deceased_prenom_placeholder": "Nama depan",
     "edit_genre": "Jenis kelamin",
     "edit_male": "Laki-laki",
     "edit_female": "Perempuan",
@@ -532,6 +556,11 @@
     "dua_final_fr": "Ya Allah, janganlah Engkau halangi kami dari pahalanya, janganlah Engkau uji kami setelah kepergiannya, dan ampunilah kami serta dia.",
     "salam_fr": "Semoga keselamatan dan rahmat Allah terlimpah kepada kalian."
   },
+  "errors": {
+    "crash_title": "Terjadi kesalahan",
+    "crash_message": "Kesalahan tak terduga telah terjadi. Silakan muat ulang aplikasi.",
+    "reload_button": "Muat ulang aplikasi"
+  },
   "contact": {
     "title": "Hubungi kami",
     "intro": "Ada pertanyaan, saran, atau masalah? Tulis kepada kami, kami akan membalas sesegera mungkin.",
@@ -575,6 +604,7 @@
     "preview_title": "Pratinjau",
     "years_toggle": "Tahun lahir dan meninggal",
     "years_toggle_description": "Nonaktifkan jika Anda tidak memiliki informasi ini",
+    "years_toggle_off_description": "Aktifkan jika Anda memiliki informasi ini",
     "birth_year": "Tahun lahir",
     "death_year": "Tahun meninggal",
     "country": "Negara pemakaman",
@@ -594,7 +624,7 @@
     "death_announcement": "Pengumuman kematian",
     "anonymous_announces": "Kami mengumumkan wafatnya:",
     "family_announces_named": "Keluarga {{name}} dengan berduka cita mengumumkan wafatnya:",
-    "family_announces_unnamed": "Keluarga dengan berduka cita mengumumkan wafatnya:",
+    "family_announces_unnamed": "Kami dengan berduka cita mengumumkan wafatnya:",
     "civility_male": "Tn.",
     "civility_female": "Ny.",
     "civility_child": "Anak",
@@ -607,6 +637,8 @@
     "prayer_section": "Sholat",
     "burial_prep_en": "Pemakaman di",
     "burial_prep_au": "Pemakaman di",
-    "burial_prep_aux": "Pemakaman di"
+    "burial_prep_aux": "Pemakaman di",
+    "optional": "opsional",
+    "modal_title": "Informasi tambahan"
   }
 }

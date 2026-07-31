@@ -163,16 +163,30 @@ function YearPickerModal({ visible, selected, onSelect, onClose, title }) {
 
 // ─── Announcement Preview (the captured view) ─────────────────────────────────
 
-const PREVIEW_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
+const PREVIEW_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES', bm: 'fr-FR' };
 
-const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data }, ref) {
-  const { t, i18n } = useTranslation();
+const PREVIEW_LANGS = [
+  { code: 'fr', flag: '🇫🇷' }, { code: 'en', flag: '🇬🇧' }, { code: 'ar', flag: '🇸🇦' },
+  { code: 'tr', flag: '🇹🇷' }, { code: 'de', flag: '🇩🇪' }, { code: 'es', flag: '🇪🇸' },
+  { code: 'it', flag: '🇮🇹' }, { code: 'pt', flag: '🇵🇹' }, { code: 'ru', flag: '🇷🇺' },
+  { code: 'ja', flag: '🇯🇵' }, { code: 'ko', flag: '🇰🇷' }, { code: 'ms', flag: '🇲🇾' },
+  { code: 'id', flag: '🇮🇩' }, { code: 'ur', flag: '🇵🇰' }, { code: 'bn', flag: '🇧🇩' },
+  { code: 'bm', flag: '🇲🇱' },
+];
+
+const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data, previewLang }, ref) {
+  const { t: tGlobal, i18n } = useTranslation();
+  const t = previewLang ? i18n.getFixedT(previewLang) : tGlobal;
   const { familleNom, nomDefunt, nomAnonyme, genre, mosqueeNom, mosqueeAdresse, date, hour, minute, birthYear, deathYear, country, locationFrance, showYears, commentaire } = data;
 
-  const dateLocale = PREVIEW_LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
+  const dateLocale = PREVIEW_LOCALE_MAP[(previewLang ?? i18n.language)?.split('-')[0]] ?? 'fr-FR';
 
-  const civilite = genre === 'femme' ? t('announcement.civility_female') : genre === 'enfant' ? t('announcement.civility_child') : t('announcement.civility_male');
-  const nameDisplay = nomAnonyme ? null : (parseNomDefunt(nomDefunt ?? '').display || null);
+  const parsedNom = parseNomDefunt(nomDefunt ?? '');
+  const hasLastName = !!parsedNom.familleNom;
+  const civilite = hasLastName
+    ? (genre === 'femme' ? t('announcement.civility_female') : genre === 'enfant' ? t('announcement.civility_child') : t('announcement.civility_male'))
+    : '';
+  const nameDisplay = nomAnonyme ? null : (parsedNom.display || null);
   const anonymousLabel = genre === 'femme'
     ? t('announcement.sister_community')
     : genre === 'enfant'
@@ -230,7 +244,7 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
             </>
           ) : (
             <Text style={styles.prevName}>
-              <Text style={styles.prevCivilite}>{civilite} </Text>
+              {civilite ? <Text style={styles.prevCivilite}>{civilite} </Text> : null}
               {nameDisplay ? nameDisplay.toUpperCase() : ''}
             </Text>
           )}
@@ -296,9 +310,11 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
 // ─── Main Modal (2-step: form → preview) ──────────────────────────────────────
 
 export default function AnnouncementGeneratorModal({ visible, onClose, onDataChange, onPublish, publishLabel, form, date, hour, minute, initialValues }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
   const [step, setStep] = useState('form');
+  const [previewLang, setPreviewLang] = useState(() => i18n.language?.split('-')[0] ?? 'fr');
+  useEffect(() => { setPreviewLang(i18n.language?.split('-')[0] ?? 'fr'); }, [i18n.language]);
   const [showYears, setShowYears] = useState(false);
   const [birthYear, setBirthYear] = useState(1950);
   const [deathYear, setDeathYear] = useState(CURRENT_YEAR);
@@ -321,29 +337,35 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
     return () => { show.remove(); hide.remove(); };
   }, []);
 
+  // Initialize state once on mount (remount via key= when item changes)
   useEffect(() => {
-    if (!visible) {
-      setStep('form');
-      setShowYears(false);
-    } else {
-      setCommentaire(form?.commentaire ?? '');
-      setLocationFrance(initialValues?.locationFrance ?? '');
-      if (initialValues?.showYears) setShowYears(true);
-      if (initialValues?.birthYear != null) setBirthYear(initialValues.birthYear);
-      if (initialValues?.deathYear != null) setDeathYear(initialValues.deathYear);
-      const known = initialValues?.countryKnown ?? true;
-      setCountryKnown(known);
-      const presetCountry = initialValues?.country;
-      if (presetCountry) {
-        setCountry(presetCountry);
-      } else if (known) {
-        detectCountryFromIP().then(c => { if (c) setCountry(c); });
-      }
+    // commentaire: prefer initialValues (read from item prop, always fresh) over form state (may be stale at mount)
+    setCommentaire(initialValues?.commentaire !== undefined ? (initialValues.commentaire ?? '') : (form?.commentaire ?? ''));
+    setLocationFrance(initialValues?.locationFrance ?? '');
+    if (initialValues?.showYears) setShowYears(true);
+    if (initialValues?.birthYear != null) setBirthYear(initialValues.birthYear);
+    if (initialValues?.deathYear != null) setDeathYear(initialValues.deathYear);
+    const known = initialValues?.countryKnown ?? true;
+    setCountryKnown(known);
+    const presetCountry = initialValues?.country;
+    if (presetCountry) {
+      setCountry(presetCountry);
+    } else if (known) {
+      detectCountryFromIP().then(c => { if (c) setCountry(c); });
     }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset to form step when closing (not state — state persists across open/close)
+  useEffect(() => {
+    if (!visible) setStep('form');
   }, [visible]);
 
   const rawNom = form?.nomAnonyme ? '' : (form?.nomDefunt ?? '');
   const familleNom = parseNomDefunt(rawNom).familleNom;
+
+  function handleClose() {
+    onClose({ showYears, birthYear, deathYear, country, countryKnown, locationFrance, commentaire });
+  }
 
   const previewData = {
     familleNom,
@@ -379,7 +401,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   }
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal transparent animationType="slide" visible={visible} onRequestClose={handleClose}>
       <SafeAreaProvider>
       <SafeAreaView style={[styles.container, step === 'preview' && { justifyContent: 'flex-start' }]} edges={['top', 'bottom']}>
 
@@ -391,7 +413,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
           >
             <View style={styles.formHandle} />
             <View style={styles.formTopBar}>
-              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close" size={22} color={colors.text} />
               </TouchableOpacity>
               <Text style={styles.formTitle}>{t('announcement.title')}</Text>
@@ -405,7 +427,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
                 <View style={{ flex: 1 }}>
                   <Text style={styles.toggleLabel}>{t('announcement.years_toggle')}</Text>
                   <Text style={styles.toggleDesc}>
-                    {showYears ? t('announcement.years_toggle_description') : 'Activer si vous disposez de cette information'}
+                    {showYears ? t('announcement.years_toggle_description') : t('announcement.years_toggle_off_description')}
                   </Text>
                 </View>
                 <Switch
@@ -421,7 +443,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
                 <>
                   <View style={styles.formLabelRow}>
                     <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.birth_year')}</Text>
-                    <Text style={styles.formLabelOptional}>optionnel</Text>
+                    <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
                   </View>
                   <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowBirth(true)} activeOpacity={0.7}>
                     <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
@@ -431,7 +453,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
 
                   <View style={styles.formLabelRow}>
                     <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.death_year')}</Text>
-                    <Text style={styles.formLabelOptional}>optionnel</Text>
+                    <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
                   </View>
                   <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowDeath(true)} activeOpacity={0.7}>
                     <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
@@ -444,7 +466,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
               {/* Informations supplémentaires */}
               <View style={styles.formLabelRow}>
                 <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('declare.info_section')}</Text>
-                <Text style={styles.formLabelOptional}>optionnel</Text>
+                <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
               </View>
               <View style={[styles.formInputRow, { alignItems: 'flex-start', paddingTop: spacing.sm }]}>
                 <Ionicons name="chatbubble-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm, marginTop: 2 }} />
@@ -485,8 +507,8 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
 
               {/* Lieu */}
               <View style={styles.formLabelRow}>
-                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>Ville / lieu d'enterrement</Text>
-                <Text style={styles.formLabelOptional}>optionnel</Text>
+                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.location')}</Text>
+                <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
               </View>
               <View style={styles.formInputRow}>
                 <Ionicons name="location-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
@@ -514,7 +536,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
                   onPublish(data);
                 }} activeOpacity={0.8}>
                   <Ionicons name={publishLabel ? 'checkmark-outline' : 'megaphone-outline'} size={18} color={colors.white} />
-                  <Text style={styles.formBtnText}>{publishLabel ?? 'Publier la prière'}</Text>
+                  <Text style={styles.formBtnText}>{publishLabel ?? t('declare.publish')}</Text>
                 </TouchableOpacity>
               )}
             </ScrollView>
@@ -541,8 +563,19 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
                 }
               </TouchableOpacity>
             </View>
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.md }}>
-              <AnnouncementPreview ref={viewRef} data={previewData} />
+            <ScrollView style={{ flex: 1 }} stickyHeaderIndices={[0]}>
+              <View style={styles.langBar}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 44 }} contentContainerStyle={{ paddingHorizontal: spacing.sm, alignItems: 'center', height: 44 }}>
+                  {PREVIEW_LANGS.map(({ code, flag }) => (
+                    <TouchableOpacity key={code} onPress={() => setPreviewLang(code)} style={[styles.langBtn, previewLang === code && styles.langBtnActive]} hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}>
+                      <Text style={styles.langFlag}>{flag}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+              <View style={{ padding: spacing.md }}>
+                <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} />
+              </View>
             </ScrollView>
           </View>
         )}
@@ -560,7 +593,9 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
 // ─── JanazaShareModal (aperçu direct depuis le fil / les cards) ──────────────
 
 export function JanazaShareModal({ visible, onClose, janaza }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [previewLang, setPreviewLang] = useState(() => i18n.language?.split('-')[0] ?? 'fr');
+  useEffect(() => { setPreviewLang(i18n.language?.split('-')[0] ?? 'fr'); }, [i18n.language]);
   const [sharing, setSharing] = useState(false);
   const [topInset, setTopInset] = useState(Platform.OS === 'ios' ? 59 : 24);
   const viewRef = useRef(null);
@@ -632,8 +667,19 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
             }
           </TouchableOpacity>
         </View>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.md }}>
-          <AnnouncementPreview ref={viewRef} data={previewData} />
+        <ScrollView style={{ flex: 1 }} stickyHeaderIndices={[0]}>
+          <View style={styles.langBar}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 44 }} contentContainerStyle={{ paddingHorizontal: spacing.sm, alignItems: 'center', height: 44 }}>
+              {PREVIEW_LANGS.map(({ code, flag }) => (
+                <TouchableOpacity key={code} onPress={() => setPreviewLang(code)} style={[styles.langBtn, previewLang === code && styles.langBtnActive]} hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}>
+                  <Text style={styles.langFlag}>{flag}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+          <View style={{ padding: spacing.md }}>
+            <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} />
+          </View>
         </ScrollView>
       </View>
     </Modal>
@@ -643,7 +689,9 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
 // ─── ComplementaryInfoModal ───────────────────────────────────────────────────
 
 export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValues, form, date, hour, minute }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [previewLang, setPreviewLang] = useState(() => i18n.language?.split('-')[0] ?? 'fr');
+  useEffect(() => { setPreviewLang(i18n.language?.split('-')[0] ?? 'fr'); }, [i18n.language]);
   const [step, setStep] = useState('form');
   const [sharing, setSharing] = useState(false);
   const [showYears, setShowYears] = useState(false);
@@ -661,6 +709,10 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
 
   const rawNom = form?.nomAnonyme ? '' : (form?.nomDefunt ?? '');
   const familleNom = parseNomDefunt(rawNom).familleNom;
+
+  function handleClose() {
+    onClose({ showYears, birthYear, deathYear, country, countryKnown, locationFrance, commentaire });
+  }
 
   const previewData = {
     familleNom,
@@ -695,27 +747,30 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
     }
   }
 
+  // Initialize state once on mount (remount via key= when import/item changes)
   useEffect(() => {
-    if (visible) {
-      setStep('form');
-      setShowYears(initialValues?.showYears ?? false);
-      setBirthYear(initialValues?.birthYear ?? 1950);
-      setDeathYear(initialValues?.deathYear ?? CURRENT_YEAR);
-      setLocationFrance(initialValues?.locationFrance ?? '');
-      setCommentaire(initialValues?.commentaire ?? '');
-      const known = initialValues?.countryKnown ?? true;
-      setCountryKnown(known);
-      if (initialValues?.country) {
-        setCountry(initialValues.country);
-      } else {
-        setCountry('');
-        if (known) detectCountryFromIP().then(c => { if (c) setCountry(c); });
-      }
+    setShowYears(initialValues?.showYears ?? false);
+    setBirthYear(initialValues?.birthYear ?? 1950);
+    setDeathYear(initialValues?.deathYear ?? CURRENT_YEAR);
+    setLocationFrance(initialValues?.locationFrance ?? '');
+    setCommentaire(initialValues?.commentaire ?? '');
+    const known = initialValues?.countryKnown ?? true;
+    setCountryKnown(known);
+    if (initialValues?.country) {
+      setCountry(initialValues.country);
+    } else {
+      setCountry('');
+      if (known) detectCountryFromIP().then(c => { if (c) setCountry(c); });
     }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Return to form step on open (not state — state persists across open/close)
+  useEffect(() => {
+    if (visible) setStep('form');
   }, [visible]);
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={step === 'preview' ? () => setStep('form') : onClose}>
+    <Modal transparent animationType="slide" visible={visible} onRequestClose={step === 'preview' ? () => setStep('form') : handleClose}>
 
       {/* ── Step 1 : Formulaire ── */}
       {step === 'form' && (
@@ -727,10 +782,10 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
           >
               <View style={styles.formHandle} />
               <View style={styles.formTopBar}>
-                <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="close" size={22} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={styles.formTitle}>Informations complémentaires</Text>
+                <Text style={styles.formTitle}>{t('announcement.modal_title')}</Text>
                 <View style={{ width: 22 }} />
               </View>
 
@@ -739,7 +794,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                 <View style={{ flex: 1 }}>
                   <Text style={styles.toggleLabel}>{t('announcement.years_toggle')}</Text>
                   <Text style={styles.toggleDesc}>
-                    {showYears ? t('announcement.years_toggle_description') : 'Activer si vous disposez de cette information'}
+                    {showYears ? t('announcement.years_toggle_description') : t('announcement.years_toggle_off_description')}
                   </Text>
                 </View>
                 <Switch
@@ -755,7 +810,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                 <>
                   <View style={styles.formLabelRow}>
                     <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.birth_year')}</Text>
-                    <Text style={styles.formLabelOptional}>optionnel</Text>
+                    <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
                   </View>
                   <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowBirth(true)} activeOpacity={0.7}>
                     <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
@@ -765,7 +820,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
 
                   <View style={styles.formLabelRow}>
                     <Text style={styles.formLabel}>{t('announcement.death_year')}</Text>
-                    <Text style={styles.formLabelOptional}>optionnel</Text>
+                    <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
                   </View>
                   <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowDeath(true)} activeOpacity={0.7}>
                     <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
@@ -777,7 +832,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
 
               <View style={styles.formLabelRow}>
                 <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('declare.info_section')}</Text>
-                <Text style={styles.formLabelOptional}>optionnel</Text>
+                <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
               </View>
               <View style={[styles.formInputRow, { alignItems: 'flex-start', paddingTop: spacing.sm }]}>
                 <Ionicons name="chatbubble-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm, marginTop: 2 }} />
@@ -818,8 +873,8 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
               )}
 
               <View style={styles.formLabelRow}>
-                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>Ville / lieu d'enterrement</Text>
-                <Text style={styles.formLabelOptional}>optionnel</Text>
+                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.location')}</Text>
+                <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
               </View>
               <View style={styles.formInputRow}>
                 <Ionicons name="location-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
@@ -844,7 +899,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                 activeOpacity={0.8}
               >
                 <Ionicons name="megaphone-outline" size={18} color={colors.white} />
-                <Text style={styles.formBtnText}>Publier la prière</Text>
+                <Text style={styles.formBtnText}>{t('declare.publish')}</Text>
               </TouchableOpacity>
               </ScrollView>
           </KeyboardAvoidingView>
@@ -873,8 +928,19 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                   }
                 </TouchableOpacity>
               </View>
-              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.md }}>
-                <AnnouncementPreview ref={viewRef} data={previewData} />
+              <ScrollView style={{ flex: 1 }} stickyHeaderIndices={[0]}>
+                <View style={styles.langBar}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 44 }} contentContainerStyle={{ paddingHorizontal: spacing.sm, alignItems: 'center', height: 44 }}>
+                    {PREVIEW_LANGS.map(({ code, flag }) => (
+                      <TouchableOpacity key={code} onPress={() => setPreviewLang(code)} style={[styles.langBtn, previewLang === code && styles.langBtnActive]} hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}>
+                        <Text style={styles.langFlag}>{flag}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                <View style={{ padding: spacing.md }}>
+                  <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} />
+                </View>
               </ScrollView>
             </View>
           </SafeAreaView>
@@ -1121,4 +1187,30 @@ const styles = StyleSheet.create({
   ypItemSelected: { backgroundColor: colors.primaryDim },
   ypItemText: { fontSize: 18, fontWeight: '500', color: colors.text },
   ypItemTextSelected: { color: colors.primary, fontWeight: '700' },
+
+  // ── Language selector bar ──
+  langBar: {
+    height: 44,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  langBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    marginHorizontal: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  langBtnActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryDim,
+  },
+  langFlag: {
+    fontSize: 20,
+    lineHeight: 24,
+  },
 });

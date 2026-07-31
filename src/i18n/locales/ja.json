@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "フィード",
     "map": "モスク",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "礼拝場所",
     "mosque_plural_world": "礼拝場所",
     "world_all": "全世界",
+    "all": "すべて",
+    "filter": "絞り込み",
+    "search_placeholder": "名前、モスク、都市、国…",
+    "search_no_results": "結果なし",
     "address_banner": "お近くの礼拝を確認するには、{{profile}}に住所を登録してください",
     "profile_link": "プロフィール",
     "empty": "通知範囲内に申告された礼拝はありません",
@@ -168,14 +172,20 @@
     "name_section": "故人の名前",
     "name_anonymous": "匿名のまま",
     "name_placeholder": "氏名",
+    "nom_famille_placeholder": "姓",
+    "prenom_placeholder": "名",
     "info_section": "追加情報",
     "info_placeholder": "洗体の場所、家族の情報...",
     "generate_announcement": "情報 / お知らせを生成する",
+    "complementary_btn": "追加情報 / プレビュー",
     "publish": "礼拝を公開する",
     "error_mosque": "モスクを選択してください。",
     "error_date": "礼拝の日付を選択してください。",
     "error_name_title": "名前が未入力",
-    "error_name_body": "故人の氏名を入力するか、「匿名のまま」を有効にしてください。",
+    "error_name_body": "少なくとも故人の名前を入力するか、匿名のままオプションを有効にしてください。",
+    "error_duplicate_person": "この人のためのジャナーザはすでにこのモスクのこの時間に申告されています。",
+    "error_inverted_name": "{{existing}}のジャナーザはすでに今日このモスクで申告されています。氏名と名前が逆になっている可能性があります。",
+    "error_publish_title": "公開エラー",
     "error_publish": "公開中にエラーが発生しました。接続を確認してください。",
     "male": "男性",
     "female": "女性",
@@ -192,6 +202,10 @@
     "import_error_generic": "インポート中にエラーが発生しました。",
     "import_timeout": "タイムアウトしました。後で申告を確認してください。",
     "import_image_quality": "画像の品質が低いか判読できません。AIがモスクの住所を読み取れるよう、より鮮明な写真を提供してください。",
+    "import_validate_btn": "申告を確認",
+    "import_banner": "チラシから抽出された情報",
+    "import_banner_sub": "公開前に必要に応じて確認・修正してください。",
+    "import_cancel": "インポートをキャンセル",
     "import_verify_title": "情報を確認してください",
     "import_verify_body": "AIがチラシから情報を抽出しました。AIは完璧ではありません：すべての情報が正確であることを確認してください。",
     "import_verify_time_unknown": "⚠️ 礼拝の時刻が00:00になっています — AIがこの情報を抽出できませんでした。手動で入力してください。",
@@ -282,6 +296,8 @@
     "address_label": "自宅住所",
     "address_placeholder": "完全な住所",
     "address_description": "近くのモスクとの距離計算に使用されます",
+    "address_invalid_title": "住所が見つかりません",
+    "address_invalid_message": "この住所を特定できませんでした。リストから候補を選択するか、有効な住所を入力してください。",
     "radius_label": "通知範囲",
     "radius_description": "自宅周辺のこの範囲内にある礼拝場所",
     "movement_title": "移動中の通知",
@@ -314,6 +330,9 @@
     "delete_cancel": "キャンセル",
     "delete_confirm": "完全に削除する",
     "history_title": "マイ申告",
+    "history_title_monde": "世界のジャナザ",
+    "search_placeholder": "名前、モスク、都市、国…",
+    "search_no_results": "結果なし",
     "history_empty": "現在申告はありません",
     "history_expiry": "{{count}}日後に削除されます",
     "history_expiry_plural": "{{count}}日後に削除されます",
@@ -365,7 +384,8 @@
     "lang_pt": "Português",
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
-    "lang_es": "Español"
+    "lang_es": "Español",
+    "lang_bm": "Bamanankan"
   },
   "admin": {
     "title": "管理",
@@ -419,6 +439,10 @@
     "edit_anonymous": "故人を匿名にする",
     "edit_deceased_name": "故人の名前",
     "edit_deceased_placeholder": "フルネーム",
+    "edit_deceased_nom": "姓",
+    "edit_deceased_nom_placeholder": "姓",
+    "edit_deceased_prenom": "名",
+    "edit_deceased_prenom_placeholder": "名",
     "edit_genre": "性別",
     "edit_male": "男性",
     "edit_female": "女性",
@@ -536,6 +560,11 @@
     "dua_final_fr": "アッラーよ、彼の報酬から私たちを遠ざけないでください、彼の後に私たちを試練にかけないでください、そして私たち及び彼をお赦しください。",
     "salam_fr": "アッラーの平安と慈悲があなた方の上にあらんことを。"
   },
+  "errors": {
+    "crash_title": "エラーが発生しました",
+    "crash_message": "予期しないエラーが発生しました。アプリを再読み込みしてください。",
+    "reload_button": "アプリを再読み込み"
+  },
   "contact": {
     "title": "お問い合わせ",
     "intro": "ご質問、ご提案、問題がございますか？お問い合わせいただければ、できるだけ早くご回答します。",
@@ -579,6 +608,7 @@
     "preview_title": "プレビュー",
     "years_toggle": "生年と没年",
     "years_toggle_description": "この情報がない場合は無効にしてください",
+    "years_toggle_off_description": "この情報がある場合は有効にしてください",
     "birth_year": "生年",
     "death_year": "没年",
     "country": "埋葬国",
@@ -598,7 +628,7 @@
     "death_announcement": "訃報",
     "anonymous_announces": "以下の方のご逝去をお知らせします：",
     "family_announces_named": "{{name}}家族は以下の方のご逝去をお知らせします：",
-    "family_announces_unnamed": "ご家族は以下の方のご逝去をお知らせします：",
+    "family_announces_unnamed": "以下の方のご逝去をお知らせします：",
     "civility_male": "様",
     "civility_female": "様",
     "civility_child": "子供",
@@ -611,6 +641,8 @@
     "prayer_section": "礼拝",
     "burial_prep_en": "埋葬地：",
     "burial_prep_au": "埋葬地：",
-    "burial_prep_aux": "埋葬地："
+    "burial_prep_aux": "埋葬地：",
+    "optional": "任意",
+    "modal_title": "追加情報"
   }
 }

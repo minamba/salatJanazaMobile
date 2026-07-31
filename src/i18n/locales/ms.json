@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "Suapan",
     "map": "Masjid",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "tempat solat",
     "mosque_plural_world": "tempat solat",
     "world_all": "Seluruh Dunia",
+    "all": "Semua",
+    "filter": "Tapis",
+    "search_placeholder": "Nama, masjid, bandar, negara…",
+    "search_no_results": "Tiada keputusan",
     "address_banner": "Masukkan alamat anda dalam {{profile}} untuk melihat solat berhampiran anda",
     "profile_link": "Profil",
     "empty": "Tiada solat diisytiharkan dalam radius anda",
@@ -168,14 +172,20 @@
     "name_section": "Nama Si Mati",
     "name_anonymous": "Kekal Tanpa Nama",
     "name_placeholder": "Nama penuh",
+    "nom_famille_placeholder": "Nama keluarga",
+    "prenom_placeholder": "Nama",
     "info_section": "Maklumat Tambahan",
     "info_placeholder": "Tempat memandikan, maklumat keluarga...",
     "generate_announcement": "Maklumat / Jana Pengumuman",
+    "complementary_btn": "Maklumat tambahan / Pratonton",
     "publish": "Terbitkan Solat",
     "error_mosque": "Sila pilih masjid.",
     "error_date": "Sila pilih tarikh untuk solat.",
-    "error_name_title": "Nama Tiada",
-    "error_name_body": "Sila masukkan nama penuh si mati, atau aktifkan \"Kekal Tanpa Nama\".",
+    "error_name_title": "Nama pertama diperlukan",
+    "error_name_body": "Masukkan sekurang-kurangnya nama pertama si mati, atau aktifkan pilihan Kekal Tanpa Nama.",
+    "error_duplicate_person": "Janaza untuk orang ini telah diisytiharkan di masjid ini pada waktu ini.",
+    "error_inverted_name": "Janaza untuk {{existing}} telah diisytiharkan di masjid ini hari ini. Nama pertama dan akhir mungkin terbalik.",
+    "error_publish_title": "Ralat penerbitan",
     "error_publish": "Ralat semasa penerbitan. Semak sambungan anda.",
     "male": "Lelaki",
     "female": "Perempuan",
@@ -192,6 +202,10 @@
     "import_error_generic": "Ralat berlaku semasa import.",
     "import_timeout": "Masa menunggu tamat. Semak isytiharan anda kemudian.",
     "import_image_quality": "Gambar berkualiti rendah atau tidak boleh dibaca. Sila berikan foto yang lebih jelas agar AI dapat membaca alamat masjid.",
+    "import_validate_btn": "Sahkan pengisytiharan",
+    "import_banner": "Maklumat diekstrak dari risalah",
+    "import_banner_sub": "Semak dan betulkan jika perlu sebelum menerbitkan.",
+    "import_cancel": "Batal import",
     "import_verify_title": "Semak Maklumat",
     "import_verify_body": "AI telah mengekstrak maklumat dari poster. Ia tidak sempurna: semak bahawa semua maklumat adalah betul.",
     "import_verify_time_unknown": "⚠️ Waktu solat adalah pada 00:00 — AI tidak dapat mengekstrak maklumat ini. Sila masukkan secara manual.",
@@ -282,6 +296,8 @@
     "address_label": "Alamat Rumah",
     "address_placeholder": "Alamat penuh anda",
     "address_description": "Digunakan untuk mengira jarak masjid berdekatan",
+    "address_invalid_title": "Alamat tidak dijumpai",
+    "address_invalid_message": "Tidak dapat mencari alamat ini. Sila pilih cadangan daripada senarai atau masukkan alamat yang sah.",
     "radius_label": "Radius Pemberitahuan",
     "radius_description": "Tempat solat dalam radius ini di sekitar rumah anda",
     "movement_title": "Pemberitahuan Semasa Bergerak",
@@ -314,6 +330,9 @@
     "delete_cancel": "Batal",
     "delete_confirm": "Padam Selamanya",
     "history_title": "Isytiharan Saya",
+    "history_title_monde": "Janaza seluruh dunia",
+    "search_placeholder": "Nama, masjid, bandar, negara…",
+    "search_no_results": "Tiada keputusan",
     "history_empty": "Tiada isytiharan buat masa ini",
     "history_expiry": "Dipadamkan dalam {{count}} hari",
     "history_expiry_plural": "Dipadamkan dalam {{count}} hari",
@@ -365,7 +384,8 @@
     "lang_pt": "Português",
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
-    "lang_es": "Español"
+    "lang_es": "Español",
+    "lang_bm": "Bamanankan"
   },
   "admin": {
     "title": "Pentadbiran",
@@ -415,6 +435,10 @@
     "edit_anonymous": "Si mati tanpa nama",
     "edit_deceased_name": "Nama si mati",
     "edit_deceased_placeholder": "Nama penuh",
+    "edit_deceased_nom": "Nama keluarga",
+    "edit_deceased_nom_placeholder": "Nama keluarga",
+    "edit_deceased_prenom": "Nama pertama",
+    "edit_deceased_prenom_placeholder": "Nama",
     "edit_genre": "Jantina",
     "edit_male": "Lelaki",
     "edit_female": "Perempuan",
@@ -532,6 +556,11 @@
     "dua_final_fr": "Ya Allah, janganlah Engkau menghalang kami dari pahalanya, janganlah Engkau menguji kami setelah pemergiannya, dan ampunilah kami serta dia.",
     "salam_fr": "Semoga keselamatan dan rahmat Allah ke atas kamu."
   },
+  "errors": {
+    "crash_title": "Maaf, ralat berlaku",
+    "crash_message": "Ralat tidak dijangka berlaku. Sila muat semula apl.",
+    "reload_button": "Muat semula apl"
+  },
   "contact": {
     "title": "Hubungi Kami",
     "intro": "Ada soalan, cadangan atau masalah? Tulis kepada kami, kami akan membalas secepat mungkin.",
@@ -575,6 +604,7 @@
     "preview_title": "Pratonton",
     "years_toggle": "Tahun kelahiran dan kematian",
     "years_toggle_description": "Matikan jika anda tidak mempunyai maklumat ini",
+    "years_toggle_off_description": "Aktifkan jika anda mempunyai maklumat ini",
     "birth_year": "Tahun Kelahiran",
     "death_year": "Tahun Kematian",
     "country": "Negara Pengebumian",
@@ -594,7 +624,7 @@
     "death_announcement": "Pengumuman Kematian",
     "anonymous_announces": "Kami mengumumkan pemergian:",
     "family_announces_named": "Keluarga {{name}} dengan sedih mengumumkan pemergian:",
-    "family_announces_unnamed": "Keluarga dengan sedih mengumumkan pemergian:",
+    "family_announces_unnamed": "Kami dengan sedih mengumumkan pemergian:",
     "civility_male": "En.",
     "civility_female": "Puan",
     "civility_child": "Kanak-kanak",
@@ -607,6 +637,8 @@
     "prayer_section": "Solat",
     "burial_prep_en": "Pengebumian di",
     "burial_prep_au": "Pengebumian di",
-    "burial_prep_aux": "Pengebumian di"
+    "burial_prep_aux": "Pengebumian di",
+    "optional": "pilihan",
+    "modal_title": "Maklumat tambahan"
   }
 }

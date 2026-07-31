@@ -9,11 +9,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { colors, spacing, radius, typography } from '../../utils/theme';
-import { formatNomDefunt } from '../../utils/text';
+import { formatNomDefunt, buildNomDefunt, splitNomDefunt } from '../../utils/text';
 import apiClient from '../../lib/api/apiClient';
 import AnnouncementGeneratorModal from '../declare/AnnouncementGenerator';
 import { useTranslation } from 'react-i18next';
 import { searchMosquesByNameOSM, normalize } from '../../utils/mosqueSearch';
+import { refreshAllData } from '../../utils/refreshStore';
+import { geocodeAddress } from '../../utils/geocode';
+import DashboardTab from './DashboardTab';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 }, (_, i) => i);
@@ -60,22 +63,27 @@ function CalendarModal({ visible, selectedDate, onSelect, onClose }) {
                 {dayNames.map((d, i) => <Text key={i} style={styles.calDayName}>{d}</Text>)}
               </View>
               <View style={styles.calGrid}>
-                {cells.map((day, i) => {
-                  const isSelected = selectedDate && day === selectedDate.getDate()
-                    && viewMonth === selectedDate.getMonth() && viewYear === selectedDate.getFullYear();
-                  const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
-                  return (
-                    <TouchableOpacity
-                      key={i}
-                      style={[styles.calCell, isSelected && styles.calCellSelected, isToday && !isSelected && styles.calCellToday]}
-                      onPress={() => day && onSelect(new Date(viewYear, viewMonth, day))}
-                      disabled={!day}
-                      activeOpacity={0.7}
-                    >
-                      {day ? <Text style={[styles.calCellText, isSelected && styles.calCellTextSelected, isToday && !isSelected && styles.calCellTextToday]}>{day}</Text> : null}
-                    </TouchableOpacity>
-                  );
-                })}
+                {Array.from({ length: Math.ceil(cells.length / 7) }, (_, ri) => (
+                  <View key={ri} style={styles.calRow}>
+                    {Array.from({ length: 7 }, (_, ci) => {
+                      const day = cells[ri * 7 + ci] ?? null;
+                      const isSelected = selectedDate && day === selectedDate.getDate()
+                        && viewMonth === selectedDate.getMonth() && viewYear === selectedDate.getFullYear();
+                      const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+                      return (
+                        <TouchableOpacity
+                          key={ci}
+                          style={[styles.calCell, isSelected && styles.calCellSelected, isToday && !isSelected && styles.calCellToday]}
+                          onPress={() => day && onSelect(new Date(viewYear, viewMonth, day))}
+                          disabled={!day}
+                          activeOpacity={0.7}
+                        >
+                          {day ? <Text style={[styles.calCellText, isSelected && styles.calCellTextSelected, isToday && !isSelected && styles.calCellTextToday]}>{day}</Text> : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ))}
               </View>
             </View>
           </TouchableWithoutFeedback>
@@ -166,8 +174,9 @@ export default function AdminScreen() {
   const [editDbMosque, setEditDbMosque] = useState(null);
   const [editDbMosqueForm, setEditDbMosqueForm] = useState({ nom: '', adresse: '', latitude: '', longitude: '' });
   const [searchDbMosque, setSearchDbMosque] = useState('');
+  const [showAddDbMosque, setShowAddDbMosque] = useState(false);
 
-  const SECTIONS = [t('admin.tab_mosques'), 'Mosquées BDD', t('admin.tab_declarations'), t('admin.tab_users')];
+  const SECTIONS = ['Masadjid', 'Masadjid BDD', 'Janazas', 'Users', 'Dashboard'];
 
   const [searchMosque, setSearchMosque] = useState('');
   const [searchPending, setSearchPending] = useState('');
@@ -240,6 +249,7 @@ export default function AdminScreen() {
             try {
               const { data } = await apiClient.post('/api/Mosquee/normaliser-sans-nom');
               await loadDbMosques();
+              refreshAllData(dispatch, apiUser?.id);
               const doublons = [
                 ...(data.supprimes ?? []).filter(s => s.raison?.startsWith('Doublon supprimé')),
                 ...(data.ignores ?? []).filter(s => s.raison?.startsWith('Doublon désactivé')),
@@ -282,7 +292,10 @@ export default function AdminScreen() {
   };
 
   const deleteMosque = (id, nom) =>
-    confirmDelete('/api/Mosquee', id, nom, () => setMosques(p => p.filter(m => m.id !== id)));
+    confirmDelete('/api/Mosquee', id, nom, () => {
+      setMosques(p => p.filter(m => m.id !== id));
+      refreshAllData(dispatch, apiUser?.id);
+    });
 
   const refuserMosque = (id, nom) => {
     Alert.alert(t('admin.reject'), t('admin.delete_confirm_message', { name: nom }), [
@@ -332,6 +345,11 @@ export default function AdminScreen() {
                     source: 'user',
                   },
                 });
+              }
+              if (apiUser?.id) {
+                apiClient.get(`/api/abonnement/utilisateur/${apiUser.id}`)
+                  .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
+                  .catch(() => {});
               }
             } catch {
               Alert.alert(t('admin.add_error'), t('admin.validate_error'));
@@ -404,6 +422,11 @@ export default function AdminScreen() {
                 type: 'MOSQUE_REGISTER',
                 payload: { id: `db_${m.id}`, nom: m.nom, adresse: m.adresse ?? '', latitude: m.latitude, longitude: m.longitude, source: 'user' },
               }));
+              if (apiUser?.id) {
+                apiClient.get(`/api/abonnement/utilisateur/${apiUser.id}`)
+                  .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
+                  .catch(() => {});
+              }
               exitSelectMode();
             } catch {
               Alert.alert(t('admin.add_error'), t('admin.validate_all_error'));
@@ -464,6 +487,11 @@ export default function AdminScreen() {
                 type: 'MOSQUE_REGISTER',
                 payload: { id: `db_${m.id}`, nom: m.nom, adresse: m.adresse ?? '', latitude: m.latitude, longitude: m.longitude, source: 'user' },
               }));
+              if (apiUser?.id) {
+                apiClient.get(`/api/abonnement/utilisateur/${apiUser.id}`)
+                  .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
+                  .catch(() => {});
+              }
             } catch {
               Alert.alert(t('admin.add_error'), t('admin.validate_all_error'));
             } finally {
@@ -495,6 +523,11 @@ export default function AdminScreen() {
               toDelete.forEach(d => dispatch({ type: 'JANAZA_DELETE', payload: { id: String(d.id) } }));
               dispatch({ type: 'FORCE_DATA_REFRESH' });
               apiClient.get('/api/prierejanaza/upcoming').then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data })).catch(() => {});
+              if (apiUser?.id) {
+                apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                  .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                  .catch(() => {});
+              }
               exitDeclSelectMode();
             } catch {
               Alert.alert(t('admin.add_error'), t('admin.delete_all_error'));
@@ -528,6 +561,11 @@ export default function AdminScreen() {
               setDeclDateFrom(null);
               setDeclDateTo(null);
               apiClient.get('/api/prierejanaza/upcoming').then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data })).catch(() => {});
+              if (apiUser?.id) {
+                apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                  .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                  .catch(() => {});
+              }
             } catch {
               Alert.alert(t('admin.add_error'), t('admin.delete_all_error'));
             } finally {
@@ -558,7 +596,10 @@ export default function AdminScreen() {
     confirmDelete('/api/Utilisateur', id, label, () => setUsers(p => p.filter(u => u.id !== id)));
 
   const deleteDbMosque = (id, nom) =>
-    confirmDelete('/api/Mosquee', id, nom, () => setDbMosques(p => p.filter(m => m.id !== id)));
+    confirmDelete('/api/Mosquee', id, nom, () => {
+      setDbMosques(p => p.filter(m => m.id !== id));
+      refreshAllData(dispatch, apiUser?.id);
+    });
 
   const openEditDbMosque = (m) => {
     setEditDbMosque(m);
@@ -567,14 +608,25 @@ export default function AdminScreen() {
 
   const saveDbMosque = async () => {
     try {
+      let lat = parseFloat(editDbMosqueForm.latitude);
+      let lon = parseFloat(editDbMosqueForm.longitude);
+      const adresseChanged = (editDbMosqueForm.adresse || null) !== (editDbMosque.adresse ?? null);
+      if (adresseChanged && editDbMosqueForm.adresse.trim()) {
+        const c = await geocodeAddress(editDbMosqueForm.adresse.trim());
+        if (c) {
+          lat = c.lat;
+          lon = c.lon;
+          setEditDbMosqueForm(f => ({ ...f, latitude: String(lat), longitude: String(lon) }));
+        }
+      }
       await apiClient.put(`/api/Mosquee/${editDbMosque.id}`, {
         nom: editDbMosqueForm.nom,
         adresse: editDbMosqueForm.adresse || null,
-        latitude: parseFloat(editDbMosqueForm.latitude),
-        longitude: parseFloat(editDbMosqueForm.longitude),
+        latitude: lat,
+        longitude: lon,
       });
       setDbMosques(p => p.map(m => m.id === editDbMosque.id
-        ? { ...m, nom: editDbMosqueForm.nom, adresse: editDbMosqueForm.adresse || null, latitude: parseFloat(editDbMosqueForm.latitude), longitude: parseFloat(editDbMosqueForm.longitude) }
+        ? { ...m, nom: editDbMosqueForm.nom, adresse: editDbMosqueForm.adresse || null, latitude: lat, longitude: lon }
         : m
       ));
       setEditDbMosque(null);
@@ -723,6 +775,7 @@ export default function AdminScreen() {
             setImportTxtPolling(false);
             setImportSummary(poll.data);
             setShowSummaryModal(true);
+            refreshAllData(dispatch, apiUser?.id);
           }
         } catch {}
         if (attempts >= maxAttempts) {
@@ -812,7 +865,7 @@ export default function AdminScreen() {
             activeOpacity={0.7}
           >
             <Text style={[styles.tabText, tab === i && styles.tabTextActive]}>{s}</Text>
-            {tab === i && (
+            {tab === i && i !== 4 && (
               <Text style={styles.tabCount}>
                 {i === 0 ? filteredMosques.length : i === 1 ? filteredDbMosques.length : i === 2 ? filteredDecl.length : filteredUsers.length}
               </Text>
@@ -936,17 +989,27 @@ export default function AdminScreen() {
               refreshControl={refreshControl}
               ListHeaderComponent={
                 <>
-                  <TouchableOpacity
-                    style={[styles.normBtn, normLoading && styles.normBtnDisabled]}
-                    onPress={normaliserSansNom}
-                    disabled={normLoading}
-                    activeOpacity={0.7}
-                  >
-                    {normLoading
-                      ? <ActivityIndicator size="small" color="#fff" />
-                      : <Text style={styles.normBtnText}>Normalisation / Suppression doublon</Text>
-                    }
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
+                    <TouchableOpacity
+                      style={[styles.normBtn, normLoading && styles.normBtnDisabled, { flex: 1 }]}
+                      onPress={normaliserSansNom}
+                      disabled={normLoading}
+                      activeOpacity={0.7}
+                    >
+                      {normLoading
+                        ? <ActivityIndicator size="small" color="#fff" />
+                        : <Text style={styles.normBtnText}>Normalisation / Suppression doublon</Text>
+                      }
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.normBtn, { paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+                      onPress={() => setShowAddDbMosque(true)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="add" size={18} color="#fff" />
+                      <Text style={styles.normBtnText}>Ajouter</Text>
+                    </TouchableOpacity>
+                  </View>
                   <SearchBar value={searchDbMosque} onChange={setSearchDbMosque} placeholder="Rechercher par nom ou adresse…" />
                 </>
               }
@@ -1338,6 +1401,9 @@ export default function AdminScreen() {
               }}
             />
           )}
+
+          {/* DASHBOARD */}
+          {tab === 4 && <DashboardTab />}
         </>
       )}
 
@@ -1370,12 +1436,23 @@ export default function AdminScreen() {
         }}
       />
 
+      <AddDbMosqueModal
+        visible={showAddDbMosque}
+        onClose={() => setShowAddDbMosque(false)}
+        onSaved={(created) => {
+          setDbMosques(p => [created, ...p]);
+          setShowAddDbMosque(false);
+          refreshAllData(dispatch, apiUser?.id);
+        }}
+      />
+
       <EditPendingMosqueModal
         item={editPendingMosque}
         onClose={() => setEditPendingMosque(null)}
         onSaved={(updated) => {
           setPendingMosques(p => p.map(m => m.id === updated.id ? { ...m, ...updated } : m));
           setEditPendingMosque(null);
+          refreshAllData(dispatch, apiUser?.id);
         }}
       />
 
@@ -1385,6 +1462,7 @@ export default function AdminScreen() {
         onSaved={(updated) => {
           setMosques(p => p.map(m => m.id === updated.id ? { ...m, ...updated } : m));
           setEditMosque(null);
+          refreshAllData(dispatch, apiUser?.id);
         }}
       />
 
@@ -1629,7 +1707,8 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
   const fmtTime = (n) => i18n.language?.startsWith('ar')
     ? n.toLocaleString('ar-SA', { minimumIntegerDigits: 2 })
     : String(n).padStart(2, '0');
-  const [nomDefunt, setNomDefunt] = useState('');
+  const [nomFamille, setNomFamille] = useState('');
+  const [prenomDefunt, setPrenomDefunt] = useState('');
   const [estAnonyme, setEstAnonyme] = useState(false);
   const [genre, setGenre] = useState('homme');
   const [selectedDate, setSelectedDate] = useState(null);
@@ -1641,6 +1720,7 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
   const [showHourPicker, setShowHourPicker] = useState(false);
   const [showMinutePicker, setShowMinutePicker] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [announcementDraft, setAnnouncementDraft] = useState(null);
   const [mosqueeSearch, setMosqueeSearch] = useState('');
   const [selectedMosque, setSelectedMosque] = useState(null);
   const [mosqueeOptions, setMosqueeOptions] = useState([]);
@@ -1651,7 +1731,10 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
 
   useEffect(() => {
     if (!item) return;
-    setNomDefunt(item.nomDefunt ?? '');
+    setAnnouncementDraft(null);
+    const split = splitNomDefunt(item.nomDefunt ?? '');
+    setNomFamille(split.nom);
+    setPrenomDefunt(split.prenom);
     setEstAnonyme(item.estAnonyme ?? false);
     setGenre(item.genre ?? 'homme');
     const raw = item.dateHeurePriere;
@@ -1754,7 +1837,7 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
       const res = await apiClient.put(`/api/PriereJanaza/${item.id}`, {
         mosqueeId,
         utilisateurId: item.utilisateurId,
-        nomDefunt: estAnonyme ? null : nomDefunt,
+        nomDefunt: estAnonyme ? null : buildNomDefunt(nomFamille, prenomDefunt),
         estAnonyme,
         genre,
         dateHeurePriere: d.toISOString(),
@@ -1797,7 +1880,7 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
 
   const announcementForm = {
     nomAnonyme: estAnonyme,
-    nomDefunt,
+    nomDefunt: buildNomDefunt(nomFamille, prenomDefunt),
     genre,
     mosqueeNom: selectedMosque?.nom ?? item?.mosqueeNom ?? '',
     mosqueeAdresse: selectedMosque?.adresse ?? item?.mosqueeAdresse ?? '',
@@ -1879,15 +1962,26 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
 
           {/* Nom du défunt */}
           {!estAnonyme && (
-            <ModalField label={t('admin.edit_deceased_name')}>
-              <TextInput
-                style={styles.modalInput}
-                value={nomDefunt}
-                onChangeText={setNomDefunt}
-                placeholder={t('admin.edit_deceased_placeholder')}
-                placeholderTextColor={colors.textMuted}
-              />
-            </ModalField>
+            <>
+              <ModalField label={t('admin.edit_deceased_nom')}>
+                <TextInput
+                  style={styles.modalInput}
+                  value={nomFamille}
+                  onChangeText={setNomFamille}
+                  placeholder={t('admin.edit_deceased_nom_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                />
+              </ModalField>
+              <ModalField label={t('admin.edit_deceased_prenom')}>
+                <TextInput
+                  style={styles.modalInput}
+                  value={prenomDefunt}
+                  onChangeText={setPrenomDefunt}
+                  placeholder={t('admin.edit_deceased_prenom_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                />
+              </ModalField>
+            </>
           )}
 
           {/* Genre */}
@@ -1985,19 +2079,21 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
         title={t('admin.edit_time')}
       />
       <AnnouncementGeneratorModal
+        key={item?.id ?? 'admin'}
         visible={showAnnouncement}
-        onClose={() => setShowAnnouncement(false)}
+        onClose={(draft) => { setShowAnnouncement(false); if (draft) setAnnouncementDraft(draft); }}
         form={announcementForm}
-        date={selectedDate}
+        date={selectedDate ? new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())) : null}
         hour={selectedHour}
         minute={selectedMinute}
-        initialValues={{
+        initialValues={announcementDraft ?? {
           country: item?.paysEnterrement ?? null,
           countryKnown: item?.paysEnterrement != null,
           locationFrance: item?.villeEnterrement ?? '',
           birthYear: item?.anneeNaissance ?? null,
           deathYear: item?.anneeDeces ?? null,
           showYears: !!(item?.anneeNaissance || item?.anneeDeces),
+          commentaire: item?.commentaire ?? '',
         }}
         onDataChange={(data) => { if (data?.commentaire !== undefined) setCommentaire(data.commentaire); }}
         onPublish={handleSaveFromAnnouncement}
@@ -2054,31 +2150,130 @@ function PendingMosqueRow({ item, onValider, onRefuser, onEdit, selectMode, sele
   );
 }
 
+// ── Add mosque BDD modal ──────────────────────────────────────────────────────
+function AddDbMosqueModal({ visible, onClose, onSaved }) {
+  const [nom, setNom] = useState('');
+  const [adresse, setAdresse] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const reset = () => { setNom(''); setAdresse(''); };
+
+  const handleSave = async () => {
+    if (!nom.trim() || !adresse.trim()) {
+      Alert.alert('Champs manquants', 'Le nom et l\'adresse sont obligatoires.');
+      return;
+    }
+    setLoading(true);
+    const coords = await geocodeAddress(adresse.trim());
+    setLoading(false);
+
+    if (!coords) {
+      Alert.alert('Adresse introuvable', 'Impossible de géolocaliser cette adresse. Vérifiez l\'adresse et réessayez.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirmer l\'enregistrement',
+      `Nom : ${nom.trim()}\nAdresse : ${adresse.trim()}\nCoordonnées : ${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Enregistrer',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const res = await apiClient.post('/api/Mosquee', {
+                nom: nom.trim(),
+                adresse: adresse.trim(),
+                latitude: coords.lat,
+                longitude: coords.lon,
+              });
+              reset();
+              onSaved(res.data);
+            } catch {
+              Alert.alert('Erreur', 'Impossible d\'enregistrer la mosquée.');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Ajouter une mosquée</Text>
+            <TouchableOpacity onPress={() => { reset(); onClose(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
+            <ModalField label="Nom">
+              <TextInput style={styles.modalInput} value={nom} onChangeText={setNom}
+                placeholder="Nom de la mosquée" placeholderTextColor={colors.textMuted} autoCapitalize="words" />
+            </ModalField>
+            <ModalField label="Adresse">
+              <TextInput style={styles.modalInput} value={adresse} onChangeText={setAdresse}
+                placeholder="Adresse complète (rue, code postal, ville)" placeholderTextColor={colors.textMuted} />
+            </ModalField>
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: spacing.lg }}>
+              Les coordonnées GPS seront calculées automatiquement depuis l'adresse.
+            </Text>
+            <TouchableOpacity
+              style={[styles.createBtn, loading && { opacity: 0.6 }]}
+              onPress={handleSave}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading
+                ? <ActivityIndicator color={colors.white} size="small" />
+                : <><Ionicons name="checkmark-outline" size={18} color={colors.white} /><Text style={styles.createBtnText}>Enregistrer</Text></>
+              }
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 // ── Edit pending mosque modal ─────────────────────────────────────────────────
 function EditPendingMosqueModal({ item, onClose, onSaved }) {
   const { t } = useTranslation();
   const [nom, setNom] = useState('');
   const [adresse, setAdresse] = useState('');
+  const [coords, setCoords] = useState({ lat: null, lon: null });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!item) return;
     setNom(item.nom ?? '');
     setAdresse(item.adresse ?? '');
+    setCoords({ lat: item.latitude ?? null, lon: item.longitude ?? null });
   }, [item]);
 
   const handleSave = async () => {
     if (!nom.trim()) { Alert.alert(t('admin.add_missing_fields'), t('admin.edit_name_required')); return; }
     setLoading(true);
     try {
+      let finalCoords = coords;
+      const adresseChanged = (adresse.trim() || null) !== (item.adresse ?? null);
+      if (adresseChanged && adresse.trim()) {
+        const c = await geocodeAddress(adresse.trim());
+        if (c) { finalCoords = c; setCoords(c); }
+      }
       await apiClient.put(`/api/Mosquee/${item.id}`, {
         nom: nom.trim(),
         adresse: adresse.trim() || null,
-        latitude: item.latitude,
-        longitude: item.longitude,
+        latitude: finalCoords.lat,
+        longitude: finalCoords.lon,
         osmId: item.osmId ?? null,
       });
-      onSaved({ ...item, nom: nom.trim(), adresse: adresse.trim() || null });
+      onSaved({ ...item, nom: nom.trim(), adresse: adresse.trim() || null, latitude: finalCoords.lat, longitude: finalCoords.lon });
     } catch {
       Alert.alert(t('admin.add_error'), t('admin.edit_error'));
     } finally {
@@ -2107,7 +2302,7 @@ function EditPendingMosqueModal({ item, onClose, onSaved }) {
             </ModalField>
             <ModalField label={t('admin.edit_coords_label')}>
               <Text style={[styles.modalInput, { color: colors.textMuted }]}>
-                {item?.latitude?.toFixed(6)}, {item?.longitude?.toFixed(6)}
+                {coords.lat?.toFixed(6) ?? '—'}, {coords.lon?.toFixed(6) ?? '—'}
               </Text>
             </ModalField>
             <TouchableOpacity
@@ -2406,8 +2601,9 @@ const styles = StyleSheet.create({
   calMonthTitle: { ...typography.h3, textTransform: 'capitalize' },
   calDayNamesRow: { flexDirection: 'row', marginBottom: spacing.sm },
   calDayName: { flex: 1, textAlign: 'center', ...typography.caption, fontWeight: '700', color: colors.textMuted },
-  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
+  calGrid: {},
+  calRow: { flexDirection: 'row' },
+  calCell: { flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   calCellSelected: { backgroundColor: colors.primary },
   calCellToday: { borderWidth: 1.5, borderColor: colors.primary },
   calCellText: { fontSize: 14, fontWeight: '500', color: colors.text },

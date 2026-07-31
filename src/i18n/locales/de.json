@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "Feed",
     "map": "Moscheen",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "Gebetsort",
     "mosque_plural_world": "Gebetsorte",
     "world_all": "Gesamte Welt",
+    "all": "Alle",
+    "filter": "Filtern",
+    "search_placeholder": "Name, Moschee, Stadt, Land…",
+    "search_no_results": "Keine Ergebnisse",
     "address_banner": "Geben Sie Ihre Adresse im {{profile}} ein, um Gebete in Ihrer Nähe zu sehen",
     "profile_link": "Profil",
     "empty": "Kein Gebet in Ihrem Umkreis gemeldet",
@@ -168,14 +172,20 @@
     "name_section": "Name des Verstorbenen",
     "name_anonymous": "Anonym bleiben",
     "name_placeholder": "Vor- und Nachname",
+    "nom_famille_placeholder": "Nachname",
+    "prenom_placeholder": "Vorname",
     "info_section": "Zusätzliche Informationen",
     "info_placeholder": "Ort der Waschung, Informationen zur Familie...",
     "generate_announcement": "Informationen / Ankündigung erstellen",
+    "complementary_btn": "Zusätzliche Informationen / Vorschau",
     "publish": "Gebet veröffentlichen",
     "error_mosque": "Bitte wählen Sie eine Moschee aus.",
     "error_date": "Bitte wählen Sie ein Datum für das Gebet.",
-    "error_name_title": "Name fehlt",
-    "error_name_body": "Bitte geben Sie den Namen des Verstorbenen ein oder aktivieren Sie \"Anonym bleiben\".",
+    "error_name_title": "Vorname fehlt",
+    "error_name_body": "Bitte geben Sie mindestens den Vornamen des Verstorbenen ein oder aktivieren Sie Anonym bleiben.",
+    "error_duplicate_person": "Für diese Person wurde in dieser Moschee zu dieser Zeit bereits ein Janazagebet angemeldet.",
+    "error_inverted_name": "Für {{existing}} wurde in dieser Moschee heute bereits ein Janazagebet angemeldet. Vor- und Nachname könnten vertauscht sein.",
+    "error_publish_title": "Veröffentlichungsfehler",
     "error_publish": "Fehler bei der Veröffentlichung. Überprüfen Sie Ihre Verbindung.",
     "male": "Mann",
     "female": "Frau",
@@ -192,6 +202,10 @@
     "import_error_generic": "Beim Import ist ein Fehler aufgetreten.",
     "import_timeout": "Zeitüberschreitung. Überprüfen Sie Ihre Meldungen später.",
     "import_image_quality": "Das Bild ist von schlechter Qualität oder unleserlich. Bitte stellen Sie ein schärferes Foto bereit, damit die KI die Adresse der Moschee lesen kann.",
+    "import_validate_btn": "Erklärung bestätigen",
+    "import_banner": "Aus dem Flyer extrahierte Informationen",
+    "import_banner_sub": "Überprüfen und korrigieren Sie vor der Veröffentlichung.",
+    "import_cancel": "Import abbrechen",
     "import_verify_title": "Informationen überprüfen",
     "import_verify_body": "Die KI hat die Informationen aus dem Flyer extrahiert. Sie ist nicht unfehlbar: Überprüfen Sie, ob alle Informationen korrekt sind.",
     "import_verify_time_unknown": "⚠️ Die Gebetszeit ist 00:00 — die KI konnte diese Information nicht extrahieren. Bitte geben Sie sie manuell ein.",
@@ -282,6 +296,8 @@
     "address_label": "Heimatadresse",
     "address_placeholder": "Ihre vollständige Adresse",
     "address_description": "Wird zur Berechnung der Abstände zu nahegelegenen Moscheen verwendet",
+    "address_invalid_title": "Adresse nicht gefunden",
+    "address_invalid_message": "Diese Adresse konnte nicht gefunden werden. Bitte wählen Sie einen Vorschlag aus der Liste oder geben Sie eine gültige Adresse ein.",
     "radius_label": "Benachrichtigungsbereich",
     "radius_description": "Gebetsorte in diesem Umkreis um Ihr Zuhause",
     "movement_title": "Benachrichtigungen unterwegs",
@@ -314,6 +330,9 @@
     "delete_cancel": "Abbrechen",
     "delete_confirm": "Endgültig löschen",
     "history_title": "Meine Meldungen",
+    "history_title_monde": "Janazas weltweit",
+    "search_placeholder": "Name, Moschee, Stadt, Land…",
+    "search_no_results": "Keine Ergebnisse",
     "history_empty": "Noch keine Meldungen",
     "history_expiry": "Wird in {{count}} Tag gelöscht",
     "history_expiry_plural": "Wird in {{count}} Tagen gelöscht",
@@ -366,6 +385,7 @@
     "lang_it": "Italiano",
     "lang_de": "Deutsch",
     "lang_es": "Español",
+    "lang_bm": "Bamanankan",
     "declared_on": "Gemeldet am {{date}}"
   },
   "admin": {
@@ -420,6 +440,10 @@
     "edit_anonymous": "Anonymer Verstorbener",
     "edit_deceased_name": "Name des Verstorbenen",
     "edit_deceased_placeholder": "Vollständiger Name",
+    "edit_deceased_nom": "Nachname",
+    "edit_deceased_nom_placeholder": "Nachname",
+    "edit_deceased_prenom": "Vorname",
+    "edit_deceased_prenom_placeholder": "Vorname",
     "edit_genre": "Geschlecht",
     "edit_male": "Mann",
     "edit_female": "Frau",
@@ -537,6 +561,11 @@
     "dua_final_fr": "O Allah, beraubt uns nicht seiner Belohnung, prüfe uns nicht nach ihm, und vergib uns ebenso wie ihm.",
     "salam_fr": "Friede und Barmherzigkeit Allahs seien auf euch."
   },
+  "errors": {
+    "crash_title": "Ups, ein Fehler ist aufgetreten",
+    "crash_message": "Ein unerwarteter Fehler ist aufgetreten. Bitte laden Sie die App neu.",
+    "reload_button": "App neu laden"
+  },
   "contact": {
     "title": "Kontakt",
     "intro": "Eine Frage, ein Vorschlag oder ein Problem? Schreiben Sie uns, wir antworten so schnell wie möglich.",
@@ -580,6 +609,7 @@
     "preview_title": "Vorschau",
     "years_toggle": "Geburts- und Todesjahr",
     "years_toggle_description": "Deaktivieren, wenn diese Information nicht vorliegt",
+    "years_toggle_off_description": "Aktivieren, wenn diese Information vorliegt",
     "birth_year": "Geburtsjahr",
     "death_year": "Todesjahr",
     "country": "Bestattungsland",
@@ -599,7 +629,7 @@
     "death_announcement": "Todesanzeige",
     "anonymous_announces": "Wir geben den Tod von Folgendem bekannt:",
     "family_announces_named": "Die Familie {{name}} gibt mit Trauer den Tod bekannt von:",
-    "family_announces_unnamed": "Die Familie gibt mit Trauer den Tod bekannt von:",
+    "family_announces_unnamed": "Wir teilen Ihnen mit tiefer Trauer den Tod mit von:",
     "civility_male": "Br.",
     "civility_female": "Schw.",
     "civility_child": "Das Kind",
@@ -612,6 +642,8 @@
     "prayer_section": "Gebet",
     "burial_prep_en": "Bestattung in",
     "burial_prep_au": "Bestattung in",
-    "burial_prep_aux": "Bestattung in"
+    "burial_prep_aux": "Bestattung in",
+    "optional": "optional",
+    "modal_title": "Zusätzliche Informationen"
   }
 }

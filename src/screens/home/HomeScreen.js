@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { refreshAllData as refreshAllDataUtil } from '../../utils/refreshStore';
 import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
 import { computeStatut, useMinuteTick } from '../../utils/statut';
 import EditDeclarationModal from '../../components/EditDeclarationModal';
 import {
   View, Text, FlatList, TouchableOpacity, Alert,
   StyleSheet, RefreshControl, Modal, Linking, Platform,
-  TouchableWithoutFeedback, Image, AppState, Animated,
+  TouchableWithoutFeedback, Image, AppState, Animated, TextInput,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
@@ -26,7 +28,6 @@ import { colors, spacing, radius, typography, shadow } from '../../utils/theme';
 import { useTranslation } from 'react-i18next';
 import { getCountryName } from '../../utils/countryNames';
 import { JanazaShareModal } from '../declare/AnnouncementGenerator';
-import { startGpsSync, stopGpsSync } from '../../utils/gpsSync';
 
 function ModeToggle({ value, onToggle }) {
   const anim = useRef(new Animated.Value(value === 'home' ? 1 : 0)).current;
@@ -270,7 +271,45 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
   const d = distKm(coords, group);
   const earliest = group.janazas[0];
   const [reminder, setReminder] = useState(null);
+  const [reminders, setReminders] = useState({});
   const [shareItem, setShareItem] = useState(null);
+
+  useEffect(() => {
+    const refreshReminders = () => {
+      Notifications.getAllScheduledNotificationsAsync().then(scheduled => {
+        const restored = {};
+        scheduled.forEach(notif => {
+          const data = notif.content.data;
+          if (data?.mosquee === group.mosquee && data?.janazaId) {
+            restored[String(data.janazaId)] = notif.identifier;
+          }
+        });
+        setReminders(restored);
+      }).catch(() => {});
+    };
+
+    refreshReminders();
+
+    const notifSub = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data;
+      if (data?.mosquee === group.mosquee && data?.janazaId) {
+        setReminders(prev => {
+          const updated = { ...prev };
+          delete updated[String(data.janazaId)];
+          return updated;
+        });
+      }
+      refreshReminders();
+    });
+    const appStateSub = AppState.addEventListener('change', state => {
+      if (state === 'active') refreshReminders();
+    });
+
+    return () => {
+      notifSub.remove();
+      appStateSub.remove();
+    };
+  }, [group.mosquee]);
   const [showCountryName, setShowCountryName] = useState(false);
   const countryResult = useCountryFlag(group.latitude, group.longitude, group.adresse, !!showWorldFlag);
   const countryFlag = countryResult?.flag ?? null;
@@ -285,6 +324,11 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
     const d = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
     const d0 = group.janazas[0].dateHeure instanceof Date ? group.janazas[0].dateHeure : new Date(group.janazas[0].dateHeure);
     return d.toISOString().slice(0, 10) === d0.toISOString().slice(0, 10);
+  });
+  const allSameTime = group.janazas.every(j => {
+    const d = j.dateHeure instanceof Date ? j.dateHeure : new Date(j.dateHeure);
+    const d0 = group.janazas[0].dateHeure instanceof Date ? group.janazas[0].dateHeure : new Date(group.janazas[0].dateHeure);
+    return d.getTime() === d0.getTime();
   });
   const dateGroups = groupJanazasByDate(group.janazas, locale, t);
 
@@ -344,6 +388,52 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
     }
   }
 
+  async function toggleReminderForPrayer(janaza) {
+    const pt = janaza.dateHeure instanceof Date ? janaza.dateHeure : new Date(janaza.dateHeure);
+    const key = String(janaza.id);
+    try {
+      if (reminders[key]) {
+        await Notifications.cancelScheduledNotificationAsync(reminders[key]);
+        setReminders(prev => { const n = { ...prev }; delete n[key]; return n; });
+        return;
+      }
+      const { status } = await Notifications.getPermissionsAsync();
+      let finalStatus = status;
+      if (status !== 'granted') {
+        const { status: asked } = await Notifications.requestPermissionsAsync();
+        finalStatus = asked;
+      }
+      if (finalStatus !== 'granted') {
+        Alert.alert(t('home.notification_disabled'), t('home.notification_disabled'));
+        return;
+      }
+      const utcOffsetMs = (janaza.utcOffsetMinutes ?? 0) * 60 * 1000;
+      const trueUtcPrayer = new Date(pt.getTime() - utcOffsetMs);
+      const reminderTime = new Date(trueUtcPrayer.getTime() - 30 * 60 * 1000);
+      if (reminderTime <= new Date()) {
+        Alert.alert(t('home.too_late'), t('home.too_late_message'));
+        return;
+      }
+      const nom = janaza.estAnonyme ? t('home.anonymous') : (formatNomDefunt(janaza.nomDefunt) || t('home.not_specified'));
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `Salat al-Janaza — ${group.mosquee}`,
+          body: `${nom} · ${formatTime(janaza.dateHeure, locale)} · ${group.adresse}`,
+          sound: true,
+          data: { janazaId: janaza.id, mosquee: group.mosquee },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: reminderTime,
+        },
+      });
+      setReminders(prev => ({ ...prev, [key]: id }));
+      Alert.alert(t('home.reminder_activated'), t('home.reminder_activated_message', { mosque: group.mosquee }));
+    } catch (e) {
+      Alert.alert(t('home.reminder_error'), e?.message ?? t('home.reminder_error_message'));
+    }
+  }
+
   return (
     <View style={styles.card}>
       {/* Mosque header */}
@@ -392,6 +482,7 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
             const genreLabel = getGenreLabel(item.genre);
             const nom = item.estAnonyme ? t('home.anonymous') : (formatNomDefunt(item.nomDefunt) || t('home.not_specified'));
             const canDelete = (currentUserId != null && item.utilisateurId != null && Number(currentUserId) === Number(item.utilisateurId)) || currentUserRole === 'admin' || currentUserRole === 'superadmin';
+            const reminderActive = !!reminders[String(item.id)];
             return (
               <TouchableOpacity
                 key={item.id}
@@ -399,47 +490,62 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
                 onPress={() => onPressJanaza(item)}
                 activeOpacity={0.65}
               >
-                <View style={styles.janazaLeftCol}>
-                  <StatusBadge statut={computeStatut(item)} />
-                  <View style={styles.janazaTimePill}>
-                    <Text style={styles.janazaTime}>{formatTime(item.dateHeure, locale)}</Text>
+                  <View style={styles.janazaLeftCol}>
+                    <StatusBadge statut={computeStatut(item)} />
+                    <View style={styles.janazaTimePill}>
+                      <Text style={styles.janazaTime}>{formatTime(item.dateHeure, locale)}</Text>
+                    </View>
                   </View>
-                </View>
-                <View style={styles.janazaAvatarCircle}>
-                  <Image source={GENRE_IMAGES[item.genre]} style={styles.janazaGenreImg} resizeMode="contain" />
-                </View>
-                <View style={styles.janazaInfo}>
-                  <Text style={styles.janazaNom} numberOfLines={1}>{nom}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={(e) => { e.stopPropagation(); setShareItem({ ...item, mosquee: group.mosquee, adresse: group.adresse }); }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  activeOpacity={0.6}
-                  style={{ marginLeft: 4 }}
-                >
-                  <Ionicons name="share-social-outline" size={17} color={colors.primary} />
-                </TouchableOpacity>
-                {canDelete && (
+                  <View style={styles.janazaAvatarCircle}>
+                    <Image source={GENRE_IMAGES[item.genre]} style={styles.janazaGenreImg} resizeMode="contain" />
+                  </View>
+                  <View style={styles.janazaInfo}>
+                    <Text style={styles.janazaNom} numberOfLines={1}>{nom}</Text>
+                  </View>
                   <TouchableOpacity
-                    onPress={(e) => { e.stopPropagation(); onEdit?.(item); }}
+                    onPress={(e) => { e.stopPropagation(); setShareItem({ ...item, mosquee: group.mosquee, adresse: group.adresse }); }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     activeOpacity={0.6}
                     style={{ marginLeft: 4 }}
                   >
-                    <Ionicons name="create-outline" size={17} color={colors.primary} />
+                    <Ionicons name="share-social-outline" size={17} color={colors.primary} />
                   </TouchableOpacity>
-                )}
-                {canDelete ? (
-                  <TouchableOpacity
-                    onPress={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    activeOpacity={0.6}
-                  >
-                    <Ionicons name="trash-outline" size={17} color={colors.error} />
-                  </TouchableOpacity>
-                ) : (
-                  <Ionicons name="chevron-forward" size={15} color={colors.border} />
-                )}
+                  {canDelete && (
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation(); onEdit?.(item); }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      activeOpacity={0.6}
+                      style={{ marginLeft: 4 }}
+                    >
+                      <Ionicons name="create-outline" size={17} color={colors.primary} />
+                    </TouchableOpacity>
+                  )}
+                  {!isSubscribed && (
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation(); toggleReminderForPrayer(item); }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      activeOpacity={0.6}
+                      style={{ marginLeft: 4 }}
+                    >
+                      <Ionicons
+                        name={reminderActive ? 'notifications' : 'notifications-outline'}
+                        size={17}
+                        color={colors.primary}
+                      />
+                    </TouchableOpacity>
+                  )}
+                  {canDelete ? (
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      activeOpacity={0.6}
+                      style={{ marginLeft: 4 }}
+                    >
+                      <Ionicons name="trash-outline" size={17} color={colors.error} />
+                    </TouchableOpacity>
+                  ) : (
+                    <Ionicons name="chevron-forward" size={15} color={colors.border} />
+                  )}
               </TouchableOpacity>
             );
           })}
@@ -466,28 +572,13 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
             )}
           </TouchableOpacity>
         ) : <View />}
-        {isSubscribed ? (
+        {isSubscribed && (
           <View style={[styles.notifBtn, styles.notifBtnActive]}>
             <Ionicons name="notifications" size={13} color={colors.white} />
             <Text style={[styles.notifBtnText, styles.notifBtnTextActive]}>
               {t('home.reminder_auto')}
             </Text>
           </View>
-        ) : (
-          <TouchableOpacity
-            style={[styles.notifBtn, reminderIsActive && styles.notifBtnActive]}
-            onPress={toggleReminder}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={reminderIsActive ? 'notifications' : 'notifications-outline'}
-              size={13}
-              color={reminderIsActive ? colors.white : colors.primary}
-            />
-            <Text style={[styles.notifBtnText, reminderIsActive && styles.notifBtnTextActive]}>
-              {reminderIsActive ? t('home.reminder_set') : t('home.reminder_not_set')}
-            </Text>
-          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -636,22 +727,15 @@ export default function HomeScreen() {
   const [editDecl, setEditDecl] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const globeBreath = useRef(new Animated.Value(0)).current;
   const [homeCoords, setHomeCoords] = useState(null);
   const [gpsCoords, setGpsCoords] = useState(null);
 
   useEffect(() => {
-    if (!apiUser?.adresseDomicile) { setHomeCoords(null); return; }
-    fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(apiUser.adresseDomicile)}&format=json&limit=1`,
-      { headers: { 'User-Agent': 'QabrApp/1.0' } }
-    )
-      .then((r) => r.json())
-      .then((data) => {
-        if (data[0]) setHomeCoords({ latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) });
-        else setHomeCoords(null);
-      })
-      .catch(() => setHomeCoords(null));
-  }, [apiUser?.adresseDomicile]);
+    if (apiUser?.latitudeDomicile && apiUser?.longitudeDomicile)
+      setHomeCoords({ latitude: apiUser.latitudeDomicile, longitude: apiUser.longitudeDomicile });
+    else setHomeCoords(null);
+  }, [apiUser?.latitudeDomicile, apiUser?.longitudeDomicile]);
 
   async function refreshGps() {
     try {
@@ -669,6 +753,22 @@ export default function HomeScreen() {
       .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
       .catch(() => {});
   }, [apiUserId]);
+
+  useEffect(() => {
+    if (showAll) {
+      globeBreath.stopAnimation();
+      globeBreath.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(globeBreath, { toValue: 1, duration: 1300, useNativeDriver: false }),
+        Animated.timing(globeBreath, { toValue: 0, duration: 1300, useNativeDriver: false }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [showAll]);
 
   // Restore persisted location mode (en cas d'ouverture avant l'onglet mosquée)
   useEffect(() => {
@@ -696,39 +796,30 @@ export default function HomeScreen() {
     });
   }, []);
 
+  const refreshAllData = useCallback(
+    () => refreshAllDataUtil(dispatch, apiUserId),
+    [dispatch, apiUserId]
+  );
+
+  useFocusEffect(useCallback(() => {
+    refreshAllData();
+  }, [refreshAllData]));
+
   // Polling toutes les 90s quand l'app est au premier plan
   useEffect(() => {
     const POLL_MS = 90 * 1000;
     const id = setInterval(() => {
       if (AppState.currentState !== 'active') return;
-      dispatch({ type: 'FORCE_DATA_REFRESH' });
-      apiClient.get('/api/prierejanaza/upcoming')
-        .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
-        .catch(() => {});
-      if (apiUserId) {
-        apiClient.get(`/api/abonnement/utilisateur/${apiUserId}`)
-          .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
-          .catch(() => {});
-      }
+      refreshAllData();
     }, POLL_MS);
     return () => clearInterval(id);
-  }, [apiUserId]);
+  }, [refreshAllData]);
 
   // GPS : sans adresse domicile (fallback) ou avec adresse mais mode GPS actif
   useEffect(() => {
     if (!apiUser?.adresseDomicile || locationMode === 'gps') refreshGps();
   }, [apiUser?.adresseDomicile, locationMode]);
 
-  // Sync GPS position vers le serveur toutes les 5 min en mode GPS
-  useEffect(() => {
-    const isGpsMode = !apiUser?.adresseDomicile || locationMode === 'gps';
-    if (isGpsMode && apiUserId) {
-      startGpsSync(apiUserId);
-    } else {
-      stopGpsSync();
-    }
-    return () => stopGpsSync();
-  }, [locationMode, apiUser?.adresseDomicile, apiUserId]);
 
 
   const activeCoords = useMemo(() => {
@@ -793,26 +884,9 @@ export default function HomeScreen() {
   async function onRefresh() {
     setRefreshing(true);
     if (!apiUser?.adresseDomicile || locationMode === 'gps') await refreshGps();
-    const requests = [
-      apiClient.get('/api/prierejanaza/upcoming')
-        .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data })),
-    ];
-    if (apiUserId) {
-      requests.push(
-        apiClient.get(`/api/prierejanaza/utilisateur/${apiUserId}`)
-          .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
-      );
-      requests.push(
-        apiClient.get(`/api/abonnement/utilisateur/${apiUserId}`)
-          .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
-      );
-    }
-    Promise.all(requests)
-      .catch(() => {})
-      .finally(() => {
-        dispatch({ type: 'JANAZA_EXPIRE' });
-        setRefreshing(false);
-      });
+    await refreshAllData();
+    dispatch({ type: 'JANAZA_EXPIRE' });
+    setRefreshing(false);
   }
 
   function handleDelete(id) {
@@ -829,15 +903,7 @@ export default function HomeScreen() {
               await apiClient.delete(`/api/prierejanaza/${id}`);
             } catch {}
             dispatch({ type: 'JANAZA_DELETE', payload: { id } });
-            dispatch({ type: 'FORCE_DATA_REFRESH' });
-            apiClient.get('/api/prierejanaza/upcoming')
-              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
-              .catch(() => {});
-            if (apiUser?.id) {
-              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
-                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
-                .catch(() => {});
-            }
+            refreshAllData();
           },
         },
       ]
@@ -848,6 +914,36 @@ export default function HomeScreen() {
   const inRadiusCount = activeCoords
     ? groups.filter(g => haversineKm(activeCoords.latitude, activeCoords.longitude, g.latitude, g.longitude) <= rayon).length
     : groups.length;
+
+  const [filSearch, setFilSearch]   = useState('');
+  const [filGenre, setFilGenre]     = useState(null);
+  const [filOpen, setFilOpen]       = useState(false);
+
+  const totalJanazas = items.length;
+  const showFilSearch = totalJanazas >= 4;
+  const hasActiveFilter = !!filSearch || !!filGenre;
+
+  const filteredGroups = useMemo(() => {
+    if (!filSearch && !filGenre) return groups;
+    const q = filSearch.trim().toLowerCase();
+    return groups.map(group => {
+      let janazas = group.janazas;
+      if (filGenre) janazas = janazas.filter(j => j.genre === filGenre);
+      if (q) {
+        const mosqueMatch =
+          (group.mosquee ?? '').toLowerCase().includes(q) ||
+          (group.adresse  ?? '').toLowerCase().includes(q);
+        if (!mosqueMatch) {
+          janazas = janazas.filter(j =>
+            (j.nomDefunt        ?? '').toLowerCase().includes(q) ||
+            (j.paysEnterrement  ?? '').toLowerCase().includes(q) ||
+            (j.villeEnterrement ?? '').toLowerCase().includes(q)
+          );
+        }
+      }
+      return janazas.length > 0 ? { ...group, janazas } : null;
+    }).filter(Boolean);
+  }, [groups, filSearch, filGenre]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -867,14 +963,30 @@ export default function HomeScreen() {
                   .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
                   .catch(() => {});
               }}
-              style={[styles.globeToggle, showAll && styles.globeToggleActive]}
+              style={{ padding: 0 }}
               activeOpacity={0.75}
             >
-              <Ionicons
-                name={showAll ? 'planet' : 'planet-outline'}
-                size={20}
-                color={showAll ? colors.accent : colors.textMuted}
-              />
+              <Animated.View style={[
+                styles.globeToggle,
+                showAll ? styles.globeToggleActive : {
+                  backgroundColor: globeBreath.interpolate({ inputRange: [0, 1], outputRange: [colors.surface, colors.accent + '18'] }),
+                  borderColor: globeBreath.interpolate({ inputRange: [0, 1], outputRange: [colors.border, colors.accent + '66'] }),
+                  transform: [{ scale: globeBreath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] }) }],
+                },
+              ]}>
+                {showAll ? (
+                  <Ionicons name="earth" size={20} color={colors.accent} />
+                ) : (
+                  <View style={{ width: 20, height: 20 }}>
+                    <Animated.View style={{ position: 'absolute', opacity: globeBreath }}>
+                      <Ionicons name="earth" size={20} color={colors.accent} />
+                    </Animated.View>
+                    <Animated.View style={{ position: 'absolute', opacity: globeBreath.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }}>
+                      <Ionicons name="earth-outline" size={20} color={colors.textMuted} />
+                    </Animated.View>
+                  </View>
+                )}
+              </Animated.View>
             </TouchableOpacity>
             {!isGuest && apiUser?.adresseDomicile && (
               <ModeToggle
@@ -918,8 +1030,74 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {showFilSearch && (
+        <View style={styles.filBar}>
+          <TouchableOpacity
+            style={[styles.filBtn, (filOpen || hasActiveFilter) && styles.filBtnActive]}
+            onPress={() => setFilOpen(o => !o)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="options-outline"
+              size={15}
+              color={(filOpen || hasActiveFilter) ? colors.white : colors.textSecondary}
+            />
+            <Text style={[styles.filBtnText, (filOpen || hasActiveFilter) && styles.filBtnTextActive]}>
+              {t('home.filter')}
+            </Text>
+            {hasActiveFilter && (
+              <View style={styles.filDot} />
+            )}
+          </TouchableOpacity>
+          {hasActiveFilter && !filOpen && (
+            <TouchableOpacity
+              onPress={() => { setFilSearch(''); setFilGenre(null); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {showFilSearch && filOpen && (
+        <View style={styles.filSearchBlock}>
+          <View style={styles.filSearchRow}>
+            <Ionicons name="search-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
+            <TextInput
+              style={styles.filSearchInput}
+              placeholder={t('home.search_placeholder')}
+              placeholderTextColor={colors.textMuted}
+              value={filSearch}
+              onChangeText={setFilSearch}
+              returnKeyType="search"
+              autoFocus={false}
+            />
+            {!!filSearch && (
+              <TouchableOpacity onPress={() => setFilSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={17} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.filGenreRow}>
+            {[null, 'homme', 'femme', 'enfant'].map((g) => (
+              <TouchableOpacity
+                key={g ?? 'tous'}
+                style={[styles.filGenreChip, filGenre === g && styles.filGenreChipActive]}
+                onPress={() => setFilGenre(g)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.filGenreChipText, filGenre === g && styles.filGenreChipTextActive]}>
+                  {g === null ? t('home.all') : t(`home.${g === 'homme' ? 'male' : g === 'femme' ? 'female' : 'child'}`)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
       <FlatList
-        data={groups}
+        data={filteredGroups}
         keyExtractor={(g) => g.mosqueeId}
         renderItem={({ item: group }) => (
           <MosqueCard group={group} coords={activeCoords} onPressJanaza={setSelected} currentUserId={apiUserId} currentUserRole={user?.role} onDelete={handleDelete} onEdit={setEditDecl} isSubscribed={notifActiveMosqueeIds.has(String(group.mosqueeId))} showWorldFlag={showAll} />
@@ -955,10 +1133,7 @@ export default function HomeScreen() {
           onSaved={(updated) => {
             dispatch({ type: 'JANAZA_UPDATE', payload: updated });
             setEditDecl(null);
-            dispatch({ type: 'FORCE_DATA_REFRESH' });
-            apiClient.get('/api/prierejanaza/upcoming')
-              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
-              .catch(() => {});
+            refreshAllData();
           }}
         />
       )}
@@ -1308,4 +1483,65 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: spacing.xxl },
   emptyEmoji: { fontSize: 48, marginBottom: spacing.md },
   emptyText: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
+
+  filBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  filBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    backgroundColor: colors.surface,
+  },
+  filBtnActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  filBtnText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  filBtnTextActive: { color: colors.white },
+  filDot: {
+    width: 6, height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.white,
+  },
+  filSearchBlock: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    gap: spacing.sm,
+  },
+  filSearchRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  filSearchInput: { flex: 1, fontSize: 15, color: colors.text },
+  filGenreRow: { flexDirection: 'row', gap: spacing.sm, paddingBottom: spacing.xs },
+  filGenreChip: {
+    paddingHorizontal: spacing.md, paddingVertical: 5,
+    borderRadius: radius.full,
+    borderWidth: 1.5, borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  filGenreChipActive: { borderColor: colors.primary, backgroundColor: colors.primaryDim },
+  filGenreChipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  filGenreChipTextActive: { color: colors.primary },
 });

@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "Akış",
     "map": "Camiler",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "ibadet yeri",
     "mosque_plural_world": "ibadet yeri",
     "world_all": "Tüm Dünya",
+    "all": "Tümü",
+    "filter": "Filtrele",
+    "search_placeholder": "İsim, cami, şehir, ülke…",
+    "search_no_results": "Sonuç bulunamadı",
     "address_banner": "Evinizdeki namazları görmek için {{profile}} bölümüne adresinizi giriniz",
     "profile_link": "Profil",
     "empty": "Yarıçapınızda bildirilen namaz yok",
@@ -168,14 +172,20 @@
     "name_section": "Merhumun adı",
     "name_anonymous": "Anonim Kal",
     "name_placeholder": "Ad ve soyad",
+    "nom_famille_placeholder": "Soyadı",
+    "prenom_placeholder": "Adı",
     "info_section": "Ek Bilgiler",
     "info_placeholder": "Yıkama yeri, aile hakkında bilgiler...",
     "generate_announcement": "Bilgiler / Duyuru Oluştur",
+    "complementary_btn": "Ek bilgiler / Önizleme",
     "publish": "Namazı Yayınla",
     "error_mosque": "Lütfen bir cami seçiniz.",
     "error_date": "Lütfen namaz için bir tarih seçiniz.",
-    "error_name_title": "İsim Eksik",
-    "error_name_body": "Lütfen merhumun adını ve soyadını giriniz ya da \"Anonim Kal\" seçeneğini etkinleştiriniz.",
+    "error_name_title": "Ad eksik",
+    "error_name_body": "Lütfen en azından merhumun adını girin veya Anonim Kal seçeneğini etkinleştirin.",
+    "error_duplicate_person": "Bu kişi için bu camide bu saatte zaten bir cenaze namazı ilan edildi.",
+    "error_inverted_name": "{{existing}} için bu camide bugün zaten bir cenaze namazı ilan edildi. Ad ve soyad ters olabilir.",
+    "error_publish_title": "Yayın hatası",
     "error_publish": "Yayınlama hatası. Bağlantınızı kontrol ediniz.",
     "male": "Erkek",
     "female": "Kadın",
@@ -192,6 +202,10 @@
     "import_error_generic": "İçe aktarma sırasında bir hata oluştu.",
     "import_timeout": "Bekleme süresi aşıldı. Bildirimlerinizi daha sonra kontrol ediniz.",
     "import_image_quality": "Resim düşük kalitede veya okunamıyor. Yapay zekanın cami adresini okuyabilmesi için daha net bir fotoğraf sağlayınız.",
+    "import_validate_btn": "Beyanı doğrula",
+    "import_banner": "İlandan çıkarılan bilgiler",
+    "import_banner_sub": "Yayınlamadan önce gerekirse inceleyin ve düzeltin.",
+    "import_cancel": "İçe aktarmayı iptal et",
     "import_verify_title": "Bilgileri Doğrulayın",
     "import_verify_body": "Yapay zeka afişten bilgileri çıkardı. Yanılabilir: tüm bilgilerin doğru olduğunu kontrol ediniz.",
     "import_verify_time_unknown": "⚠️ Namaz saati 00:00 olarak gösteriliyor — yapay zeka bu bilgiyi çıkaramadı. Lütfen manuel olarak giriniz.",
@@ -282,6 +296,8 @@
     "address_label": "Ev Adresi",
     "address_placeholder": "Tam adresiniz",
     "address_description": "Yakındaki camilerin mesafelerini hesaplamak için kullanılır",
+    "address_invalid_title": "Adres bulunamadı",
+    "address_invalid_message": "Bu adres konumlandırılamadı. Lütfen listeden bir öneri seçin veya geçerli bir adres girin.",
     "radius_label": "Bildirim Yarıçapı",
     "radius_description": "Bu yarıçap içindeki ev etrafındaki ibadet yerleri",
     "movement_title": "Hareket Bildirimleri",
@@ -314,6 +330,9 @@
     "delete_cancel": "İptal",
     "delete_confirm": "Kalıcı Olarak Sil",
     "history_title": "Bildirimlerim",
+    "history_title_monde": "Dünya Cenazeleri",
+    "search_placeholder": "İsim, cami, şehir, ülke…",
+    "search_no_results": "Sonuç bulunamadı",
     "history_empty": "Henüz bildirim yok",
     "history_expiry": "{{count}} gün içinde silindi",
     "history_expiry_plural": "{{count}} gün içinde silinecek",
@@ -365,7 +384,8 @@
     "lang_pt": "Português",
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
-    "lang_es": "Español"
+    "lang_es": "Español",
+    "lang_bm": "Bamanankan"
   },
   "admin": {
     "title": "Yönetim",
@@ -415,6 +435,10 @@
     "edit_anonymous": "Anonim Merhum",
     "edit_deceased_name": "Merhumun Adı",
     "edit_deceased_placeholder": "Ad soyad",
+    "edit_deceased_nom": "Soyadı",
+    "edit_deceased_nom_placeholder": "Soyadı",
+    "edit_deceased_prenom": "Ad",
+    "edit_deceased_prenom_placeholder": "Adı",
     "edit_genre": "Cinsiyet",
     "edit_male": "Erkek",
     "edit_female": "Kadın",
@@ -532,6 +556,11 @@
     "dua_final_fr": "Allah'ım! Bizi onun sevabından mahrum etme, ondan sonra bizi imtihana tabi tutma ve bizi de onu da bağışla.",
     "salam_fr": "Allah'ın selamı, rahmeti ve bereketi üzerinize olsun."
   },
+  "errors": {
+    "crash_title": "Bir hata oluştu",
+    "crash_message": "Beklenmedik bir hata oluştu. Lütfen uygulamayı yeniden başlatın.",
+    "reload_button": "Uygulamayı yeniden başlat"
+  },
   "contact": {
     "title": "Bize Ulaşın",
     "intro": "Bir sorunuz, öneriniz veya sorununuz mu var? Bize yazın, en kısa sürede yanıtlayacağız.",
@@ -575,6 +604,7 @@
     "preview_title": "Önizleme",
     "years_toggle": "Doğum ve ölüm yılları",
     "years_toggle_description": "Bu bilgiye sahip değilseniz devre dışı bırakın",
+    "years_toggle_off_description": "Bu bilgiye sahipseniz etkinleştirin",
     "birth_year": "Doğum Yılı",
     "death_year": "Ölüm Yılı",
     "country": "Defin ülkesi",
@@ -594,7 +624,7 @@
     "death_announcement": "Vefat Duyurusu",
     "anonymous_announces": "Merhumun vefatını duyururuz:",
     "family_announces_named": "{{name}} ailesi sizlere merhumun vefatını duyurmaktan üzüntü duyar:",
-    "family_announces_unnamed": "Aile sizlere merhumun vefatını duyurmaktan üzüntü duyar:",
+    "family_announces_unnamed": "Üzüntüyle vefatını duyuruyoruz:",
     "civility_male": "Merhum",
     "civility_female": "Merhume",
     "civility_child": "Çocuk",
@@ -607,6 +637,8 @@
     "prayer_section": "Namaz",
     "burial_prep_en": "Türkiye'de defin",
     "burial_prep_au": "Defin:",
-    "burial_prep_aux": "Defin:"
+    "burial_prep_aux": "Defin:",
+    "optional": "isteğe bağlı",
+    "modal_title": "Ek bilgiler"
   }
 }

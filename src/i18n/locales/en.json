@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "Feed",
     "map": "Mosques",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "prayer place",
     "mosque_plural_world": "prayer places",
     "world_all": "Worldwide",
+    "all": "All",
+    "filter": "Filter",
+    "search_placeholder": "Name, mosque, city, country…",
+    "search_no_results": "No results",
     "address_banner": "Add your address in {{profile}} to see prayers near you",
     "profile_link": "Profile",
     "empty": "No prayers declared in your radius",
@@ -170,14 +174,20 @@
     "name_section": "Name of deceased",
     "name_anonymous": "Stay anonymous",
     "name_placeholder": "Full name",
+    "nom_famille_placeholder": "Last name",
+    "prenom_placeholder": "First name",
     "info_section": "Additional information",
     "info_placeholder": "Washing location, family information...",
     "generate_announcement": "Information / Generate announcement",
+    "complementary_btn": "Additional information / Preview",
     "publish": "Publish prayer",
     "error_mosque": "Please select a mosque.",
     "error_date": "Please choose a date for the prayer.",
-    "error_name_title": "Name missing",
-    "error_name_body": "Please enter the deceased's name, or enable \"Stay anonymous\".",
+    "error_name_title": "First name missing",
+    "error_name_body": "Please enter at least the deceased's first name, or enable the Stay anonymous option.",
+    "error_duplicate_person": "A janaza has already been declared for this person at this mosque at this time.",
+    "error_inverted_name": "A janaza has already been declared for {{existing}} at this mosque today. The first and last name may be swapped.",
+    "error_publish_title": "Publication error",
     "error_publish": "Publication error. Check your connection.",
     "male": "Male",
     "female": "Female",
@@ -194,6 +204,10 @@
     "import_error_generic": "An error occurred during the import.",
     "import_timeout": "Request timed out. Check your declarations later.",
     "import_image_quality": "The image is too blurry or unreadable. Please provide a clearer photo so the AI can read the mosque address.",
+    "import_validate_btn": "Validate declaration",
+    "import_banner": "Information extracted from flyer",
+    "import_banner_sub": "Review and correct if needed before publishing.",
+    "import_cancel": "Cancel import",
     "import_verify_title": "Verify the information",
     "import_verify_body": "The AI has extracted the information from the flyer. It is not perfect — please check that all the information is correct.",
     "import_verify_time_unknown": "⚠️ The prayer time is set to 00:00 — the AI could not extract this information. Please enter it manually.",
@@ -284,6 +298,8 @@
     "address_label": "Home address",
     "address_placeholder": "Your full address",
     "address_description": "Used to calculate distances to nearby mosques",
+    "address_invalid_title": "Address not found",
+    "address_invalid_message": "Unable to locate this address. Please select a suggestion from the list or enter a valid address.",
     "radius_label": "Notification radius",
     "radius_description": "Prayer places within this radius around your home",
     "movement_title": "Movement notifications",
@@ -316,7 +332,10 @@
     "delete_cancel": "Cancel",
     "delete_confirm": "Delete permanently",
     "history_title": "My declarations",
+    "history_title_monde": "Worldwide janazas",
     "history_empty": "No declarations yet",
+    "search_placeholder": "Name, mosque, city, country…",
+    "search_no_results": "No results",
     "history_expiry": "Deleted in {{count}} day",
     "history_expiry_plural": "Deleted in {{count}} days",
     "history_expiry_date": "Automatically deleted on {{date}}",
@@ -367,7 +386,8 @@
     "lang_pt": "Português",
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
-    "lang_es": "Español"
+    "lang_es": "Español",
+    "lang_bm": "Bamanankan"
   },
   "admin": {
     "title": "Administration",
@@ -421,6 +441,10 @@
     "edit_anonymous": "Anonymous deceased",
     "edit_deceased_name": "Deceased name",
     "edit_deceased_placeholder": "Full name",
+    "edit_deceased_nom": "Family name",
+    "edit_deceased_nom_placeholder": "Last name",
+    "edit_deceased_prenom": "First name",
+    "edit_deceased_prenom_placeholder": "First name",
     "edit_genre": "Gender",
     "edit_male": "Male",
     "edit_female": "Female",
@@ -538,6 +562,11 @@
     "dua_final_fr": "O Allah, do not deprive us of his reward, do not put us to trial after him, and forgive us and him.",
     "salam_fr": "May the peace and mercy of Allah be upon you."
   },
+  "errors": {
+    "crash_title": "Oops, something went wrong",
+    "crash_message": "An unexpected error occurred. Please reload the app.",
+    "reload_button": "Reload the app"
+  },
   "contact": {
     "title": "Contact us",
     "intro": "A question, suggestion or problem? Write to us, we will respond as soon as possible.",
@@ -581,6 +610,7 @@
     "preview_title": "Preview",
     "years_toggle": "Birth and death years",
     "years_toggle_description": "Disable if you don't have this information",
+    "years_toggle_off_description": "Enable if you have this information",
     "birth_year": "Birth year",
     "death_year": "Death year",
     "country": "Country of burial",
@@ -600,7 +630,7 @@
     "death_announcement": "Death announcement",
     "anonymous_announces": "We announce the passing of:",
     "family_announces_named": "The {{name}} family announces the passing of:",
-    "family_announces_unnamed": "The family announces the passing of:",
+    "family_announces_unnamed": "We sorrowfully announce the passing of:",
     "civility_male": "Mr.",
     "civility_female": "Mrs.",
     "civility_child": "The child",
@@ -613,6 +643,8 @@
     "prayer_section": "Prayer",
     "burial_prep_en": "Burial in",
     "burial_prep_au": "Burial in",
-    "burial_prep_aux": "Burial in"
+    "burial_prep_aux": "Burial in",
+    "optional": "optional",
+    "modal_title": "Additional information"
   }
 }

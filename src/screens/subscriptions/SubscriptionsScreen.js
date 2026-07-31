@@ -127,9 +127,9 @@ export default function SubscriptionsScreen() {
     setSelectedMosque({
       id: sub.mosqueeId,
       nom: sub.nom,
-      adresse: ref?.adresse ?? null,
-      latitude: ref?.latitude ?? null,
-      longitude: ref?.longitude ?? null,
+      adresse: sub.adresse || ref?.adresse || null,
+      latitude: sub.latitude ?? ref?.latitude ?? null,
+      longitude: sub.longitude ?? ref?.longitude ?? null,
     });
   }
 
@@ -240,6 +240,11 @@ export default function SubscriptionsScreen() {
             apiClient.get('/api/prierejanaza/upcoming')
               .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
               .catch(() => {});
+            if (apiUser?.id) {
+              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+            }
           }}
         />
       )}

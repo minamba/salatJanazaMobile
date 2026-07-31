@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "آخر الأخبار",
     "map": "المساجد",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "مكان صلاة",
     "mosque_plural_world": "أماكن صلاة",
     "world_all": "العالم كله",
+    "all": "الكل",
+    "filter": "تصفية",
+    "search_placeholder": "الاسم، المسجد، المدينة، الدولة…",
+    "search_no_results": "لا توجد نتائج",
     "address_banner": "أضف عنوانك في {{profile}} لرؤية الصلوات بالقرب منك",
     "profile_link": "الملف الشخصي",
     "empty": "لا توجد صلوات معلنة في نطاقك",
@@ -167,14 +171,20 @@
     "name_section": "اسم المتوفى",
     "name_anonymous": "البقاء مجهولاً",
     "name_placeholder": "الاسم الكامل",
+    "nom_famille_placeholder": "اللقب",
+    "prenom_placeholder": "الاسم",
     "info_section": "معلومات إضافية",
     "info_placeholder": "مكان الغسل، معلومات عن العائلة...",
     "generate_announcement": "إنشاء الإعلان",
+    "complementary_btn": "معلومات إضافية / معاينة",
     "publish": "نشر الصلاة",
     "error_mosque": "يرجى اختيار مسجد.",
     "error_date": "يرجى اختيار تاريخ للصلاة.",
-    "error_name_title": "الاسم مفقود",
-    "error_name_body": "يرجى إدخال اسم المتوفى، أو فعّل خيار \"البقاء مجهولاً\".",
+    "error_name_title": "الاسم الأول مفقود",
+    "error_name_body": "يرجى إدخال الاسم الأول للمتوفى على الأقل، أو تفعيل خيار البقاء مجهولاً.",
+    "error_duplicate_person": "تم إعلان جنازة بالفعل لهذا الشخص في هذا المسجد في هذا الوقت.",
+    "error_inverted_name": "تمت إضافة جنازة بالفعل لـ {{existing}} في هذا المسجد اليوم. يبدو أن الاسم ولقب مقلوبان.",
+    "error_publish_title": "خطأ في النشر",
     "error_publish": "خطأ في النشر. تحقق من اتصالك.",
     "male": "رجل",
     "female": "امرأة",
@@ -191,6 +201,10 @@
     "import_error_generic": "حدث خطأ أثناء الاستيراد.",
     "import_timeout": "انتهت مهلة الطلب. تحقق من إعلاناتك لاحقاً.",
     "import_image_quality": "الصورة ضبابية أو غير مقروءة. يرجى توفير صورة أوضح حتى يتمكن الذكاء الاصطناعي من قراءة عنوان المسجد.",
+    "import_validate_btn": "التحقق من الإعلان",
+    "import_banner": "المعلومات المستخرجة من الإعلان",
+    "import_banner_sub": "راجع وصحح إذا لزم الأمر قبل النشر.",
+    "import_cancel": "إلغاء الاستيراد",
     "import_verify_title": "تحقق من المعلومات",
     "import_verify_body": "قام الذكاء الاصطناعي باستخراج المعلومات من الإعلان. قد تحدث أخطاء — تأكد من صحة جميع المعلومات.",
     "import_verify_time_unknown": "⚠️ وقت الصلاة مضبوط على 00:00 — لم يتمكن الذكاء الاصطناعي من استخراج هذه المعلومة. يرجى إدخالها يدوياً.",
@@ -279,6 +293,8 @@
     "address_label": "عنوان المنزل",
     "address_placeholder": "عنوانك الكامل",
     "address_description": "يُستخدم لحساب المسافات إلى المساجد القريبة",
+    "address_invalid_title": "العنوان غير موجود",
+    "address_invalid_message": "تعذّر تحديد موقع هذا العنوان. يرجى اختيار اقتراح من القائمة أو إدخال عنوان صحيح.",
     "radius_label": "نطاق الإشعارات",
     "radius_description": "أماكن الصلاة ضمن هذا النطاق حول منزلك",
     "movement_title": "إشعارات أثناء التنقل",
@@ -311,6 +327,9 @@
     "delete_cancel": "إلغاء",
     "delete_confirm": "حذف نهائي",
     "history_title": "إعلاناتي",
+    "history_title_monde": "جنازات العالم",
+    "search_placeholder": "الاسم، المسجد، المدينة، الدولة…",
+    "search_no_results": "لا توجد نتائج",
     "history_empty": "لا توجد إعلانات حتى الآن",
     "history_expiry": "يُحذف خلال {{count}} يوم",
     "history_expiry_plural": "يُحذف خلال {{count}} أيام",
@@ -362,7 +381,8 @@
     "lang_pt": "Português",
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
-    "lang_es": "Español"
+    "lang_es": "Español",
+    "lang_bm": "Bamanankan"
   },
   "admin": {
     "title": "الإدارة",
@@ -416,6 +436,10 @@
     "edit_anonymous": "متوفى مجهول",
     "edit_deceased_name": "اسم المتوفى",
     "edit_deceased_placeholder": "الاسم الكامل",
+    "edit_deceased_nom": "اسم العائلة",
+    "edit_deceased_nom_placeholder": "اللقب",
+    "edit_deceased_prenom": "الاسم الأول",
+    "edit_deceased_prenom_placeholder": "الاسم",
     "edit_genre": "الجنس",
     "edit_male": "رجل",
     "edit_female": "امرأة",
@@ -533,6 +557,11 @@
     "dua_final_fr": "اللَّهُمَّ لَا تَحْرِمْنَا أَجْرَهُ وَلَا تَفْتِنَّا بَعْدَهُ وَاغْفِرْ لَنَا وَلَهُ",
     "salam_fr": "السَّلَامُ عَلَيْكُمْ وَرَحْمَةُ اللَّهِ"
   },
+  "errors": {
+    "crash_title": "عذراً، حدث خطأ",
+    "crash_message": "حدث خطأ غير متوقع. يرجى إعادة تحميل التطبيق.",
+    "reload_button": "إعادة تحميل التطبيق"
+  },
   "contact": {
     "title": "تواصل معنا",
     "intro": "سؤال، اقتراح أو مشكلة؟ اكتب لنا وسنرد في أقرب وقت.",
@@ -576,6 +605,7 @@
     "preview_title": "معاينة",
     "years_toggle": "سنتا الميلاد والوفاة",
     "years_toggle_description": "عطّل إذا لم تكن لديك هذه المعلومات",
+    "years_toggle_off_description": "فعّل إذا كانت لديك هذه المعلومات",
     "birth_year": "سنة الميلاد",
     "death_year": "سنة الوفاة",
     "country": "بلد الدفن",
@@ -593,7 +623,7 @@
     "death_announcement": "إعلان وفاة",
     "anonymous_announces": "نُعلنكم بوفاة:",
     "family_announces_named": "تُعلن عائلة {{name}} بحزن عن وفاة:",
-    "family_announces_unnamed": "تُعلن العائلة بحزن عن وفاة:",
+    "family_announces_unnamed": "يؤلمنا أن نُعلنكم بوفاة :",
     "civility_male": "السيد",
     "civility_female": "السيدة",
     "civility_child": "الطفل",
@@ -606,6 +636,8 @@
     "prayer_section": "صلاة",
     "burial_prep_en": "الدفن في",
     "burial_prep_au": "الدفن في",
-    "burial_prep_aux": "الدفن في"
+    "burial_prep_aux": "الدفن في",
+    "optional": "اختياري",
+    "modal_title": "معلومات إضافية"
   }
 }

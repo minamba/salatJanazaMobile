@@ -11,6 +11,7 @@ import apiClient from '../lib/api/apiClient';
 import AnnouncementGeneratorModal from '../screens/declare/AnnouncementGenerator';
 import { useTranslation } from 'react-i18next';
 import { searchMosquesByNameOSM } from '../utils/mosqueSearch';
+import { buildNomDefunt, splitNomDefunt } from '../utils/text';
 
 const CAL_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -60,22 +61,27 @@ export function CalendarModal({ visible, selectedDate, onSelect, onClose }) {
                 {dayNames.map(d => <Text key={d} style={styles.calDayName}>{d}</Text>)}
               </View>
               <View style={styles.calGrid}>
-                {cells.map((day, i) => {
-                  const isSelected = selectedDate && day === selectedDate.getDate()
-                    && viewMonth === selectedDate.getMonth() && viewYear === selectedDate.getFullYear();
-                  const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
-                  return (
-                    <TouchableOpacity
-                      key={i}
-                      style={[styles.calCell, isSelected && styles.calCellSelected, isToday && !isSelected && styles.calCellToday]}
-                      onPress={() => day && onSelect(new Date(viewYear, viewMonth, day))}
-                      disabled={!day}
-                      activeOpacity={0.7}
-                    >
-                      {day ? <Text style={[styles.calCellText, isSelected && styles.calCellTextSelected, isToday && !isSelected && styles.calCellTextToday]}>{day}</Text> : null}
-                    </TouchableOpacity>
-                  );
-                })}
+                {Array.from({ length: Math.ceil(cells.length / 7) }, (_, ri) => (
+                  <View key={ri} style={styles.calRow}>
+                    {Array.from({ length: 7 }, (_, ci) => {
+                      const day = cells[ri * 7 + ci] ?? null;
+                      const isSelected = selectedDate && day === selectedDate.getDate()
+                        && viewMonth === selectedDate.getMonth() && viewYear === selectedDate.getFullYear();
+                      const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+                      return (
+                        <TouchableOpacity
+                          key={ci}
+                          style={[styles.calCell, isSelected && styles.calCellSelected, isToday && !isSelected && styles.calCellToday]}
+                          onPress={() => day && onSelect(new Date(viewYear, viewMonth, day))}
+                          disabled={!day}
+                          activeOpacity={0.7}
+                        >
+                          {day ? <Text style={[styles.calCellText, isSelected && styles.calCellTextSelected, isToday && !isSelected && styles.calCellTextToday]}>{day}</Text> : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ))}
               </View>
             </View>
           </TouchableWithoutFeedback>
@@ -144,7 +150,8 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
   const fmtTime = (n) => i18n.language?.startsWith('ar')
     ? n.toLocaleString('ar-SA', { minimumIntegerDigits: 2 })
     : String(n).padStart(2, '0');
-  const [nomDefunt, setNomDefunt] = useState('');
+  const [nomFamille, setNomFamille] = useState('');
+  const [prenomDefunt, setPrenomDefunt] = useState('');
   const [estAnonyme, setEstAnonyme] = useState(false);
   const [genre, setGenre] = useState('homme');
   const [selectedDate, setSelectedDate] = useState(null);
@@ -156,6 +163,7 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
   const [showHourPicker, setShowHourPicker] = useState(false);
   const [showMinutePicker, setShowMinutePicker] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [announcementDraft, setAnnouncementDraft] = useState(null);
   const [mosqueeSearch, setMosqueeSearch] = useState('');
   const [selectedMosque, setSelectedMosque] = useState(null);
   const [mosqueeOptions, setMosqueeOptions] = useState([]);
@@ -166,7 +174,10 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
 
   useEffect(() => {
     if (!item) return;
-    setNomDefunt(item.nomDefunt ?? '');
+    setAnnouncementDraft(null);
+    const split = splitNomDefunt(item.nomDefunt ?? '');
+    setNomFamille(split.nom);
+    setPrenomDefunt(split.prenom);
     setEstAnonyme(item.estAnonyme ?? false);
     setGenre(item.genre ?? 'homme');
     const rawApi = item.dateHeurePriere;
@@ -189,9 +200,12 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
       id: String(item.mosqueeId), _dbId: item.mosqueeId,
       nom: item.mosqueeNom ?? item.mosquee ?? '',
       adresse: item.mosqueeAdresse ?? item.adresse ?? null,
+      latitude: item.latitude,
+      longitude: item.longitude,
     } : null);
     setMosqueeOptions([]);
     setShowDrop(false);
+
   }, [item]);
 
   function handleMosqueeSearch(text) {
@@ -282,12 +296,12 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
       const res = await apiClient.put(`/api/PriereJanaza/${item.id}`, {
         mosqueeId,
         utilisateurId: item.utilisateurId,
-        nomDefunt: estAnonyme ? null : nomDefunt,
+        nomDefunt: estAnonyme ? null : buildNomDefunt(nomFamille, prenomDefunt),
         estAnonyme,
         genre,
         dateHeurePriere: d.toISOString(),
         commentaire: finalCommentaire ?? commentaire,
-        utcOffsetMinutes: item.utcOffsetMinutes ?? 0,
+        utcOffsetMinutes: 0,
         ...(extraData ? {
           paysEnterrement: extraData.country || null,
           villeEnterrement: extraData.locationFrance || null,
@@ -326,7 +340,7 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
 
   const announcementForm = {
     nomAnonyme: estAnonyme,
-    nomDefunt,
+    nomDefunt: buildNomDefunt(nomFamille, prenomDefunt),
     genre,
     mosqueeNom: selectedMosque?.nom ?? mosqueeSearch,
     mosqueeAdresse: item?.mosqueeAdresse ?? item?.adresse ?? '',
@@ -406,15 +420,26 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
           </View>
 
           {!estAnonyme && (
-            <ModalField label={t('admin.edit_deceased_name')}>
-              <TextInput
-                style={styles.modalInput}
-                value={nomDefunt}
-                onChangeText={setNomDefunt}
-                placeholder={t('admin.edit_deceased_placeholder')}
-                placeholderTextColor={colors.textMuted}
-              />
-            </ModalField>
+            <>
+              <ModalField label={t('admin.edit_deceased_nom')}>
+                <TextInput
+                  style={styles.modalInput}
+                  value={nomFamille}
+                  onChangeText={setNomFamille}
+                  placeholder={t('admin.edit_deceased_nom_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                />
+              </ModalField>
+              <ModalField label={t('admin.edit_deceased_prenom')}>
+                <TextInput
+                  style={styles.modalInput}
+                  value={prenomDefunt}
+                  onChangeText={setPrenomDefunt}
+                  placeholder={t('admin.edit_deceased_prenom_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                />
+              </ModalField>
+            </>
           )}
 
           <ModalField label={t('admin.edit_genre')}>
@@ -509,19 +534,21 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
         title={t('admin.edit_time')}
       />
       <AnnouncementGeneratorModal
+        key={item?.id ?? 'edit'}
         visible={showAnnouncement}
-        onClose={() => setShowAnnouncement(false)}
+        onClose={(draft) => { setShowAnnouncement(false); if (draft) setAnnouncementDraft(draft); }}
         form={announcementForm}
         date={selectedDate ? new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())) : null}
         hour={selectedHour}
         minute={selectedMinute}
-        initialValues={{
+        initialValues={announcementDraft ?? {
           country: item?.paysEnterrement ?? null,
           countryKnown: item?.paysEnterrement != null,
           locationFrance: item?.villeEnterrement ?? '',
           birthYear: item?.anneeNaissance ?? null,
           deathYear: item?.anneeDeces ?? null,
           showYears: !!(item?.anneeNaissance || item?.anneeDeces),
+          commentaire: item?.commentaire ?? '',
         }}
         onDataChange={(data) => { if (data?.commentaire !== undefined) setCommentaire(data.commentaire); }}
         onPublish={handleSaveFromAnnouncement}
@@ -598,8 +625,9 @@ const styles = StyleSheet.create({
   calMonthTitle: { ...typography.h3, textTransform: 'capitalize' },
   calDayNamesRow: { flexDirection: 'row', marginBottom: spacing.sm },
   calDayName: { flex: 1, textAlign: 'center', ...typography.caption, fontWeight: '700', color: colors.textMuted },
-  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
+  calGrid: {},
+  calRow: { flexDirection: 'row' },
+  calCell: { flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   calCellSelected: { backgroundColor: colors.primary },
   calCellToday: { borderWidth: 1.5, borderColor: colors.primary },
   calCellText: { fontSize: 14, fontWeight: '500', color: colors.text },

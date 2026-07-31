@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import './utils/movementNotif'; // enregistre la tâche background
 import store from './lib/stores/store';
 import RootNavigator from './navigation/RootNavigator';
+import ErrorBoundary from './components/ErrorBoundary';
 import { colors } from './utils/theme';
 
 Notifications.setNotificationHandler({
@@ -45,12 +46,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Provider store={store}>
-      <SafeAreaProvider>
-        <NavigationContainer theme={navigationTheme}>
-          <AppContent />
-        </NavigationContainer>
-      </SafeAreaProvider>
-    </Provider>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <SafeAreaProvider>
+          <NavigationContainer theme={navigationTheme}>
+            <AppContent />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </Provider>
+    </ErrorBoundary>
   );
 }

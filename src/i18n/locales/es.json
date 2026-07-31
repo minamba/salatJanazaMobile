@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "Hilo",
     "map": "Mezquitas",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "lugar de oración",
     "mosque_plural_world": "lugares de oración",
     "world_all": "Todo el mundo",
+    "all": "Todos",
+    "filter": "Filtrar",
+    "search_placeholder": "Nombre, mezquita, ciudad, país…",
+    "search_no_results": "Sin resultados",
     "address_banner": "Introduzca su dirección en el {{profile}} para ver las oraciones cerca de usted",
     "profile_link": "Perfil",
     "empty": "Ninguna oración declarada en su radio",
@@ -168,14 +172,20 @@
     "name_section": "Nombre del difunto",
     "name_anonymous": "Permanecer anónimo",
     "name_placeholder": "Nombre y apellidos",
+    "nom_famille_placeholder": "Apellido",
+    "prenom_placeholder": "Nombre",
     "info_section": "Información adicional",
     "info_placeholder": "Lugar del lavado, información sobre la familia...",
     "generate_announcement": "Información / Generar el anuncio",
+    "complementary_btn": "Información adicional / Vista previa",
     "publish": "Publicar la oración",
     "error_mosque": "Por favor, seleccione una mezquita.",
     "error_date": "Por favor, elija una fecha para la oración.",
     "error_name_title": "Nombre faltante",
-    "error_name_body": "Por favor, introduzca el nombre y apellidos del difunto, o active \"Permanecer anónimo\".",
+    "error_name_body": "Introduzca al menos el nombre del difunto o active la opción Permanecer anónimo.",
+    "error_duplicate_person": "Ya se ha declarado una janaza para esta persona en esta mezquita a esta hora.",
+    "error_inverted_name": "Ya se ha declarado una janaza para {{existing}} en esta mezquita hoy. El nombre y apellido pueden estar invertidos.",
+    "error_publish_title": "Error de publicación",
     "error_publish": "Error al publicar. Verifique su conexión.",
     "male": "Hombre",
     "female": "Mujer",
@@ -192,6 +202,10 @@
     "import_error_generic": "Se ha producido un error durante la importación.",
     "import_timeout": "El tiempo de espera ha expirado. Verifique sus declaraciones más tarde.",
     "import_image_quality": "La imagen es de mala calidad o ilegible. Por favor, proporcione una foto más nítida para que la IA pueda leer la dirección de la mezquita.",
+    "import_validate_btn": "Validar declaración",
+    "import_banner": "Información extraída del folleto",
+    "import_banner_sub": "Revise y corrija si es necesario antes de publicar.",
+    "import_cancel": "Cancelar importación",
     "import_verify_title": "Verifique la información",
     "import_verify_body": "La IA ha extraído la información del cartel. No es infalible: verifique que toda la información sea correcta.",
     "import_verify_time_unknown": "⚠️ El horario de la oración es a las 00:00 — la IA no ha podido extraer esta información. Por favor, introdúzcala manualmente.",
@@ -282,6 +296,8 @@
     "address_label": "Dirección de domicilio",
     "address_placeholder": "Su dirección completa",
     "address_description": "Usada para calcular las distancias de las mezquitas cercanas",
+    "address_invalid_title": "Dirección no encontrada",
+    "address_invalid_message": "No se pudo localizar esta dirección. Por favor, selecciona una sugerencia de la lista o introduce una dirección válida.",
     "radius_label": "Radio de notificación",
     "radius_description": "Lugares de oración en este radio alrededor de su domicilio",
     "movement_title": "Notificaciones en movimiento",
@@ -314,6 +330,9 @@
     "delete_cancel": "Cancelar",
     "delete_confirm": "Eliminar definitivamente",
     "history_title": "Mis declaraciones",
+    "history_title_monde": "Janazas del mundo",
+    "search_placeholder": "Nombre, mezquita, ciudad, país…",
+    "search_no_results": "Sin resultados",
     "history_empty": "Ninguna declaración por el momento",
     "history_expiry": "Eliminada en {{count}} día",
     "history_expiry_plural": "Eliminada en {{count}} días",
@@ -366,6 +385,7 @@
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
     "lang_es": "Español",
+    "lang_bm": "Bamanankan",
     "declared_on": "Declarado el {{date}}"
   },
   "admin": {
@@ -420,6 +440,10 @@
     "edit_anonymous": "Difunto anónimo",
     "edit_deceased_name": "Nombre del difunto",
     "edit_deceased_placeholder": "Nombre completo",
+    "edit_deceased_nom": "Apellido",
+    "edit_deceased_nom_placeholder": "Apellido",
+    "edit_deceased_prenom": "Nombre",
+    "edit_deceased_prenom_placeholder": "Nombre",
     "edit_genre": "Género",
     "edit_male": "Hombre",
     "edit_female": "Mujer",
@@ -537,6 +561,11 @@
     "dua_final_fr": "Oh Allah, no nos prives de su recompensa, no nos pongas a prueba después de él, y perdónanos a nosotros y a él.",
     "salam_fr": "Que la paz y la misericordia de Allah sean con vosotros."
   },
+  "errors": {
+    "crash_title": "Vaya, algo salió mal",
+    "crash_message": "Se produjo un error inesperado. Por favor, recarga la aplicación.",
+    "reload_button": "Recargar la aplicación"
+  },
   "contact": {
     "title": "Contacto",
     "intro": "¿Una pregunta, sugerencia o problema? Escríbanos, le responderemos lo antes posible.",
@@ -580,6 +609,7 @@
     "preview_title": "Vista previa",
     "years_toggle": "Años de nacimiento y fallecimiento",
     "years_toggle_description": "Desactivar si no se dispone de esta información",
+    "years_toggle_off_description": "Activar si se dispone de esta información",
     "birth_year": "Año de nacimiento",
     "death_year": "Año de fallecimiento",
     "country": "País de entierro",
@@ -599,7 +629,7 @@
     "death_announcement": "Anuncio de fallecimiento",
     "anonymous_announces": "Les anunciamos el fallecimiento de:",
     "family_announces_named": "La familia {{name}} les anuncia con tristeza el fallecimiento de:",
-    "family_announces_unnamed": "La familia les anuncia con tristeza el fallecimiento de:",
+    "family_announces_unnamed": "Les anunciamos con tristeza el fallecimiento de:",
     "civility_male": "D.",
     "civility_female": "D.ª",
     "civility_child": "El niño/La niña",
@@ -612,6 +642,8 @@
     "prayer_section": "Oración",
     "burial_prep_en": "Entierro en",
     "burial_prep_au": "Entierro en",
-    "burial_prep_aux": "Entierro en"
+    "burial_prep_aux": "Entierro en",
+    "optional": "opcional",
+    "modal_title": "Información adicional"
   }
 }

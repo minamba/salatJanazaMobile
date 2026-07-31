@@ -210,7 +210,18 @@ function myDeclarationsReducer(state = initialMyDeclarations, action) {
       return {
         ...state,
         list: state.list.map(d => String(d.id) === String(u.id)
-          ? { ...d, dateHeure: toTs(u.dateHeurePriere ?? u.dateHeure), nomDefunt: u.nomDefunt ?? '', estAnonyme: u.estAnonyme ?? false, genre: u.genre ?? 'homme', commentaire: u.commentaire ?? '' }
+          ? {
+              ...d,
+              dateHeure: toTs(u.dateHeurePriere ?? u.dateHeure),
+              nomDefunt: u.nomDefunt ?? '',
+              estAnonyme: u.estAnonyme ?? false,
+              genre: u.genre ?? 'homme',
+              commentaire: u.commentaire ?? '',
+              paysEnterrement: u.paysEnterrement !== undefined ? u.paysEnterrement : (d.paysEnterrement ?? null),
+              villeEnterrement: u.villeEnterrement !== undefined ? u.villeEnterrement : (d.villeEnterrement ?? null),
+              anneeNaissance: u.anneeNaissance !== undefined ? u.anneeNaissance : (d.anneeNaissance ?? null),
+              anneeDeces: u.anneeDeces !== undefined ? u.anneeDeces : (d.anneeDeces ?? null),
+            }
           : d
         ),
       };

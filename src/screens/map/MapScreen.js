@@ -604,8 +604,10 @@ function AddMosqueModal({ onAdd, onClose }) {
         setAdresseError(t('map.add_address_incomplete'));
         hasError = true;
       } else {
-        // Format suffisant → on vérifie avec Nominatim + addressdetails
+        // Format suffisant → géocodage en cascade : Nominatim → api-adresse → Photon
         setSaving(true);
+
+        // 1. Nominatim (OSM) avec vérification qualité
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(adresse.trim())}&format=json&limit=1&addressdetails=1`,
@@ -614,14 +616,12 @@ function AddMosqueModal({ onAdd, onClose }) {
           const data = await res.json();
           if (data[0]) {
             const addr = data[0].address ?? {};
-            // Voie / rue / zone nommée (FR/US/BR/KR/JP/CN/AR/DE/UK/IN...)
             const hasWay = !!(
               addr.road || addr.pedestrian || addr.footway || addr.path ||
               addr.cycleway || addr.street || addr.quarter || addr.neighbourhood ||
               addr.hamlet || addr.house_number || addr.building || addr.amenity ||
               addr.locality || addr.place
             );
-            // Localité — ville, district, état, gouvernorat... (tous pays)
             const hasPlace = !!(
               addr.city || addr.town || addr.village || addr.suburb ||
               addr.county || addr.district || addr.state_district ||
@@ -629,9 +629,6 @@ function AddMosqueModal({ onAdd, onClose }) {
               addr.region || addr.state || addr.province || addr.department ||
               addr.governorate || addr.locality
             );
-            // Fallback adresses informelles (Afrique sub-saharienne, zones rurales...) :
-            // sans rue identifiable, 2 niveaux de localité distincts suffisent
-            // ex: "Médina, Dakar" → suburb + city ; "Yaba, Lagos" → suburb + state
             const localityLevels = [
               addr.suburb, addr.neighbourhood, addr.quarter, addr.hamlet, addr.locality,
               addr.city, addr.town, addr.village,
@@ -643,6 +640,31 @@ function AddMosqueModal({ onAdd, onClose }) {
             }
           }
         } catch {}
+
+        // 2. API Adresse (gouvernement français) — meilleure couverture des adresses FR
+        if (!finalCoords) {
+          try {
+            const res = await fetch(
+              `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(adresse.trim())}&limit=1`
+            );
+            const data = await res.json();
+            const c = data?.features?.[0]?.geometry?.coordinates;
+            if (c) finalCoords = { lat: c[1], lon: c[0] };
+          } catch {}
+        }
+
+        // 3. Photon (Komoot) — fallback mondial
+        if (!finalCoords) {
+          try {
+            const res = await fetch(
+              `https://photon.komoot.io/api/?q=${encodeURIComponent(adresse.trim())}&limit=1`
+            );
+            const data = await res.json();
+            const c = data?.features?.[0]?.geometry?.coordinates;
+            if (c) finalCoords = { lat: c[1], lon: c[0] };
+          } catch {}
+        }
+
         setSaving(false);
         if (!finalCoords) {
           setAdresseError(t('map.add_address_not_found'));
@@ -890,31 +912,25 @@ export default function MapScreen() {
     })();
   }, []);
 
-  // Geocode home address whenever it changes
   useEffect(() => {
-    if (!apiUser?.adresseDomicile) { setHomeCoords(null); return; }
-    fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(apiUser.adresseDomicile)}&format=json&limit=1`,
-      { headers: { 'User-Agent': 'QabrApp/1.0' } }
-    )
-      .then((r) => r.json())
-      .then((data) => {
-        if (data[0]) setHomeCoords({ latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) });
-        else setHomeCoords(null);
-      })
-      .catch(() => setHomeCoords(null));
-  }, [apiUser?.adresseDomicile]);
+    if (apiUser?.latitudeDomicile && apiUser?.longitudeDomicile)
+      setHomeCoords({ latitude: apiUser.latitudeDomicile, longitude: apiUser.longitudeDomicile });
+    else setHomeCoords(null);
+  }, [apiUser?.latitudeDomicile, apiUser?.longitudeDomicile]);
 
-  // Auto-switch mode: home when address added, GPS when address removed
-  const prevHasHome = useRef(false);
+  const prevAddress = useRef(undefined);
   useEffect(() => {
-    const hasHome = !!apiUser?.adresseDomicile;
-    if (hasHome && !prevHasHome.current) {
+    const addr = apiUser?.adresseDomicile ?? null;
+    if (prevAddress.current === undefined) {
+      prevAddress.current = addr;
+      return;
+    }
+    if (addr && addr !== prevAddress.current) {
       persistLocationMode('home');
-    } else if (!hasHome) {
+    } else if (!addr && prevAddress.current) {
       persistLocationMode('gps');
     }
-    prevHasHome.current = hasHome;
+    prevAddress.current = addr;
   }, [apiUser?.adresseDomicile]);
 
   // Active reference coordinates based on current mode
@@ -1594,6 +1610,11 @@ export default function MapScreen() {
             apiClient.get('/api/prierejanaza/upcoming')
               .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
               .catch(() => {});
+            if (apiUser?.id) {
+              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
+                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
+                .catch(() => {});
+            }
           }}
         />
       )}

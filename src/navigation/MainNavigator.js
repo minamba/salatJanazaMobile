@@ -17,10 +17,9 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import PriereScreen from '../screens/priere/PriereScreen';
 import ContactScreen from '../screens/contact/ContactScreen';
 import AdminScreen from '../screens/admin/AdminScreen';
-import EditDeclarationModal from '../components/EditDeclarationModal';
 
 // Context permettant aux écrans de changer d'onglet sans React Navigation
-export const TabContext = createContext({ goTo: () => {}, activeIndex: 0 });
+export const TabContext = createContext({ goTo: () => {}, activeIndex: 0, pendingImport: null, setPendingImport: () => {} });
 export function useTabNavigation() { return useContext(TabContext); }
 
 const Stack = createNativeStackNavigator();
@@ -73,7 +72,7 @@ function GuestModal({ visible, onClose, onLogin }) {
   );
 }
 
-function DeclareChoiceModal({ visible, onClose, onSaisir, onViewDeclaration }) {
+function DeclareChoiceModal({ visible, onClose, onSaisir, onValidateDeclaration }) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { goTo } = useTabNavigation();
@@ -254,22 +253,46 @@ function DeclareChoiceModal({ visible, onClose, onSaisir, onViewDeclaration }) {
                   </View>
                   <Text style={styles.modalTitle}>{t('declare.import_verify_title')}</Text>
                   {importTimeUnknown && (
-                    <Text style={[styles.modalText, { color: '#b45309', fontWeight: '600' }]}>{t('declare.import_verify_time_unknown')}</Text>
+                    <Text style={[styles.modalText, { color: '#b45309', fontWeight: '600', marginBottom: spacing.sm }]}>{t('declare.import_verify_time_unknown')}</Text>
+                  )}
+                  {importedDecl && (
+                    <View style={styles.importSummaryBox}>
+                      {!importedDecl.estAnonyme && importedDecl.nomDefunt && (
+                        <View style={styles.importSummaryRow}>
+                          <Ionicons name="person-outline" size={14} color={colors.textSecondary} />
+                          <Text style={styles.importSummaryText} numberOfLines={1}>{importedDecl.nomDefunt}</Text>
+                        </View>
+                      )}
+                      {(importedDecl.mosqueeNom || importedDecl.mosquee) && (
+                        <View style={styles.importSummaryRow}>
+                          <Ionicons name="business-outline" size={14} color={colors.textSecondary} />
+                          <Text style={styles.importSummaryText} numberOfLines={1}>{importedDecl.mosqueeNom ?? importedDecl.mosquee}</Text>
+                        </View>
+                      )}
+                      {importedDecl.dateHeurePriere && (
+                        <View style={styles.importSummaryRow}>
+                          <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+                          <Text style={styles.importSummaryText}>
+                            {new Date(importedDecl.dateHeurePriere).toLocaleDateString()} {importTimeUnknown ? '–:–' : `${String(new Date(importedDecl.dateHeurePriere).getUTCHours()).padStart(2,'0')}:${String(new Date(importedDecl.dateHeurePriere).getUTCMinutes()).padStart(2,'0')}`}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   )}
                   <Text style={styles.modalText}>{t('declare.import_verify_body')}</Text>
                   <TouchableOpacity style={styles.modalBtn} onPress={() => {
-                    onClose();
-                    if (importedDecl && onViewDeclaration) {
-                      setTimeout(() => onViewDeclaration(importedDecl), 350);
+                    if (importedDecl && onValidateDeclaration) {
+                      onValidateDeclaration(importedDecl);
                     }
+                    onClose();
                   }} activeOpacity={0.8}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-                      <Ionicons name="create-outline" size={18} color={colors.white} />
-                      <Text style={styles.modalBtnText}>{t('declare.import_view_declaration')}</Text>
+                      <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} />
+                      <Text style={styles.modalBtnText}>{t('declare.import_validate_btn')}</Text>
                     </View>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose} activeOpacity={0.7}>
-                    <Text style={styles.modalCancelText}>OK</Text>
+                    <Text style={styles.modalCancelText}>{t('nav.guest_modal_cancel')}</Text>
                   </TouchableOpacity>
                 </>
               ) : importStatus === 'error' ? (
@@ -419,7 +442,7 @@ function MainTabs() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [showDeclareModal, setShowDeclareModal] = useState(false);
-  const [importedDecl, setImportedDecl] = useState(null);
+  const [pendingImport, setPendingImport] = useState(null);
   const activeIndexRef = useRef(0);
   // Pages visitées : rend l'écran seulement quand l'utilisateur y accède (comme Tab.Navigator lazy)
   const [visitedPages, setVisitedPages] = useState(() => new Set([0]));
@@ -468,7 +491,7 @@ function MainTabs() {
     dispatch({ type: 'AUTH_LOGOUT' });
   }
 
-  const tabCtx = useMemo(() => ({ goTo, activeIndex }), [goTo, activeIndex]);
+  const tabCtx = useMemo(() => ({ goTo, activeIndex, pendingImport, setPendingImport }), [goTo, activeIndex, pendingImport]);
 
   return (
     <TabContext.Provider value={tabCtx}>
@@ -508,24 +531,9 @@ function MainTabs() {
             setShowDeclareModal(false);
             if (activeIndex !== DECLARE_IDX) goTo(DECLARE_IDX);
           }}
-          onViewDeclaration={(decl) => setImportedDecl(decl)}
-        />
-
-        <EditDeclarationModal
-          item={importedDecl}
-          onClose={() => setImportedDecl(null)}
-          onSaved={(updated) => {
-            dispatch({ type: 'JANAZA_UPDATE', payload: updated });
-            setImportedDecl(null);
-            dispatch({ type: 'FORCE_DATA_REFRESH' });
-            apiClient.get('/api/prierejanaza/upcoming')
-              .then(res => dispatch({ type: 'JANAZAS_LOADED', payload: res.data }))
-              .catch(() => {});
-            if (apiUser?.id) {
-              apiClient.get(`/api/prierejanaza/utilisateur/${apiUser.id}`)
-                .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
-                .catch(() => {});
-            }
+          onValidateDeclaration={(decl) => {
+            setPendingImport(decl);
+            goTo(DECLARE_IDX);
           }}
         />
       </View>
@@ -652,5 +660,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
+  },
+  importSummaryBox: {
+    width: '100%',
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    gap: 6,
+  },
+  importSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  importSummaryText: {
+    ...typography.body,
+    color: colors.text,
+    flex: 1,
+    fontSize: 13,
   },
 });

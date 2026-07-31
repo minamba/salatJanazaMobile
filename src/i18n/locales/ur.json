@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "فیڈ",
     "map": "مساجد",
@@ -100,6 +100,10 @@
     "mosque_singular_world": "نماز کی جگہ",
     "mosque_plural_world": "نماز کی جگہیں",
     "world_all": "پوری دنیا",
+    "all": "سب",
+    "filter": "فلٹر",
+    "search_placeholder": "نام، مسجد، شہر، ملک…",
+    "search_no_results": "کوئی نتیجہ نہیں",
     "address_banner": "اپنے قریب کی نمازیں دیکھنے کے لیے {{profile}} میں اپنا پتہ درج کریں",
     "profile_link": "پروفائل",
     "empty": "آپ کے دائرے میں کوئی نماز اعلان نہیں ہوئی",
@@ -168,14 +172,20 @@
     "name_section": "مرحوم کا نام",
     "name_anonymous": "گمنام رہیں",
     "name_placeholder": "نام اور خاندانی نام",
+    "nom_famille_placeholder": "خاندانی نام",
+    "prenom_placeholder": "نام",
     "info_section": "اضافی معلومات",
     "info_placeholder": "غسل کی جگہ، خاندان کی معلومات...",
     "generate_announcement": "معلومات / اعلان بنائیں",
+    "complementary_btn": "اضافی معلومات / پیش نظارہ",
     "publish": "نماز شائع کریں",
     "error_mosque": "براہ کرم ایک مسجد منتخب کریں۔",
     "error_date": "براہ کرم نماز کے لیے تاریخ منتخب کریں۔",
-    "error_name_title": "نام غائب",
-    "error_name_body": "براہ کرم مرحوم کا نام و خاندانی نام درج کریں، یا \"گمنام رہیں\" فعال کریں۔",
+    "error_name_title": "پہلا نام نہیں",
+    "error_name_body": "کم از کم مرحوم کا پہلا نام درج کریں، یا گمنام رہیں آپشن فعال کریں۔",
+    "error_duplicate_person": "اس شخص کے لیے اس مسجد میں اس وقت پہلے سے جنازہ ڈیکلیئر کیا جا چکا ہے۔",
+    "error_inverted_name": "{{existing}} کے لیے اس مسجد میں آج پہلے سے جنازہ ڈیکلیئر کیا جا چکا ہے۔ نام اور کنیت الٹ ہو سکتے ہیں۔",
+    "error_publish_title": "اشاعت کی خرابی",
     "error_publish": "اشاعت میں خرابی۔ اپنا کنکشن جانچیں۔",
     "male": "مرد",
     "female": "عورت",
@@ -192,6 +202,10 @@
     "import_error_generic": "درآمد کے دوران خرابی پیش آئی۔",
     "import_timeout": "وقت ختم ہو گیا۔ بعد میں اپنے اعلانات جانچیں۔",
     "import_image_quality": "تصویر کا معیار خراب یا ناقابلِ پڑھ ہے۔ براہ کرم واضح تصویر فراہم کریں تاکہ AI مسجد کا پتہ پڑھ سکے۔",
+    "import_validate_btn": "اعلان کی تصدیق کریں",
+    "import_banner": "فلائر سے نکالی گئی معلومات",
+    "import_banner_sub": "شائع کرنے سے پہلے ضرورت ہو تو جائزہ لیں۔",
+    "import_cancel": "درآمد منسوخ کریں",
     "import_verify_title": "معلومات جانچیں",
     "import_verify_body": "AI نے فلائر سے معلومات نکالی ہیں۔ یہ ہمیشہ درست نہیں ہوتا: یقینی کریں کہ تمام معلومات صحیح ہیں۔",
     "import_verify_time_unknown": "⚠️ نماز کا وقت 00:00 ہے — AI یہ معلومات نہیں نکال سکا۔ براہ کرم دستی درج کریں۔",
@@ -282,6 +296,8 @@
     "address_label": "گھر کا پتہ",
     "address_placeholder": "آپ کا مکمل پتہ",
     "address_description": "قریبی مساجد کے فاصلے حساب کرنے کے لیے استعمال ہوتا ہے",
+    "address_invalid_title": "پتہ نہیں ملا",
+    "address_invalid_message": "اس پتے کو تلاش نہیں کیا جا سکا۔ براہ کرم فہرست سے ایک تجویز منتخب کریں یا ایک درست پتہ درج کریں۔",
     "radius_label": "اطلاع دائرہ",
     "radius_description": "آپ کے گھر کے گرد اس دائرے میں نماز کی جگہیں",
     "movement_title": "سفر کے دوران اطلاعات",
@@ -314,6 +330,9 @@
     "delete_cancel": "منسوخ",
     "delete_confirm": "مستقل حذف کریں",
     "history_title": "میرے اعلانات",
+    "history_title_monde": "دنیا بھر کے جنازے",
+    "search_placeholder": "نام، مسجد، شہر، ملک…",
+    "search_no_results": "کوئی نتیجہ نہیں",
     "history_empty": "ابھی تک کوئی اعلان نہیں",
     "history_expiry": "{{count}} دن میں حذف ہو گا",
     "history_expiry_plural": "{{count}} دنوں میں حذف ہو گا",
@@ -365,7 +384,8 @@
     "lang_pt": "Português",
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
-    "lang_es": "Español"
+    "lang_es": "Español",
+    "lang_bm": "Bamanankan"
   },
   "admin": {
     "title": "انتظامیہ",
@@ -415,6 +435,10 @@
     "edit_anonymous": "گمنام مرحوم",
     "edit_deceased_name": "مرحوم کا نام",
     "edit_deceased_placeholder": "مکمل نام",
+    "edit_deceased_nom": "خاندانی نام",
+    "edit_deceased_nom_placeholder": "خاندانی نام",
+    "edit_deceased_prenom": "پہلا نام",
+    "edit_deceased_prenom_placeholder": "نام",
     "edit_genre": "جنس",
     "edit_male": "مرد",
     "edit_female": "عورت",
@@ -532,6 +556,11 @@
     "dua_final_fr": "اے اللہ! ہمیں اس کے اجر سے محروم نہ فرما، ہمیں اس کے بعد آزمائش میں نہ ڈال، اور ہمیں اور اسے بخش دے۔",
     "salam_fr": "اللہ کی سلامتی اور رحمت آپ پر ہو۔"
   },
+  "errors": {
+    "crash_title": "اوہ، کچھ غلط ہو گیا",
+    "crash_message": "ایک غیر متوقع خطا پیش آئی۔ براہ کرم ایپ دوبارہ لوڈ کریں۔",
+    "reload_button": "ایپ دوبارہ لوڈ کریں"
+  },
   "contact": {
     "title": "ہم سے رابطہ کریں",
     "intro": "کوئی سوال، مشورہ یا مسئلہ؟ ہمیں لکھیں، ہم جلد از جلد جواب دیں گے۔",
@@ -575,6 +604,7 @@
     "preview_title": "پیش نظارہ",
     "years_toggle": "پیدائش اور وفات کے سال",
     "years_toggle_description": "اگر یہ معلومات نہ ہوں تو غیر فعال کریں",
+    "years_toggle_off_description": "اگر یہ معلومات ہوں تو فعال کریں",
     "birth_year": "پیدائش کا سال",
     "death_year": "وفات کا سال",
     "country": "تدفین کا ملک",
@@ -593,8 +623,8 @@
     "website": "salatjanaza.org",
     "death_announcement": "وفات کا اعلان",
     "anonymous_announces": "ہم آپ کو وفات کی اطلاع دیتے ہیں:",
-    "family_announces_named": "{{name}} خاندان آپ کو دکھ کے ساتھ وفات کی اطلاع دیتا ہے:",
-    "family_announces_unnamed": "خاندان آپ کو دکھ کے ساتھ وفات کی اطلاع دیتا ہے:",
+    "family_announces_named": "{{name}} ہم آپ کو دکھ کے ساتھ وفات کی اطلاع دیتے ہیں:",
+    "family_announces_unnamed": "ہم آپ کو دکھ کے ساتھ وفات کی اطلاع دیتے ہیں:",
     "civility_male": "جناب",
     "civility_female": "محترمہ",
     "civility_child": "بچہ/بچی",
@@ -607,6 +637,8 @@
     "prayer_section": "نماز",
     "burial_prep_en": "تدفین",
     "burial_prep_au": "تدفین",
-    "burial_prep_aux": "تدفین"
+    "burial_prep_aux": "تدفین",
+    "optional": "اختیاری",
+    "modal_title": "اضافی معلومات"
   }
 }

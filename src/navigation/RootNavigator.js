@@ -10,6 +10,7 @@ import MainNavigator from './MainNavigator';
 import apiClient from '../lib/api/apiClient';
 import { refreshAccessToken, loadPersistedAuth } from '../lib/auth/authService';
 import { startMovementTracking, stopMovementTracking } from '../utils/movementNotif';
+import { startGpsSync, stopGpsSync } from '../utils/gpsSync';
 
 const Stack = createNativeStackNavigator();
 
@@ -40,7 +41,7 @@ async function registerPushToken(apiUserId) {
     if (status !== 'granted') return;
 
     const token = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
-    await apiClient.put(`/api/utilisateur/${apiUserId}`, { expoToken: token.data });
+    await apiClient.put(`/api/utilisateur/${apiUserId}`, { expoToken: token.data, platform: Platform.OS });
   } catch (e) {
     console.warn('[PushToken] échec enregistrement:', e?.message);
   }
@@ -123,6 +124,13 @@ export default function RootNavigator() {
   // Charge les données une fois authentifié
   useEffect(() => {
     if (!apiUserId) return;
+    // Profil frais depuis l'API — écrase les données potentiellement stale de SecureStore
+    apiClient.get(`/api/utilisateur/${apiUserId}`)
+      .then(res => {
+        dispatch({ type: 'AUTH_API_USER_UPDATED', payload: res.data });
+        SecureStore.setItemAsync('api_user_data', JSON.stringify(res.data)).catch(() => {});
+      })
+      .catch(() => {});
     apiClient.get(`/api/prierejanaza/utilisateur/${apiUserId}`)
       .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
       .catch(() => {});
@@ -133,6 +141,8 @@ export default function RootNavigator() {
       .then(res => dispatch({ type: 'SUBSCRIPTIONS_LOADED', payload: res.data }))
       .catch(() => {});
     registerPushToken(apiUserId);
+    // Toujours envoyer la platform même si les notifs sont refusées
+    apiClient.put(`/api/utilisateur/${apiUserId}`, { platform: Platform.OS }).catch(() => {});
   }, [apiUserId]);
 
   // Rafraîchit les janazas dès que l'app repasse au premier plan
@@ -193,6 +203,15 @@ export default function RootNavigator() {
       stopMovementTracking();
     }
   }, [notifMouvement]);
+
+  // Sync GPS position vers le serveur toutes les 5 min dès que l'utilisateur est connecté.
+  // Indépendant de l'onglet actif : assure que LatitudeCourante est toujours à jour en DB
+  // pour les notifications de rayon, peu importe l'écran affiché.
+  useEffect(() => {
+    if (!apiUserId) { stopGpsSync(); return; }
+    startGpsSync(apiUserId);
+    return () => stopGpsSync();
+  }, [apiUserId]);
 
   if (isRestoring) {
     return (

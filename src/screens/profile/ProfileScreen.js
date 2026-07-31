@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { refreshAllData } from '../../utils/refreshStore';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -16,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { startMovementTracking, stopMovementTracking } from '../../utils/movementNotif';
 import apiClient from '../../lib/api/apiClient';
 import { changePassword, deleteAccount, logout as authLogout } from '../../lib/auth/authService';
+import * as SecureStore from 'expo-secure-store';
 import { JanazaShareModal } from '../declare/AnnouncementGenerator';
 import EditDeclarationModal from '../../components/EditDeclarationModal';
 import Slider from '@react-native-community/slider';
@@ -76,11 +78,8 @@ export default function ProfileScreen() {
   // (gère les suppressions ou modifications faites depuis le web)
   useFocusEffect(
     useCallback(() => {
-      const userId = apiUser?.id;
-      if (!userId) return;
-      apiClient.get(`/api/prierejanaza/utilisateur/${userId}`)
-        .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
-        .catch(() => {});
+      if (!apiUser?.id) return;
+      refreshAllData(dispatch, apiUser.id);
     }, [apiUser?.id, dispatch])
   );
   const showRadiusSlider = isCeo || user?.role === 'Admin';
@@ -159,6 +158,7 @@ export default function ProfileScreen() {
 
   function handleAdresseChange(text) {
     setAdresse(text);
+    setSelectedCoords(null);
     setSaveSuccess(false);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (text.length < 3) { setSuggestions([]); return; }
@@ -196,18 +196,65 @@ export default function ProfileScreen() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
   }
 
+  async function geocodeAddress(address) {
+    // 1. Nominatim (OpenStreetMap)
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
+        { headers: { 'User-Agent': 'QabrApp/1.0' } }
+      );
+      const data = await res.json();
+      if (data?.[0]?.lat) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+    } catch {}
+
+    // 2. API Adresse (gouvernement français — meilleure couverture des adresses françaises)
+    try {
+      const res = await fetch(
+        `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(address)}&limit=1`
+      );
+      const data = await res.json();
+      const c = data?.features?.[0]?.geometry?.coordinates;
+      if (c) return { lat: c[1], lon: c[0] };
+    } catch {}
+
+    // 3. Photon (Komoot) — fallback mondial
+    try {
+      const res = await fetch(
+        `https://photon.komoot.io/api/?q=${encodeURIComponent(address)}&limit=1`
+      );
+      const data = await res.json();
+      const c = data?.features?.[0]?.geometry?.coordinates;
+      if (c) return { lat: c[1], lon: c[0] };
+    } catch {}
+
+    return null;
+  }
+
   async function handleSave() {
+    let coords = selectedCoords;
+    if (adresse && !coords) {
+      coords = await geocodeAddress(adresse);
+      if (coords) setSelectedCoords(coords);
+      else {
+        Alert.alert(
+          t('profile.address_invalid_title'),
+          t('profile.address_invalid_message')
+        );
+        return;
+      }
+    }
     setSaving(true);
     const updates = {
       adresseDomicile: adresse || null,
-      latitudeDomicile: selectedCoords?.lat ?? null,
-      longitudeDomicile: selectedCoords?.lon ?? null,
+      latitudeDomicile: coords?.lat ?? null,
+      longitudeDomicile: coords?.lon ?? null,
       rayonNotification: rayon,
       notifMouvement,
     };
     try {
       const res = await apiClient.put(`/api/utilisateur/${apiUser.id}`, updates);
       dispatch({ type: 'AUTH_API_USER_UPDATED', payload: res.data });
+      await SecureStore.setItemAsync('api_user_data', JSON.stringify(res.data)).catch(() => {});
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e) {
@@ -555,8 +602,9 @@ export default function ProfileScreen() {
           <SectionHeader icon="globe-outline" label={t('profile.language_section')} />
           {[
             { code: 'fr', label: t('profile.lang_fr') },
-            { code: 'ar', label: t('profile.lang_ar') },
             { code: 'en', label: t('profile.lang_en') },
+            { code: 'ar', label: t('profile.lang_ar') },
+            { code: 'bm', label: t('profile.lang_bm') },
             { code: 'tr', label: t('profile.lang_tr') },
             { code: 'ja', label: t('profile.lang_ja') },
             { code: 'ko', label: t('profile.lang_ko') },
@@ -811,7 +859,10 @@ export default function ProfileScreen() {
 
       <EditDeclarationModal
         item={editDecl}
-        onClose={() => setEditDecl(null)}
+        onClose={() => {
+          setEditDecl(null);
+          setTimeout(() => setShowHistorique(true), 350);
+        }}
         onSaved={(updated) => {
           dispatch({ type: 'JANAZA_UPDATE', payload: updated });
           setEditDecl(null);
@@ -824,6 +875,7 @@ export default function ProfileScreen() {
               .then(res => dispatch({ type: 'MY_DECLARATIONS_LOADED', payload: res.data }))
               .catch(() => {});
           }
+          setTimeout(() => setShowHistorique(true), 350);
         }}
       />
 
@@ -1076,6 +1128,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.borderLight,
     backgroundColor: colors.surface,
   },
+
   histoTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
   histoEmpty: { alignItems: 'center', gap: spacing.md, marginTop: spacing.xxl },
   histoEmptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
