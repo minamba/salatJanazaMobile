@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
 } from 'react-native';
+import ScreenBackground from '../../components/ScreenBackground';
+import ScreenHeader from '../../components/ScreenHeader';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography } from '../../utils/theme';
@@ -136,12 +138,12 @@ export default function PriereScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenHeader title={t('prayer.title')} subtitle={t('prayer.subtitle')} />
+      <ScreenBackground>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerArabic}>صَلَاةُ الجَنَازَةِ</Text>
-          {!isArabic && <Text style={styles.headerTitle}>{t('prayer.title')}</Text>}
-          {!isArabic && <Text style={styles.headerSub}>{t('prayer.subtitle')}</Text>}
         </View>
 
         {/* Steps */}
@@ -230,6 +232,7 @@ export default function PriereScreen() {
         </View>
 
       </ScrollView>
+      </ScreenBackground>
     </SafeAreaView>
   );
 }
@@ -237,7 +240,7 @@ export default function PriereScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F7F5',
   },
   scroll: {
     padding: spacing.md,

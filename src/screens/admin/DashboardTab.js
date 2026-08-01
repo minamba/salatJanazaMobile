@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Switch, Alert,
 } from 'react-native';
+import ScreenBackground from '../../components/ScreenBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../../lib/api/apiClient';
 import { colors, spacing, radius, shadow } from '../../utils/theme';
+import { useShowCountryName } from '../../utils/preferences';
 
 const PERIODS = [
   { key: 'jour',    label: 'JOUR'    },
@@ -255,6 +257,7 @@ export default function DashboardTab() {
   const dispatch = useDispatch();
   const janazasCount   = useSelector(s => s.janazas?.list?.length ?? 0);
   const donationButtonVisible = useSelector(s => s.features?.donationButtonVisible ?? true);
+  const [showCountryName, setShowCountryName] = useShowCountryName();
   const prevJanazasRef = useRef(janazasCount);
 
   const toggleDonationButton = useCallback(async (value) => {
@@ -551,6 +554,7 @@ export default function DashboardTab() {
   }
 
   return (
+    <ScreenBackground>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
       {/* ── Period selector ─────────────────────────── */}
@@ -671,14 +675,30 @@ export default function DashboardTab() {
             />
           )}
         </View>
+        <View style={styles.featureRow}>
+          <View style={styles.featureRowLeft}>
+            <Ionicons name="flag-outline" size={18} color={colors.primary} style={{ marginRight: spacing.sm }} />
+            <View>
+              <Text style={styles.featureRowLabel}>Nom du pays sur les affiches</Text>
+              <Text style={styles.featureRowSub}>Affiché sous le drapeau dans l'aperçu</Text>
+            </View>
+          </View>
+          <Switch
+            value={showCountryName}
+            onValueChange={setShowCountryName}
+            trackColor={{ false: colors.border, true: colors.primary + '60' }}
+            thumbColor={showCountryName ? colors.primary : colors.textMuted}
+          />
+        </View>
       </View>
 
     </ScrollView>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   content:   { padding: spacing.md, paddingBottom: 48 },
 
   // Period selector

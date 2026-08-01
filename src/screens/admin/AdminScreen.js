@@ -4,6 +4,8 @@ import {
   Alert, ActivityIndicator, RefreshControl, TextInput,
   Modal, ScrollView, KeyboardAvoidingView, Platform, Switch, TouchableWithoutFeedback,
 } from 'react-native';
+import ScreenBackground from '../../components/ScreenBackground';
+import ScreenHeader from '../../components/ScreenHeader';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -798,6 +800,7 @@ export default function AdminScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenBackground>
 
       <CalendarModal visible={showDeclCalFrom} selectedDate={declDateFrom} onSelect={d => { setDeclDateFrom(d); setShowDeclCalFrom(false); }} onClose={() => setShowDeclCalFrom(false)} />
       <CalendarModal visible={showDeclCalTo} selectedDate={declDateTo} onSelect={d => { setDeclDateTo(d); setShowDeclCalTo(false); }} onClose={() => setShowDeclCalTo(false)} />
@@ -851,10 +854,7 @@ export default function AdminScreen() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-      <View style={styles.header}>
-        <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
-        <Text style={styles.headerTitle}>{t('admin.title')}</Text>
-      </View>
+      <ScreenHeader title={t('admin.title')} icon="shield-checkmark" />
 
       <View style={styles.tabs}>
         {SECTIONS.map((s, i) => (
@@ -1495,6 +1495,7 @@ export default function AdminScreen() {
           setEditUser(null);
         }}
       />
+      </ScreenBackground>
     </SafeAreaView>
   );
 }
@@ -1744,7 +1745,7 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
     setSelectedMinute(d.getUTCMinutes());
     setCommentaire(item.commentaire ?? '');
     setMosqueeSearch('');
-    setSelectedMosque(item.mosqueeId ? { id: String(item.mosqueeId), _dbId: item.mosqueeId, nom: item.mosqueeNom ?? '', adresse: item.mosqueeAdresse ?? item.adresse ?? null } : null);
+    setSelectedMosque(item.mosqueeId ? { id: String(item.mosqueeId), _dbId: item.mosqueeId, nom: item.mosqueeNom ?? '', adresse: item.mosqueeAdresse ?? item.adresse ?? null, latitude: item.mosqueeLatitude ?? null, longitude: item.mosqueeLongitude ?? null } : null);
     setMosqueeOptions([]);
     setShowDrop(false);
   }, [item]);
@@ -1884,6 +1885,8 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
     genre,
     mosqueeNom: selectedMosque?.nom ?? item?.mosqueeNom ?? '',
     mosqueeAdresse: selectedMosque?.adresse ?? item?.mosqueeAdresse ?? '',
+    mosqueeLatitude: selectedMosque?.latitude ?? item?.mosqueeLatitude ?? null,
+    mosqueeeLongitude: selectedMosque?.longitude ?? item?.mosqueeLongitude ?? null,
     commentaire,
   };
 
@@ -2081,12 +2084,12 @@ function EditDeclarationModal({ item, onClose, onSaved, mosques = [] }) {
       <AnnouncementGeneratorModal
         key={item?.id ?? 'admin'}
         visible={showAnnouncement}
-        onClose={(draft) => { setShowAnnouncement(false); if (draft) setAnnouncementDraft(draft); }}
+        onClose={(draft) => { setShowAnnouncement(false); if (draft) setAnnouncementDraft({ ...draft, _forItemId: item?.id }); }}
         form={announcementForm}
         date={selectedDate ? new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())) : null}
         hour={selectedHour}
         minute={selectedMinute}
-        initialValues={announcementDraft ?? {
+        initialValues={(announcementDraft?._forItemId === item?.id ? announcementDraft : null) ?? {
           country: item?.paysEnterrement ?? null,
           countryKnown: item?.paysEnterrement != null,
           locationFrance: item?.villeEnterrement ?? '',
@@ -2434,7 +2437,7 @@ function EditUserModal({ item, onClose, onSaved }) {
 // ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: '#F8F7F5' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,

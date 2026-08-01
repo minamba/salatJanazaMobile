@@ -4,6 +4,8 @@ import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, Alert, Image,
 } from 'react-native';
+import ScreenBackground from '../../components/ScreenBackground';
+import ScreenHeader from '../../components/ScreenHeader';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MOSQUE_ICON_IMG = require('../../../assets/icons/mosquee_icon.png');
@@ -170,20 +172,12 @@ export default function SubscriptionsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.headerTitle}>{t('subscriptions.title')}</Text>
-            <TouchableOpacity onPress={() => Alert.alert(t('subscriptions.title'), t('subscriptions.subtitle'))} activeOpacity={0.7}>
-              <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.headerSub}>
-            {subs.length} {subs.length <= 1 ? t('subscriptions.mosque_singular') : t('subscriptions.mosque_plural')}
-          </Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title={t('subscriptions.title')}
+        subtitle={`${subs.length} ${subs.length <= 1 ? t('subscriptions.mosque_singular') : t('subscriptions.mosque_plural')}`}
+      />
 
+      <ScreenBackground>
       <FlatList
         data={subs}
         keyExtractor={(item) => item.id}
@@ -197,6 +191,7 @@ export default function SubscriptionsScreen() {
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        style={{ flex: 1 }}
         ListEmptyComponent={
           <View style={styles.empty}>
             <View style={styles.emptyIconBox}>
@@ -215,6 +210,8 @@ export default function SubscriptionsScreen() {
           </View>
         }
       />
+
+      </ScreenBackground>
 
       {selectedMosque && (
         <MosqueDetailModal
@@ -258,16 +255,7 @@ export default function SubscriptionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.backgroundSecondary },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerTitle: { ...typography.h2 },
-  headerSub: { ...typography.caption, marginTop: 2 },
-
+  container: { flex: 1, backgroundColor: '#F8F7F5' },
   list: { padding: spacing.lg, gap: spacing.md },
   card: {
     backgroundColor: colors.surface,

@@ -5,6 +5,8 @@ import {
   Platform, Switch, Keyboard, ActivityIndicator, Image,
   Modal, TouchableWithoutFeedback, FlatList, Alert,
 } from 'react-native';
+import ScreenBackground from '../../components/ScreenBackground';
+import ScreenHeader from '../../components/ScreenHeader';
 import { ComplementaryInfoModal } from './AnnouncementGenerator';
 import { DetailModal } from '../home/HomeScreen';
 import EditDeclarationModal from '../../components/EditDeclarationModal';
@@ -170,7 +172,7 @@ function ComboBoxModal({ visible, items, selected, onSelect, onClose, title }) {
 function SectionHeader({ icon, label }) {
   return (
     <View style={styles.sectionHeader}>
-      <Ionicons name={icon} size={15} color={colors.textSecondary} />
+      <Ionicons name={icon} size={15} color={colors.primary} />
       <Text style={styles.sectionTitle}>{label}</Text>
     </View>
   );
@@ -818,10 +820,10 @@ export default function DeclareScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <ScreenHeader title={t('declare.title')} subtitle={t('declare.subtitle')} />
+      <ScreenBackground>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
-          <Text style={styles.title}>{t('declare.title')}</Text>
-          <Text style={styles.subtitle}>{t('declare.subtitle')}</Text>
 
           {error && (
             <View style={styles.errorBox}>
@@ -1210,12 +1212,13 @@ export default function DeclareScreen() {
           </View>
         </View>
       </Modal>
+      </ScreenBackground>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: '#F8F7F5' },
   content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.xxl },
   title: { ...typography.h2, marginBottom: spacing.xs },
   subtitle: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.xl },
@@ -1231,8 +1234,13 @@ const styles = StyleSheet.create({
   errorText: { color: colors.error, fontSize: 14, flex: 1 },
 
   section: { marginBottom: spacing.lg },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs + 2, marginBottom: spacing.sm },
-  sectionTitle: { ...typography.label },
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs + 2,
+    marginBottom: spacing.sm,
+    borderLeftWidth: 3, borderLeftColor: colors.primary,
+    paddingLeft: spacing.sm,
+  },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.text, letterSpacing: 0.3 },
 
   comboboxWrapper: { zIndex: 20 },
   searchInputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md },

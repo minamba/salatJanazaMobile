@@ -6,6 +6,8 @@ import {
   ScrollView, Switch, Alert, TextInput,
   ActivityIndicator, Keyboard, Modal, Linking,
 } from 'react-native';
+import ScreenBackground from '../../components/ScreenBackground';
+import ScreenHeader from '../../components/ScreenHeader';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -372,6 +374,8 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <ScreenHeader title={t('profile.my_profile')} />
+      <ScreenBackground>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -649,6 +653,7 @@ export default function ProfileScreen() {
 
         <Text style={styles.version}>{t('profile.version')}</Text>
       </ScrollView>
+      </ScreenBackground>
 
       {/* Modal historique */}
       <Modal
@@ -889,14 +894,14 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.backgroundSecondary },
+  container: { flex: 1, backgroundColor: '#F8F7F5' },
   content: { paddingBottom: spacing.xxl },
 
   avatarSection: { alignItems: 'center', paddingVertical: spacing.xl },
   avatar: {
     width: 80, height: 80,
     borderRadius: radius.full,
-    backgroundColor: colors.primaryDim,
+    backgroundColor: colors.white,
     borderWidth: 2.5, borderColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: spacing.md,

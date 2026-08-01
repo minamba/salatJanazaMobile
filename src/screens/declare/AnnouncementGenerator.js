@@ -7,12 +7,15 @@ import {
 import { SafeAreaView, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../../utils/theme';
 import { COUNTRIES } from '../../utils/countries';
 import { useTranslation } from 'react-i18next';
 import { detectCountryFromIP } from '../../utils/detectCountry';
 import { parseNomDefunt } from '../../utils/text';
+import { commentaireVisibleForLang, getCountryName } from '../../utils/countryNames';
+import { useShowCountryName } from '../../utils/preferences';
 
 const ACC1_IMG = require('../../../assets/icons/icon3.png');
 const INVOCATION_IMG = require('../../../assets/icons/invocation.png');
@@ -174,7 +177,14 @@ const PREVIEW_LANGS = [
   { code: 'bm', flag: '🇲🇱' },
 ];
 
-const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data, previewLang }, ref) {
+function isoToFlag(iso) {
+  if (!iso || iso.length < 2) return null;
+  const A = 0x1F1E6;
+  const code = iso.toUpperCase();
+  return String.fromCodePoint(A + code.charCodeAt(0) - 65, A + code.charCodeAt(1) - 65);
+}
+
+const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data, previewLang, showCommentaire = true, mosqueeIsoCode = null, showCountryName = true }, ref) {
   const { t: tGlobal, i18n } = useTranslation();
   const t = previewLang ? i18n.getFixedT(previewLang) : tGlobal;
   const { familleNom, nomDefunt, nomAnonyme, genre, mosqueeNom, mosqueeAdresse, date, hour, minute, birthYear, deathYear, country, locationFrance, showYears, commentaire } = data;
@@ -213,10 +223,16 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
       {/* Header */}
       <View style={styles.prevHeader}>
         <Image source={ACC1_IMG} style={styles.prevHeaderIcon} resizeMode="contain" />
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.prevTitle}>Salat al-Janaza</Text>
           <Text style={styles.prevTitleSub}>{t('announcement.death_announcement')}</Text>
         </View>
+        {mosqueeIsoCode ? (
+          <View style={styles.prevHeaderCountry}>
+            <Text style={styles.prevHeaderFlag}>{isoToFlag(mosqueeIsoCode)}</Text>
+            {showCountryName && <Text style={styles.prevHeaderCountryName}>{getCountryName(mosqueeIsoCode, previewLang)}</Text>}
+          </View>
+        ) : null}
       </View>
 
       {/* Invocation */}
@@ -249,7 +265,7 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
             </Text>
           )}
           {ageStr && <Text style={styles.prevYears}>{ageStr}</Text>}
-          {!!commentaire && (
+          {!!commentaire && showCommentaire && (
             <View style={styles.prevCommentaireBlock}>
               <Text style={styles.prevCommentaire}>{commentaire}</Text>
             </View>
@@ -327,8 +343,19 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   const [showCountry, setShowCountry] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [kbHeight, setKbHeight] = useState(0);
+  const [mosqueeIsoCode, setMosqueeIsoCode] = useState(null);
+  const [showCountryName] = useShowCountryName();
 
   const viewRef = useRef(null);
+
+  useEffect(() => {
+    if (!form?.mosqueeLatitude || !form?.mosqueeeLongitude) return;
+    Location.reverseGeocodeAsync({ latitude: form.mosqueeLatitude, longitude: form.mosqueeeLongitude })
+      .then(results => setMosqueeIsoCode(results?.[0]?.isoCountryCode ?? null))
+      .catch(() => {});
+  }, [form?.mosqueeLatitude, form?.mosqueeeLongitude]);
+
+  const showCommentaire = commentaireVisibleForLang(mosqueeIsoCode, previewLang);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -574,7 +601,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
                 </ScrollView>
               </View>
               <View style={{ padding: spacing.md }}>
-                <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} />
+                <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} showCommentaire={showCommentaire} mosqueeIsoCode={mosqueeIsoCode} showCountryName={showCountryName} />
               </View>
             </ScrollView>
           </View>
@@ -596,6 +623,15 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
   const { t, i18n } = useTranslation();
   const [previewLang, setPreviewLang] = useState(() => i18n.language?.split('-')[0] ?? 'fr');
   useEffect(() => { setPreviewLang(i18n.language?.split('-')[0] ?? 'fr'); }, [i18n.language]);
+  const [mosqueeIsoCode, setMosqueeIsoCode] = useState(null);
+  const [showCountryName] = useShowCountryName();
+  useEffect(() => {
+    if (!janaza?.latitude || !janaza?.longitude) return;
+    Location.reverseGeocodeAsync({ latitude: janaza.latitude, longitude: janaza.longitude })
+      .then(results => setMosqueeIsoCode(results?.[0]?.isoCountryCode ?? null))
+      .catch(() => {});
+  }, [janaza?.latitude, janaza?.longitude]);
+  const showCommentaire = commentaireVisibleForLang(mosqueeIsoCode, previewLang);
   const [sharing, setSharing] = useState(false);
   const [topInset, setTopInset] = useState(Platform.OS === 'ios' ? 59 : 24);
   const viewRef = useRef(null);
@@ -678,7 +714,7 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
             </ScrollView>
           </View>
           <View style={{ padding: spacing.md }}>
-            <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} />
+            <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} showCommentaire={showCommentaire} mosqueeIsoCode={mosqueeIsoCode} showCountryName={showCountryName} />
           </View>
         </ScrollView>
       </View>
@@ -706,6 +742,16 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   const [showCountry, setShowCountry] = useState(false);
   const scrollRef = useRef(null);
   const viewRef = useRef(null);
+  const [mosqueeIsoCode, setMosqueeIsoCode] = useState(null);
+  const [showCountryName] = useShowCountryName();
+  useEffect(() => {
+    const lon = form?.mosqueeLongitude ?? form?.mosqueeeLongitude ?? null;
+    if (!form?.mosqueeLatitude || !lon) return;
+    Location.reverseGeocodeAsync({ latitude: form.mosqueeLatitude, longitude: lon })
+      .then(results => setMosqueeIsoCode(results?.[0]?.isoCountryCode ?? null))
+      .catch(() => {});
+  }, [form?.mosqueeLatitude, form?.mosqueeLongitude, form?.mosqueeeLongitude]);
+  const showCommentaire = commentaireVisibleForLang(mosqueeIsoCode, previewLang);
 
   const rawNom = form?.nomAnonyme ? '' : (form?.nomDefunt ?? '');
   const familleNom = parseNomDefunt(rawNom).familleNom;
@@ -939,7 +985,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                   </ScrollView>
                 </View>
                 <View style={{ padding: spacing.md }}>
-                  <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} />
+                  <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} showCommentaire={showCommentaire} mosqueeIsoCode={mosqueeIsoCode} showCountryName={showCountryName} />
                 </View>
               </ScrollView>
             </View>
@@ -1053,6 +1099,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   prevHeaderIcon: { width: 38, height: 38 },
+  prevHeaderCountry: { alignItems: 'center' },
+  prevHeaderFlag: { fontSize: 26, lineHeight: 30 },
+  prevHeaderCountryName: { fontSize: 9, color: 'rgba(255,255,255,0.85)', marginTop: 2, textAlign: 'center', letterSpacing: 0.3 },
   prevTitle: { fontSize: 17, fontWeight: '800', color: colors.white, letterSpacing: 0.3 },
   prevTitleSub: { fontSize: 10, color: 'rgba(255,255,255,0.75)', letterSpacing: 0.5, marginTop: 1 },
   prevInvocationBlock: {

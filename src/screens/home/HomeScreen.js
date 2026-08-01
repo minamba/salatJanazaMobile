@@ -30,7 +30,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, spacing, radius, typography, shadow } from '../../utils/theme';
 import { useTranslation } from 'react-i18next';
-import { getCountryName } from '../../utils/countryNames';
+import { getCountryName, countryMatchesQuery, commentaireVisibleForLang } from '../../utils/countryNames';
+import { LinearGradient } from 'expo-linear-gradient';
+import ScreenBackground from '../../components/ScreenBackground';
+import ScreenHeader from '../../components/ScreenHeader';
 import { JanazaShareModal } from '../declare/AnnouncementGenerator';
 
 function ModeToggle({ value, onToggle }) {
@@ -245,7 +248,7 @@ const STATUS_COLORS = {
   terminee: colors.error,
 };
 
-function StatusBadge({ statut }) {
+function StatusBadge({ statut, onDark = false }) {
   const { t } = useTranslation();
   const statusLabels = {
     a_venir: t('home.status_upcoming'),
@@ -254,6 +257,14 @@ function StatusBadge({ statut }) {
   };
   const label = statusLabels[statut] ?? statusLabels.a_venir;
   const color = STATUS_COLORS[statut] ?? STATUS_COLORS.a_venir;
+  if (onDark) {
+    return (
+      <View style={[styles.badge, { backgroundColor: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.3)', flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
+        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color }} />
+        <Text style={[styles.badgeText, { color: '#fff' }]}>{label}</Text>
+      </View>
+    );
+  }
   return (
     <View style={[styles.badge, { backgroundColor: color + '18', borderColor: color + '55' }]}>
       <Text style={[styles.badgeText, { color }]}>{label}</Text>
@@ -441,15 +452,17 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
   return (
     <View style={styles.card}>
       {/* Mosque header */}
-      <View style={styles.cardTop}>
-        <View style={styles.cardTopLeft}>
-          <Text style={styles.mosquee}>{capitalizeFirst(group.mosquee)}</Text>
+      <View style={styles.cardBandeau}>
+        <View style={{ flex: 1, marginRight: spacing.sm }}>
+          <Text style={styles.mosquee} numberOfLines={1}>{capitalizeFirst(group.mosquee)}</Text>
           <Text style={styles.adresse} numberOfLines={1}>{group.adresse}</Text>
         </View>
-        <View style={styles.distPill}>
-          <Ionicons name="location-outline" size={11} color="#C97070" />
-          <Text style={styles.distText}>{d != null ? `${fmtDist(d)} ${t('home.km_suffix')}` : '—'}</Text>
-        </View>
+        {d != null && (
+          <View style={styles.distPill}>
+            <Ionicons name="location-outline" size={11} color="#C97070" />
+            <Text style={styles.distText}>{fmtDist(d)} {t('home.km_suffix')}</Text>
+          </View>
+        )}
       </View>
 
       {/* Date label */}
@@ -595,6 +608,8 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
   useMinuteTick();
   const locale = LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
   const isAr = i18n.language?.startsWith('ar');
+  const mosqueeCountry = useCountryFlag(item.latitude, item.longitude, item.adresse, true);
+  const showCommentaire = commentaireVisibleForLang(mosqueeCountry?.isoCode, i18n.language);
   const fmtDist = (d) => isAr
     ? d.toLocaleString('ar-SA', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
     : d.toFixed(1);
@@ -627,22 +642,25 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
         </TouchableWithoutFeedback>
 
         <View style={styles.modalSheet}>
-          <View style={styles.modalHandle} />
-
-          <View style={styles.modalHeaderRow}>
-            <Text style={styles.modalMosquee} numberOfLines={2}>{capitalizeFirst(item.mosquee)}</Text>
-            <StatusBadge statut={computeStatut(item)} />
+          <View style={styles.modalBandeau}>
+            <View style={styles.modalHandleWhite} />
+            <View style={styles.modalBandeauContent}>
+              <Text style={styles.modalMosquee} numberOfLines={2}>{capitalizeFirst(item.mosquee)}</Text>
+              <StatusBadge statut={computeStatut(item)} onDark />
+            </View>
           </View>
           <View style={styles.modalMetaRow}>
-            <Ionicons name="time-outline" size={13} color={colors.textMuted} />
-            <Text style={styles.modalMeta}>
-              {formatDate(item.dateHeure, locale, t)} · {formatTime(item.dateHeure, locale)}
-            </Text>
+            <View style={styles.modalMetaChip}>
+              <Ionicons name="time-outline" size={12} color={colors.primary} />
+              <Text style={styles.modalMeta}>
+                {formatDate(item.dateHeure, locale, t)} · {formatTime(item.dateHeure, locale)}
+              </Text>
+            </View>
             {d != null && (
-              <>
-                <Ionicons name="location-outline" size={13} color={colors.textMuted} style={{ marginLeft: spacing.sm }} />
-                <Text style={styles.modalMeta}>{fmtDist(d)} {t('home.km_suffix')}</Text>
-              </>
+              <View style={styles.modalMetaChipDist}>
+                <Ionicons name="location-outline" size={12} color="#C97070" />
+                <Text style={styles.modalMetaDist}>{fmtDist(d)} {t('home.km_suffix')}</Text>
+              </View>
             )}
           </View>
 
@@ -662,7 +680,7 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
                 {nomAffiche}
               </Text>
             </View>
-            {!!item.commentaire && (
+            {!!item.commentaire && showCommentaire && (
               <View style={[styles.modalRow, styles.modalRowTop, { alignItems: 'flex-start' }]}>
                 <Text style={styles.modalLabel}>{t('home.detail_info')}</Text>
                 <Text style={[styles.modalValue, { flex: 1, textAlign: 'right' }]}>
@@ -974,7 +992,7 @@ export default function HomeScreen() {
         if (!mosqueMatch) {
           janazas = janazas.filter(j =>
             (j.nomDefunt        ?? '').toLowerCase().includes(q) ||
-            (j.paysEnterrement  ?? '').toLowerCase().includes(q) ||
+            countryMatchesQuery(j.paysEnterrement, q) ||
             (j.villeEnterrement ?? '').toLowerCase().includes(q)
           );
         }
@@ -1068,48 +1086,52 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {showFilSearch && (
-        <View style={styles.filBar}>
-          <TouchableOpacity
-            style={[styles.filBtn, (filOpen || hasActiveFilter) && styles.filBtnActive]}
-            onPress={() => setFilOpen(o => !o)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name="options-outline"
-              size={15}
-              color={(filOpen || hasActiveFilter) ? colors.white : colors.textSecondary}
-            />
-            <Text style={[styles.filBtnText, (filOpen || hasActiveFilter) && styles.filBtnTextActive]}>
-              {t('home.filter')}
-            </Text>
-            {hasActiveFilter && (
-              <View style={styles.filDot} />
-            )}
-          </TouchableOpacity>
-          {hasActiveFilter && !filOpen && (
+      <View style={styles.filBar}>
+        {showFilSearch && (
+          <>
             <TouchableOpacity
-              onPress={() => { setFilSearch(''); setFilGenre(null); }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-          <View style={{ flex: 1 }} />
-          {donationButtonVisible && (
-            <TouchableOpacity
-              onPress={() => setDonationVisible(true)}
-              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              style={[styles.filBtn, (filOpen || hasActiveFilter) && styles.filBtnActive]}
+              onPress={() => setFilOpen(o => !o)}
               activeOpacity={0.7}
-              style={styles.donationSupportBtn}
             >
-              <Ionicons name="heart" size={13} color="#e53e3e" />
-              <Text style={styles.donationSupportText}>{t('home.support_btn')}</Text>
+              <Ionicons
+                name="options-outline"
+                size={15}
+                color={(filOpen || hasActiveFilter) ? colors.white : colors.textSecondary}
+              />
+              <Text style={[styles.filBtnText, (filOpen || hasActiveFilter) && styles.filBtnTextActive]}>
+                {t('home.filter')}
+              </Text>
+              {hasActiveFilter && (
+                <View style={styles.filDot} />
+              )}
             </TouchableOpacity>
-          )}
-        </View>
-      )}
+            {hasActiveFilter && !filOpen && (
+              <TouchableOpacity
+                onPress={() => { setFilSearch(''); setFilGenre(null); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+        <View style={{ flex: 1 }} />
+        {donationButtonVisible && (
+          <TouchableOpacity
+            onPress={() => setDonationVisible(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            activeOpacity={0.7}
+            style={styles.donationSupportBtn}
+          >
+            <Ionicons name="heart" size={13} color="#e53e3e" />
+            <Text style={styles.donationSupportText}>{t('home.support_btn')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
+      <ScreenBackground
+      >
       {showFilSearch && filOpen && (
         <View style={styles.filSearchBlock}>
           <View style={styles.filSearchRow}>
@@ -1291,6 +1313,7 @@ export default function HomeScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+      </ScreenBackground>
     </SafeAreaView>
   );
 }
@@ -1308,7 +1331,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  headerTitle: { ...typography.h2 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: colors.primary, letterSpacing: -0.3 },
   headerSubRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flex: 1 },
   headerSub: { ...typography.caption, flexShrink: 1 },
 
@@ -1400,30 +1423,39 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    overflow: 'hidden',
-    ...shadow.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  cardTop: {
+  cardBandeau: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: spacing.md,
-    paddingBottom: spacing.xs,
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
-  cardTopLeft: { flex: 1, marginRight: spacing.sm },
-  mosquee: { ...typography.h3, marginBottom: 2 },
-  adresse: { ...typography.bodySmall },
+  cardBandeauAccent: {
+    width: 3,
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: colors.primary,
+    alignSelf: 'stretch',
+  },
+  mosquee: { ...typography.h3, marginBottom: 2, color: colors.text, fontSize: 17, fontWeight: '800', letterSpacing: 0.1 },
+  adresse: { ...typography.bodySmall, color: colors.text },
   distPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: 'rgba(255,255,255,0.6)',
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderWidth: 1,
     borderColor: colors.border,
-    marginTop: 2,
   },
   distText: { fontSize: 11, color: '#C97070', fontWeight: '600' },
 
@@ -1434,7 +1466,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
-  dateLabel: { ...typography.caption, color: colors.textSecondary },
+  dateLabel: { ...typography.caption, color: colors.text, fontWeight: '700' },
   janazaCountLabel: { ...typography.caption, color: colors.primary, fontWeight: '600' },
 
   divider: { height: 1, backgroundColor: colors.borderLight, marginHorizontal: spacing.md },
@@ -1545,28 +1577,53 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...shadow.md,
   },
-  modalHandle: {
-    width: 40, height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    alignSelf: 'center',
-    marginBottom: spacing.lg,
+  modalBandeau: {
+    backgroundColor: colors.primary,
+    marginHorizontal: -spacing.lg,
+    marginTop: -spacing.lg,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
   },
-  modalHeaderRow: {
+  modalHandleWhite: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    alignSelf: 'center',
+    marginBottom: spacing.md,
+  },
+  modalBandeauContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.xs,
   },
-  modalMosquee: { ...typography.h3, flex: 1 },
+  modalMosquee: { ...typography.h3, flex: 1, color: colors.white },
   modalMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: spacing.lg,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    flexWrap: 'wrap',
   },
-  modalMeta: { ...typography.bodySmall },
+  modalMetaChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: colors.primaryDim,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+  },
+  modalMetaChipDist: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#C9707015',
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+  },
+  modalMeta: { ...typography.bodySmall, fontWeight: '700' },
+  modalMetaDist: { ...typography.bodySmall, fontWeight: '700', color: '#C97070' },
   modalInfoBox: {
     backgroundColor: colors.surfaceElevated,
     borderRadius: radius.md,

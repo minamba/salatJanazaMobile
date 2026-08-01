@@ -344,6 +344,8 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
     genre,
     mosqueeNom: selectedMosque?.nom ?? mosqueeSearch,
     mosqueeAdresse: item?.mosqueeAdresse ?? item?.adresse ?? '',
+    mosqueeLatitude: selectedMosque?.latitude ?? item?.latitude ?? null,
+    mosqueeeLongitude: selectedMosque?.longitude ?? item?.longitude ?? null,
     commentaire,
   };
 
@@ -536,12 +538,12 @@ export default function EditDeclarationModal({ item, onClose, onSaved }) {
       <AnnouncementGeneratorModal
         key={item?.id ?? 'edit'}
         visible={showAnnouncement}
-        onClose={(draft) => { setShowAnnouncement(false); if (draft) setAnnouncementDraft(draft); }}
+        onClose={(draft) => { setShowAnnouncement(false); if (draft) setAnnouncementDraft({ ...draft, _forItemId: item?.id }); }}
         form={announcementForm}
         date={selectedDate ? new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())) : null}
         hour={selectedHour}
         minute={selectedMinute}
-        initialValues={announcementDraft ?? {
+        initialValues={(announcementDraft?._forItemId === item?.id ? announcementDraft : null) ?? {
           country: item?.paysEnterrement ?? null,
           countryKnown: item?.paysEnterrement != null,
           locationFrance: item?.villeEnterrement ?? '',

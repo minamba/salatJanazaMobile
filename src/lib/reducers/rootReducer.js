@@ -197,12 +197,21 @@ function myDeclarationsReducer(state = initialMyDeclarations, action) {
         ...state,
         list: action.payload.map(d => ({
           ...d,
+          id: String(d.id),
+          mosqueeId: d.mosqueeId ? String(d.mosqueeId) : null,
           dateHeure: toTs(d.dateHeurePriere ?? d.dateHeure),
           mosquee: d.mosqueeNom ?? d.mosquee ?? '',
           adresse: d.mosqueeAdresse ?? d.adresse ?? '',
+          latitude: d.mosqueeLatitude ?? d.latitude ?? null,
+          longitude: d.mosqueeLongitude ?? d.longitude ?? null,
+          commentaire: d.commentaire ?? '',
           estAnonyme: d.estAnonyme ?? false,
           nomDefunt: d.nomDefunt ?? '',
           genre: d.genre ?? 'homme',
+          paysEnterrement: d.paysEnterrement ?? null,
+          villeEnterrement: d.villeEnterrement ?? null,
+          anneeNaissance: d.anneeNaissance ?? null,
+          anneeDeces: d.anneeDeces ?? null,
         })),
       };
     case 'JANAZA_UPDATE': {

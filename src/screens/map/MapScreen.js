@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
 import EditDeclarationModal from '../../components/EditDeclarationModal';
+import ScreenBackground from '../../components/ScreenBackground';
+import ScreenHeader from '../../components/ScreenHeader';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -1351,7 +1353,7 @@ export default function MapScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>{t('map.title')}</Text>
+          <Text style={styles.headerTitleNew}>{t('map.title')}</Text>
           <TouchableOpacity onPress={() => Alert.alert(t('map.info_title'), t('map.info_body'))} activeOpacity={0.7} style={{ marginLeft: spacing.xs }}>
             <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
           </TouchableOpacity>
@@ -1494,7 +1496,7 @@ export default function MapScreen() {
           )}
         </View>
       ) : (
-        <>
+        <ScreenBackground>
           <View style={styles.searchBar}>
             <Ionicons name="search-outline" size={16} color={colors.textMuted} style={styles.searchIcon} />
             <TextInput
@@ -1580,7 +1582,7 @@ export default function MapScreen() {
               </TouchableOpacity>
             }
           />
-        </>
+        </ScreenBackground>
       )}
 
       {selectedMosque && (
@@ -1630,13 +1632,14 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.backgroundSecondary },
+  container: { flex: 1, backgroundColor: '#F8F7F5' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundSecondary, gap: spacing.md },
   loadingText: { ...typography.body, color: colors.textSecondary },
 
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   headerTitle: { ...typography.h2 },
+  headerTitleNew: { fontSize: 22, fontWeight: '800', color: colors.primary, letterSpacing: -0.3 },
   tabs: { flexDirection: 'row', backgroundColor: colors.surfaceElevated, borderRadius: radius.md, padding: 3, borderWidth: 1, borderColor: colors.border },
   tab: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.sm },
   tabActive: { backgroundColor: colors.primary },

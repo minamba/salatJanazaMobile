@@ -94,7 +94,8 @@
       "expo-web-browser",
       "expo-apple-authentication",
       "expo-localization",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-font"
     ],
     "updates": {
       "url": "https://u.expo.dev/63750b9a-4f66-4b30-89e3-710b99b598d7"
