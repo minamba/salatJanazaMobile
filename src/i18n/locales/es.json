@@ -90,6 +90,10 @@
     "success_message": "Ahora puede iniciar sesión con su nueva contraseña.",
     "success_button": "Iniciar sesión"
   },
+  "location": {
+    "toast_home": "Geolocalizados según tu dirección de casa",
+    "toast_gps": "Geolocalizados según tu posición GPS"
+  },
   "home": {
     "title": "Mi Hilo",
     "subtitle": "Encuentre aquí todas las janazas dentro de su radio de notificación, así como las de las mezquitas y otros lugares de oración a los que está suscrito.",
@@ -146,6 +150,7 @@
     "notif_at": "a las {{time}}",
     "copy": "Copiar",
     "directions": "Itinerario GPS",
+    "voir_affiche": "Ver el cartel",
     "delete_prayer": "Eliminar esta oración",
     "close": "Cerrar",
     "notification_disabled": "Active las notificaciones en los Ajustes para utilizar esta función.",
@@ -313,7 +318,9 @@
     "address_label": "Dirección de domicilio",
     "address_placeholder": "Su dirección completa",
     "address_description": "Usada para calcular las distancias de las mezquitas cercanas",
-    "address_invalid_title": "Dirección no encontrada",
+                "address_validate": "Validar",
+"address_suggestion_hint": "No es necesario seleccionar una sugerencia, su dirección será geolocalizida de todas formas.",
+"address_invalid_title": "Dirección no encontrada",
     "address_invalid_message": "No se pudo localizar esta dirección. Por favor, selecciona una sugerencia de la lista o introduce una dirección válida.",
     "radius_label": "Radio de notificación",
     "radius_description": "Lugares de oración en este radio alrededor de su domicilio",
@@ -404,6 +411,7 @@
     "lang_it": "Italiano",
     "lang_es": "Español",
     "lang_bm": "Bamanankan",
+    "lang_nl": "Flamenco",
     "declared_on": "Declarado el {{date}}"
   },
   "admin": {
@@ -647,6 +655,7 @@
     "death_announcement": "Anuncio de fallecimiento",
     "anonymous_announces": "Les anunciamos el fallecimiento de:",
     "family_announces_named": "La familia {{name}} les anuncia con tristeza el fallecimiento de:",
+    "family_announces_named_plural": "Las familias {{name}} les anuncian con tristeza el fallecimiento de:",
     "family_announces_unnamed": "Les anunciamos con tristeza el fallecimiento de:",
     "civility_male": "D.",
     "civility_female": "D.ª",

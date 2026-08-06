@@ -90,6 +90,10 @@
     "success_message": "اب آپ اپنے نئے پاس ورڈ سے لاگ ان کر سکتے ہیں۔",
     "success_button": "لاگ ان کریں"
   },
+  "location": {
+    "toast_home": "آپ کے گھر کے پتے کی بنیاد پر جیو لوکیٹ کیا گیا",
+    "toast_gps": "آپ کی GPS پوزیشن کی بنیاد پر جیو لوکیٹ کیا گیا"
+  },
   "home": {
     "title": "میری فیڈ",
     "subtitle": "یہاں آپ کی اطلاع دائرے میں موجود تمام جنازے اور آپ کی مشترک مساجد و نماز کی جگہوں کی نمازیں ملیں گی۔",
@@ -146,6 +150,7 @@
     "notif_at": "{{time}} بجے",
     "copy": "نقل کریں",
     "directions": "GPS راستہ",
+    "voir_affiche": "اعلان دیکھیں",
     "delete_prayer": "یہ نماز حذف کریں",
     "close": "بند کریں",
     "notification_disabled": "اس سہولت کو استعمال کرنے کے لیے ترتیبات میں اطلاعات فعال کریں۔",
@@ -313,7 +318,9 @@
     "address_label": "گھر کا پتہ",
     "address_placeholder": "آپ کا مکمل پتہ",
     "address_description": "قریبی مساجد کے فاصلے حساب کرنے کے لیے استعمال ہوتا ہے",
-    "address_invalid_title": "پتہ نہیں ملا",
+                "address_validate": "تصدیق کریں",
+"address_suggestion_hint": "آپ کو کوئی تجویز منتخب کرنا ضروری نہیں، آپ کا پتہ پھر بھی جیو لوکیٹ ہو جائے گا۔",
+"address_invalid_title": "پتہ نہیں ملا",
     "address_invalid_message": "اس پتے کو تلاش نہیں کیا جا سکا۔ براہ کرم فہرست سے ایک تجویز منتخب کریں یا ایک درست پتہ درج کریں۔",
     "radius_label": "اطلاع دائرہ",
     "radius_description": "آپ کے گھر کے گرد اس دائرے میں نماز کی جگہیں",
@@ -403,7 +410,8 @@
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
     "lang_es": "Español",
-    "lang_bm": "Bamanankan"
+    "lang_bm": "Bamanankan",
+    "lang_nl": "فلیمش"
   },
   "admin": {
     "title": "انتظامیہ",
@@ -642,6 +650,7 @@
     "death_announcement": "وفات کا اعلان",
     "anonymous_announces": "ہم آپ کو وفات کی اطلاع دیتے ہیں:",
     "family_announces_named": "{{name}} ہم آپ کو دکھ کے ساتھ وفات کی اطلاع دیتے ہیں:",
+    "family_announces_named_plural": "{{name}} خاندانوں نے آپ کو دکھ کے ساتھ وفات کی اطلاع دیتے ہیں:",
     "family_announces_unnamed": "ہم آپ کو دکھ کے ساتھ وفات کی اطلاع دیتے ہیں:",
     "civility_male": "جناب",
     "civility_female": "محترمہ",

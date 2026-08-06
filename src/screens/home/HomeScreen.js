@@ -35,6 +35,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import ScreenBackground from '../../components/ScreenBackground';
 import ScreenHeader from '../../components/ScreenHeader';
 import { JanazaShareModal } from '../declare/AnnouncementGenerator';
+import { useLocationToast, LocationToast } from '../../components/LocationToast';
 
 function ModeToggle({ value, onToggle }) {
   const anim = useRef(new Animated.Value(value === 'home' ? 1 : 0)).current;
@@ -60,7 +61,7 @@ function useGenreLabel() {
 }
 
 
-const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
+import { getDateLocale } from '../../utils/dateLocale';
 
 // ── Country flag from GPS coords ──────────────────────────────────────────────
 const _geoCache = new Map(); // "lat,lon" → { flag, isoCode } | null
@@ -276,7 +277,7 @@ function StatusBadge({ statut, onDark = false }) {
 function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRole, onDelete, onEdit, isSubscribed, showWorldFlag }) {
   const { t, i18n } = useTranslation();
   useMinuteTick();
-  const locale = LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
+  const locale = getDateLocale(i18n.language);
   const isAr = i18n.language?.startsWith('ar');
   const fmtNum = (n) => isAr ? n.toLocaleString('ar-SA') : String(n);
   const fmtDist = (d) => isAr
@@ -517,7 +518,10 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
                     <Image source={GENRE_IMAGES[item.genre]} style={styles.janazaGenreImg} resizeMode="contain" />
                   </View>
                   <View style={styles.janazaInfo}>
-                    <Text style={styles.janazaNom} numberOfLines={1}>{nom}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                      <Text style={[styles.janazaNom, { flexShrink: 1 }]} numberOfLines={1}>{nom}</Text>
+                      <Ionicons name="chevron-forward" size={13} color={colors.primary} />
+                    </View>
                   </View>
                   <TouchableOpacity
                     onPress={(e) => { e.stopPropagation(); setShareItem({ ...item, mosquee: group.mosquee, adresse: group.adresse }); }}
@@ -606,7 +610,7 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
 export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose, onDelete, onEdit }) {
   const { t, i18n } = useTranslation();
   useMinuteTick();
-  const locale = LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
+  const locale = getDateLocale(i18n.language);
   const isAr = i18n.language?.startsWith('ar');
   const mosqueeCountry = useCountryFlag(item.latitude, item.longitude, item.adresse, true);
   const showCommentaire = commentaireVisibleForLang(mosqueeCountry?.isoCode, i18n.language);
@@ -616,6 +620,7 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
   const getGenreLabel = useGenreLabel();
   const genreLabel = getGenreLabel(item.genre);
   const nomAffiche = item.estAnonyme ? t('home.anonymous') : (formatNomDefunt(item.nomDefunt) || t('home.not_specified'));
+  const [showAffiche, setShowAffiche] = useState(false);
   const canDelete = (apiUserId != null && item.utilisateurId != null && Number(apiUserId) === Number(item.utilisateurId))
     || currentUserRole === 'admin' || currentUserRole === 'superadmin';
   const d = distKm(coords, item);
@@ -704,6 +709,15 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
             <Text style={styles.directionsBtnText}>{t('home.directions')}</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.deleteModalBtn, { borderColor: colors.primary }]}
+            onPress={() => setShowAffiche(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="newspaper-outline" size={16} color={colors.primary} />
+            <Text style={[styles.deleteModalBtnText, { color: colors.primary }]}>{t('home.voir_affiche')}</Text>
+          </TouchableOpacity>
+
           {canDelete && (
             <TouchableOpacity
               style={[styles.deleteModalBtn, { borderColor: colors.primary }]}
@@ -730,6 +744,7 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
           </TouchableOpacity>
         </View>
       </View>
+      <JanazaShareModal visible={showAffiche} janaza={item} onClose={() => setShowAffiche(false)} />
     </Modal>
   );
 }
@@ -738,6 +753,7 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { bottom: insetBottom } = useSafeAreaInsets();
+  const locationToast = useLocationToast();
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
   const apiUser = useSelector((state) => state.auth.apiUser);
@@ -814,6 +830,7 @@ export default function HomeScreen() {
     if (apiUserId) {
       apiClient.put(`/api/utilisateur/${apiUserId}`, { modeLocalisation: mode }).catch(() => {});
     }
+    locationToast.show(mode === 'home' ? t('location.toast_home') : t('location.toast_gps'));
   }
 
   useEffect(() => {
@@ -981,19 +998,20 @@ export default function HomeScreen() {
 
   const filteredGroups = useMemo(() => {
     if (!filSearch && !filGenre) return groups;
-    const q = filSearch.trim().toLowerCase();
+    const norm = (s) => (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const q = norm(filSearch.trim());
     return groups.map(group => {
       let janazas = group.janazas;
       if (filGenre) janazas = janazas.filter(j => j.genre === filGenre);
       if (q) {
         const mosqueMatch =
-          (group.mosquee ?? '').toLowerCase().includes(q) ||
-          (group.adresse  ?? '').toLowerCase().includes(q);
+          norm(group.mosquee).includes(q) ||
+          norm(group.adresse ).includes(q);
         if (!mosqueMatch) {
           janazas = janazas.filter(j =>
-            (j.nomDefunt        ?? '').toLowerCase().includes(q) ||
+            norm(j.nomDefunt       ).includes(q) ||
             countryMatchesQuery(j.paysEnterrement, q) ||
-            (j.villeEnterrement ?? '').toLowerCase().includes(q)
+            norm(j.villeEnterrement).includes(q)
           );
         }
       }
@@ -1314,6 +1332,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
       </ScreenBackground>
+      <LocationToast opacity={locationToast.opacity} message={locationToast.message} />
     </SafeAreaView>
   );
 }

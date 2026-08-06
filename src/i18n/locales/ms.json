@@ -90,6 +90,10 @@
     "success_message": "Anda kini boleh log masuk dengan kata laluan baru anda.",
     "success_button": "Log Masuk"
   },
+  "location": {
+    "toast_home": "Lokasi berdasarkan alamat rumah anda",
+    "toast_gps": "Lokasi berdasarkan kedudukan GPS anda"
+  },
   "home": {
     "title": "Suapan Saya",
     "subtitle": "Temui di sini semua jenazah dalam radius pemberitahuan anda serta masjid dan tempat solat lain yang anda langgan.",
@@ -146,6 +150,7 @@
     "notif_at": "pukul {{time}}",
     "copy": "Salin",
     "directions": "Arah GPS",
+    "voir_affiche": "Lihat poster",
     "delete_prayer": "Padam Solat Ini",
     "close": "Tutup",
     "notification_disabled": "Aktifkan pemberitahuan dalam Tetapan untuk menggunakan ciri ini.",
@@ -313,7 +318,9 @@
     "address_label": "Alamat Rumah",
     "address_placeholder": "Alamat penuh anda",
     "address_description": "Digunakan untuk mengira jarak masjid berdekatan",
-    "address_invalid_title": "Alamat tidak dijumpai",
+                "address_validate": "Sahkan",
+"address_suggestion_hint": "Anda tidak perlu memilih cadangan, alamat anda tetap akan dijejak lokasi.",
+"address_invalid_title": "Alamat tidak dijumpai",
     "address_invalid_message": "Tidak dapat mencari alamat ini. Sila pilih cadangan daripada senarai atau masukkan alamat yang sah.",
     "radius_label": "Radius Pemberitahuan",
     "radius_description": "Tempat solat dalam radius ini di sekitar rumah anda",
@@ -403,7 +410,8 @@
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
     "lang_es": "Español",
-    "lang_bm": "Bamanankan"
+    "lang_bm": "Bamanankan",
+    "lang_nl": "Flemish"
   },
   "admin": {
     "title": "Pentadbiran",
@@ -642,6 +650,7 @@
     "death_announcement": "Pengumuman Kematian",
     "anonymous_announces": "Kami mengumumkan pemergian:",
     "family_announces_named": "Keluarga {{name}} dengan sedih mengumumkan pemergian:",
+    "family_announces_named_plural": "Keluarga-keluarga {{name}} dengan sedih mengumumkan pemergian:",
     "family_announces_unnamed": "Kami dengan sedih mengumumkan pemergian:",
     "civility_male": "En.",
     "civility_female": "Puan",

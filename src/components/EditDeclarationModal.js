@@ -13,14 +13,14 @@ import { useTranslation } from 'react-i18next';
 import { searchMosquesByNameOSM } from '../utils/mosqueSearch';
 import { buildNomDefunt, splitNomDefunt } from '../utils/text';
 
-const CAL_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
+import { getDateLocale } from '../utils/dateLocale';
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 }, (_, i) => i);
 const GENRES = ['homme', 'femme', 'enfant'];
 
 export function CalendarModal({ visible, selectedDate, onSelect, onClose }) {
   const { i18n } = useTranslation();
-  const dateLocale = CAL_LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
+  const dateLocale = getDateLocale(i18n.language);
   const today = new Date();
   const [viewYear, setViewYear] = useState(selectedDate?.getFullYear() ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState(selectedDate?.getMonth() ?? today.getMonth());
@@ -146,7 +146,7 @@ export function ModalField({ label, children }) {
 
 export default function EditDeclarationModal({ item, onClose, onSaved }) {
   const { t, i18n } = useTranslation();
-  const dateLocale = CAL_LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
+  const dateLocale = getDateLocale(i18n.language);
   const fmtTime = (n) => i18n.language?.startsWith('ar')
     ? n.toLocaleString('ar-SA', { minimumIntegerDigits: 2 })
     : String(n).padStart(2, '0');

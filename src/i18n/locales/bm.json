@@ -90,6 +90,10 @@
     "success_message": "Sisan i bɛ se ka dɔn gundo kura ye.",
     "success_button": "Dɔn"
   },
+  "location": {
+    "toast_home": "I ka so jɔyɔrɔ dɔn ka kɛ i ka so adirɛsi la",
+    "toast_gps": "I ka so jɔyɔrɔ dɔn ka kɛ GPS la"
+  },
   "home": {
     "title": "N ka Sira",
     "subtitle": "I bɛ janaza dɛsɛnw ye yen, i bɔli yɔrɔ kɔrɔfɛ walima i ka misirilu kɔrɔ.",
@@ -146,6 +150,7 @@
     "notif_at": "{{time}} la",
     "copy": "Kopi",
     "directions": "GPS sira",
+    "voir_affiche": "Sɛbɛn fara kunnafoni la",
     "delete_prayer": "Ka Seli fili",
     "close": "popup da tugu",
     "notification_disabled": "Réglages kɔnɔ kibaru dafa i bɛ se ka nin baara kɛ.",
@@ -313,7 +318,9 @@
     "address_label": "So adirɛsi",
     "address_placeholder": "I ka adirɛsi cɛman",
     "address_description": "Misirilu kɛrɛfɛ suban",
-    "address_invalid_title": "Adirɛsi ma sɔrɔ",
+                "address_validate": "Dafa",
+"address_suggestion_hint": "I ma fili sɔrɔ, i ka so jɔyɔrɔ bena sɔrɔ.",
+"address_invalid_title": "Adirɛsi ma sɔrɔ",
     "address_invalid_message": "O adirɛsi ma sɔrɔ. Aw ye sugandi dɔ ka ta siratigɛw kɔnɔ wala adirɛsi tiɲɛ dɔ sɛbɛn.",
     "radius_label": "Kibaru kɛrɛfɛ",
     "radius_description": "Seli yɔrɔw nin kɛrɛfɛ kɔnɔ i so kɔrɔfɛ",
@@ -403,7 +410,8 @@
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
     "lang_es": "Español",
-    "lang_bm": "Bamanankan"
+    "lang_bm": "Bamanankan",
+    "lang_nl": "Flamand"
   },
   "admin": {
     "title": "Latigɛli",
@@ -641,11 +649,12 @@
     "country_search": "Jamana ɲini...",
     "year_birth_title": "Bangeli san",
     "year_death_title": "Sarali san",
-    "dua": "Allah (ﷻ) ka a la rahama kɛ, a hakɛw muun ani a bila Jannatula. Amîn.",
+    "dua": "Allah (ﷻ) ka hina la ka yafa ka ma ka la yoro nèma. Allah ka Janna Kè a sigui yoro yé. Amîn.",
     "website": "salatjanaza.org",
     "death_announcement": "Sara kibarale",
     "anonymous_announces": "An b'a fɔ aw ma:",
     "family_announces_named": "{{name}} jamu b'a fɔ aw ma ni gnɔgɔn ye:",
+    "family_announces_named_plural": "{{name}} jamuw b'a fɔ aw ma ni gnɔgɔn ye:",
     "family_announces_unnamed": "An b'a fɔ aw ma ni gnɔgɔn ye:",
     "civility_male": "M.",
     "civility_female": "Mme",

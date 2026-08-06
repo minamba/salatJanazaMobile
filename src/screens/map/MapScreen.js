@@ -45,11 +45,12 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function formatTime(date) {
-  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
-}
+import { getDateLocale } from '../../utils/dateLocale';
+import { useLocationToast, LocationToast } from '../../components/LocationToast';
 
-const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
+function formatTime(date, locale) {
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+}
 
 // ── Components ─────────────────────────────────────────────────────────────────
 function ModeToggle({ value, onToggle }) {
@@ -189,7 +190,7 @@ function JanazaMapPin({ count }) {
 
 export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, onDelete, onEdit, currentUserId, currentUserRole, subscribed, onToggleSubscribe, showSubscribe }) {
   const { t, i18n } = useTranslation();
-  const dateLocale = LOCALE_MAP[i18n.language] ?? 'fr-FR';
+  const dateLocale = getDateLocale(i18n.language);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   function formatDateLabel(date) {
@@ -318,7 +319,7 @@ export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, o
                       <View key={j.id}>
                         <View style={[styles.janazaRow, i > 0 && styles.janazaRowBorder]}>
                           <View style={styles.janazaTimeBox}>
-                            <Text style={styles.janazaTime}>{formatTime(j.dateHeure)}</Text>
+                            <Text style={styles.janazaTime}>{formatTime(j.dateHeure, dateLocale)}</Text>
                           </View>
                           <View style={styles.janazaAvatarCircle}>
                             <Image source={GENRE_IMAGES[j.genre]} style={styles.janazaGenreImg} resizeMode="contain" />
@@ -808,6 +809,7 @@ function AddMosqueModal({ onAdd, onClose }) {
 // ── Screen ─────────────────────────────────────────────────────────────────────
 export default function MapScreen() {
   const { t } = useTranslation();
+  const locationToast = useLocationToast();
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
   const apiUser = useSelector((state) => state.auth.apiUser);
@@ -864,13 +866,14 @@ export default function MapScreen() {
       .catch(() => {});
   }, []);
 
-  const persistLocationMode = useCallback((mode) => {
+  const persistLocationMode = useCallback((mode, showToast = false) => {
     dispatch({ type: 'SET_LOCATION_MODE', payload: mode });
     AsyncStorage.setItem('map_location_mode', mode).catch(() => {});
     if (apiUser?.id) {
       apiClient.put(`/api/utilisateur/${apiUser.id}`, { modeLocalisation: mode }).catch(() => {});
     }
-  }, [dispatch, apiUser?.id]);
+    if (showToast) locationToast.show(mode === 'home' ? t('location.toast_home') : t('location.toast_gps'));
+  }, [dispatch, apiUser?.id, locationToast, t]);
   const [homeCoords, setHomeCoords] = useState(null);
   const [showGpsModal, setShowGpsModal] = useState(false);
   const [osmMosques, setOsmMosques] = useState([]);
@@ -1363,7 +1366,7 @@ export default function MapScreen() {
           {!isGuest && apiUser?.adresseDomicile && (
             <ModeToggle
               value={locationMode}
-              onToggle={() => persistLocationMode(locationMode === 'gps' ? 'home' : 'gps')}
+              onToggle={() => persistLocationMode(locationMode === 'gps' ? 'home' : 'gps', true)}
             />
           )}
           <View style={styles.tabs}>
@@ -1627,6 +1630,7 @@ export default function MapScreen() {
         onClose={() => setShareItem(null)}
         janaza={shareItem}
       />
+      <LocationToast opacity={locationToast.opacity} message={locationToast.message} />
     </SafeAreaView>
   );
 }

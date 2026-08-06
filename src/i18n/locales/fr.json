@@ -90,6 +90,10 @@
     "success_message": "Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.",
     "success_button": "Se connecter"
   },
+  "location": {
+    "toast_home": "Géolocalisé par rapport à votre adresse de domicile",
+    "toast_gps": "Géolocalisé par rapport à votre position GPS"
+  },
   "home": {
     "title": "Mon Fil",
     "subtitle": "Retrouvez ici toutes les janazas dans votre rayon de notification ainsi que celles des mosquées et autres lieux de prières auxquels vous êtes abonné.",
@@ -148,6 +152,7 @@
     "notif_at": "à {{time}}",
     "copy": "Copier",
     "directions": "Itinéraire GPS",
+    "voir_affiche": "Voir l'affiche",
     "delete_prayer": "Supprimer cette prière",
     "close": "Fermer",
     "notification_disabled": "Activez les notifications dans les Réglages pour utiliser cette fonctionnalité.",
@@ -315,6 +320,8 @@
     "address_label": "Adresse de domicile",
     "address_placeholder": "Votre adresse complète",
     "address_description": "Utilisée pour calculer les distances des mosquées proches",
+    "address_validate": "Valider",
+    "address_suggestion_hint": "Vous n'êtes pas obligé de sélectionner une suggestion, votre adresse sera quand même géolocalisée.",
     "address_invalid_title": "Adresse introuvable",
     "address_invalid_message": "Impossible de localiser cette adresse. Veuillez sélectionner une suggestion dans la liste ou saisir une adresse valide.",
     "radius_label": "Rayon de notification",
@@ -405,7 +412,8 @@
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
     "lang_es": "Español",
-    "lang_bm": "Bamanankan"
+    "lang_bm": "Bamanankan",
+    "lang_nl": "Flamand"
   },
   "admin": {
     "title": "Administration",
@@ -648,6 +656,7 @@
     "death_announcement": "Annonce de décès",
     "anonymous_announces": "Nous vous annonçons le décès de :",
     "family_announces_named": "La famille {{name}} est triste de vous annoncer le décès de :",
+    "family_announces_named_plural": "Les familles {{name}} sont tristes de vous annoncer le décès de :",
     "family_announces_unnamed": "Nous vous annonçons avec tristesse le décès de :",
     "civility_male": "M.",
     "civility_female": "Mme",

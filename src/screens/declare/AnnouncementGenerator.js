@@ -14,7 +14,7 @@ import { COUNTRIES } from '../../utils/countries';
 import { useTranslation } from 'react-i18next';
 import { detectCountryFromIP } from '../../utils/detectCountry';
 import { parseNomDefunt } from '../../utils/text';
-import { commentaireVisibleForLang, getCountryName } from '../../utils/countryNames';
+import { commentaireVisibleForLang, getCountryName, getCountriesForLang, isoFromName } from '../../utils/countryNames';
 import { useShowCountryName } from '../../utils/preferences';
 
 const ACC1_IMG = require('../../../assets/icons/icon3.png');
@@ -56,7 +56,7 @@ function getPreposition(country) {
 
 // ─── Country Picker ──────────────────────────────────────────────────────────
 
-function CountryPickerModal({ visible, selected, onSelect, onClose }) {
+function CountryPickerModal({ visible, selected, onSelect, onClose, lang }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
 
@@ -64,10 +64,11 @@ function CountryPickerModal({ visible, selected, onSelect, onClose }) {
     if (!visible) setSearch('');
   }, [visible]);
 
+  const allCountries = getCountriesForLang(lang ?? 'fr');
   const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const filtered = search.trim()
-    ? COUNTRIES.filter(c => norm(c).includes(norm(search)))
-    : COUNTRIES;
+    ? allCountries.filter(c => norm(c.name).includes(norm(search)))
+    : allCountries;
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
@@ -97,16 +98,16 @@ function CountryPickerModal({ visible, selected, onSelect, onClose }) {
             </View>
             <FlatList
               data={filtered}
-              keyExtractor={item => item}
+              keyExtractor={item => item.iso}
               renderItem={({ item }) => {
-                const isSel = item === selected;
+                const isSel = item.iso === selected;
                 return (
                   <TouchableOpacity
                     style={[styles.cpItem, isSel && styles.cpItemSelected]}
-                    onPress={() => { onSelect(item); onClose(); }}
+                    onPress={() => { onSelect(item.iso); onClose(); }}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.cpItemText, isSel && styles.cpItemTextSelected]}>{item}</Text>
+                    <Text style={[styles.cpItemText, isSel && styles.cpItemTextSelected]}>{item.name}</Text>
                     {isSel && <Ionicons name="checkmark" size={18} color={colors.primary} />}
                   </TouchableOpacity>
                 );
@@ -166,15 +167,15 @@ function YearPickerModal({ visible, selected, onSelect, onClose, title }) {
 
 // ─── Announcement Preview (the captured view) ─────────────────────────────────
 
-const PREVIEW_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES', bm: 'fr-FR' };
+import { getDateLocale } from '../../utils/dateLocale';
 
 const PREVIEW_LANGS = [
   { code: 'fr', flag: '🇫🇷' }, { code: 'en', flag: '🇬🇧' }, { code: 'ar', flag: '🇸🇦' },
-  { code: 'tr', flag: '🇹🇷' }, { code: 'de', flag: '🇩🇪' }, { code: 'es', flag: '🇪🇸' },
-  { code: 'it', flag: '🇮🇹' }, { code: 'pt', flag: '🇵🇹' }, { code: 'ru', flag: '🇷🇺' },
-  { code: 'ja', flag: '🇯🇵' }, { code: 'ko', flag: '🇰🇷' }, { code: 'ms', flag: '🇲🇾' },
-  { code: 'id', flag: '🇮🇩' }, { code: 'ur', flag: '🇵🇰' }, { code: 'bn', flag: '🇧🇩' },
-  { code: 'bm', flag: '🇲🇱' },
+  { code: 'bm', flag: '🇲🇱' }, { code: 'nl', flag: '🇧🇪' }, { code: 'tr', flag: '🇹🇷' },
+  { code: 'de', flag: '🇩🇪' }, { code: 'es', flag: '🇪🇸' }, { code: 'it', flag: '🇮🇹' },
+  { code: 'pt', flag: '🇵🇹' }, { code: 'ru', flag: '🇷🇺' }, { code: 'ja', flag: '🇯🇵' },
+  { code: 'ko', flag: '🇰🇷' }, { code: 'ms', flag: '🇲🇾' }, { code: 'id', flag: '🇮🇩' },
+  { code: 'ur', flag: '🇵🇰' }, { code: 'bn', flag: '🇧🇩' },
 ];
 
 function isoToFlag(iso) {
@@ -184,12 +185,101 @@ function isoToFlag(iso) {
   return String.fromCodePoint(A + code.charCodeAt(0) - 65, A + code.charCodeAt(1) - 65);
 }
 
+// ─── Format de l'affiche partagée ────────────────────────────────────────────
+//
+// L'image sortait auparavant sans dimension imposée : `captureRef` rendait
+// alors « the original pixel size », c'est-à-dire la largeur de la carte à
+// l'écran multipliée par la densité du téléphone. Trois variables se
+// multipliaient — largeur d'écran, densité, réglage de taille de police — et
+// deux appareils produisaient des affiches très différentes.
+//
+// LA RÉFÉRENCE EST L'IPHONE 15 PRO MAX
+// ------------------------------------
+// C'est le rendu jugé bon. Son écran fait 430 points de large ; la carte, dans
+// son conteneur à 16 points de marge de chaque côté, en occupait donc 398. Sa
+// densité est de 3, d'où une image de 1194 pixels de large.
+//
+// Ces deux nombres sont désormais imposés à tous les appareils : la carte est
+// mise en page à 398 points quel que soit l'écran, et l'export est calculé à
+// densité 3. Un Samsung produit donc exactement la même affiche qu'un iPhone.
+//
+// LA HAUTEUR RESTE NATURELLE, ET LE FOND TRANSPARENT
+// --------------------------------------------------
+// Aucun format imposé à l'affiche elle-même : elle garde ses proportions
+// propres et sa hauteur suit son contenu. Le PNG conserve la transparence
+// autour de ses coins arrondis.
+//
+// La largeur a été portée de 398 à 440 points : l'affiche est un peu plus
+// large, et comme le texte revient à la ligne moins souvent, elle est aussi
+// un peu plus courte — donc moins rognée, et moins gourmande en marges.
+const LARGEUR_CARTE = 440;      // points logiques — identique sur tout appareil
+const DENSITE_EXPORT = 3;       // la densité de l'appareil de référence
+
+// POURQUOI L'IMAGE EST PLUS LARGE QUE L'AFFICHE
+// ---------------------------------------------
+// WhatsApp et Telegram n'affichent une image en entier dans la conversation
+// que si elle n'est pas plus haute que 5 pour 4. Au-delà, ils en montrent une
+// bande centrale et il faut appuyer dessus pour voir le reste.
+//
+// Or l'affiche est bien plus haute que ça : mesurée à 398 points de large,
+// même l'annonce la plus courte tombe à 0,71, et une annonce avec commentaire
+// descend vers 0,50. Elle est donc rognée dans tous les cas.
+//
+// Réduire la taille n'y change rien : c'est le RAPPORT qui décide, pas le
+// nombre de pixels. La seule façon de tout montrer est d'élargir l'image.
+// Ces marges sont TRANSPARENTES — aucun fond n'est ajouté, l'affiche garde ses
+// coins détourés et flotte simplement au milieu.
+const RATIO_MINIMUM = 4 / 5;
+
+// Une respiration TRANSPARENTE au-dessus et en dessous de l'affiche.
+//
+// Sans elle, la carte touche exactement les bords haut et bas de l'image : le
+// moindre arrondi de bulle ou rognage d'un pixel par la messagerie mord alors
+// sur l'en-tête et sur le pied de page. Ces points ne se voient pas — ils sont
+// transparents — mais ils garantissent que rien du dessin ne soit jamais au
+// contact du bord.
+const MARGE_VERTICALE = 14;
+
+// Le sous-titre « Annonce de décès » sous le nom du service, dans l'en-tête.
+// Masqué à l'essai : un seul mot à changer pour le rétablir.
+const AFFICHER_SOUS_TITRE = false;
+
+/**
+ * Les options de capture pour une carte d'une hauteur donnée (en points).
+ *
+ * La hauteur est TOUJOURS transmise avec la largeur : `captureRef` redimensionne
+ * « from the View bound », et ne fournir que l'une des deux déformerait
+ * l'affiche. Elle est mesurée à l'exécution, puisqu'elle dépend du contenu —
+ * un nom long ou un commentaire allongent la carte.
+ */
+/** Hauteur totale de l'image : l'affiche plus ses respirations transparentes. */
+const hauteurToile = (hauteurCarte) => hauteurCarte + MARGE_VERTICALE * 2;
+
+/** Largeur de l'image, calculée pour que le rapport reste affichable en entier. */
+const largeurToile = (hauteurCarte) =>
+  Math.max(LARGEUR_CARTE, Math.round(hauteurToile(hauteurCarte) * RATIO_MINIMUM));
+
+const optionsCapture = (hauteurCarte) => {
+  // Pas encore mesurée : on n'impose rien plutôt que de demander une hauteur
+  // de zéro, qui produirait une image vide. La capture retombe alors sur la
+  // taille naturelle — moins régulière d'un appareil à l'autre, mais une
+  // affiche correcte vaut mieux qu'un carré blanc.
+  if (!hauteurCarte) return { format: 'png', quality: 1 };
+
+  return {
+    format: 'png',
+    quality: 1,
+    width: Math.round(largeurToile(hauteurCarte) * DENSITE_EXPORT),
+    height: Math.round(hauteurToile(hauteurCarte) * DENSITE_EXPORT),
+  };
+};
+
 const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data, previewLang, showCommentaire = true, mosqueeIsoCode = null, showCountryName = true }, ref) {
   const { t: tGlobal, i18n } = useTranslation();
   const t = previewLang ? i18n.getFixedT(previewLang) : tGlobal;
   const { familleNom, nomDefunt, nomAnonyme, genre, mosqueeNom, mosqueeAdresse, date, hour, minute, birthYear, deathYear, country, locationFrance, showYears, commentaire } = data;
 
-  const dateLocale = PREVIEW_LOCALE_MAP[(previewLang ?? i18n.language)?.split('-')[0]] ?? 'fr-FR';
+  const dateLocale = getDateLocale(previewLang ?? i18n.language);
 
   const parsedNom = parseNomDefunt(nomDefunt ?? '');
   const hasLastName = !!parsedNom.familleNom;
@@ -215,7 +305,10 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
   const arabicDua = genre === 'femme'
     ? 'اللهم اغفر لها وارحمها وعافها واعف عنها'
     : 'اللهم اغفر له وارحمه وعافه واعف عنه';
-  const prep = getPreposition(country);
+  const countryIso = country?.length === 2 ? country : isoFromName(country);
+  const countryDisplay = countryIso ? getCountryName(countryIso, previewLang) : country;
+  const countryFr = countryIso ? getCountryName(countryIso, 'fr') : country;
+  const prep = getPreposition(countryFr);
   const burialPrefix = t(`announcement.burial_prep_${prep}`);
 
   return (
@@ -223,14 +316,21 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
       {/* Header */}
       <View style={styles.prevHeader}>
         <Image source={ACC1_IMG} style={styles.prevHeaderIcon} resizeMode="contain" />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.prevTitle}>Salat al-Janaza</Text>
-          <Text style={styles.prevTitleSub}>{t('announcement.death_announcement')}</Text>
+        {/* `justifyContent: center` centre le titre sur la hauteur de l'en-tête.
+            Sans lui, le bloc s'étire et le texte se cale en haut dès que le
+            drapeau du pays rend la ligne plus haute que le titre seul. */}
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+          <Text allowFontScaling={false} style={styles.prevTitle}>Salat Janaza</Text>
+          {/* Sous-titre masqué à l'essai. Repasser AFFICHER_SOUS_TITRE à true
+              le fait revenir — le libellé traduit reste en place. */}
+          {AFFICHER_SOUS_TITRE && (
+            <Text allowFontScaling={false} style={styles.prevTitleSub}>{t('announcement.death_announcement')}</Text>
+          )}
         </View>
         {mosqueeIsoCode ? (
           <View style={styles.prevHeaderCountry}>
-            <Text style={styles.prevHeaderFlag}>{isoToFlag(mosqueeIsoCode)}</Text>
-            {showCountryName && <Text style={styles.prevHeaderCountryName}>{getCountryName(mosqueeIsoCode, previewLang)}</Text>}
+            <Text allowFontScaling={false} style={styles.prevHeaderFlag}>{isoToFlag(mosqueeIsoCode)}</Text>
+            {showCountryName && <Text allowFontScaling={false} style={styles.prevHeaderCountryName}>{getCountryName(mosqueeIsoCode, previewLang)}</Text>}
           </View>
         ) : null}
       </View>
@@ -244,38 +344,48 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
 
       {/* Body */}
       <ImageBackground source={MOTIF_IMG} resizeMode="cover" style={styles.prevBody} imageStyle={styles.prevMotif}>
-        <Text style={styles.prevFamilyLine}>
+        <Text allowFontScaling={false} style={styles.prevFamilyLine}>
           {nomAnonyme
             ? t('announcement.anonymous_announces')
-            : familleNom
-              ? t('announcement.family_announces_named', { name: familleNom.toUpperCase() })
-              : t('announcement.family_announces_unnamed')}
+            : (() => {
+                const names = familleNom
+                  ? familleNom.split(',').map(s => s.trim()).filter(Boolean)
+                  : [];
+                if (names.length === 0) return t('announcement.family_announces_unnamed');
+                const display = names.map(n => n.toUpperCase()).join(' & ');
+                return t(
+                  names.length > 1
+                    ? 'announcement.family_announces_named_plural'
+                    : 'announcement.family_announces_named',
+                  { name: display }
+                );
+              })()}
         </Text>
 
         <View style={styles.prevNameBlock}>
           {nomAnonyme ? (
             <>
-              <Text style={styles.prevName}>{anonymousLabel}</Text>
-              <Text style={styles.prevYears}>{anonymousSub}</Text>
+              <Text allowFontScaling={false} style={styles.prevName}>{anonymousLabel}</Text>
+              <Text allowFontScaling={false} style={styles.prevYears}>{anonymousSub}</Text>
             </>
           ) : (
-            <Text style={styles.prevName}>
-              {civilite ? <Text style={styles.prevCivilite}>{civilite} </Text> : null}
+            <Text allowFontScaling={false} style={styles.prevName}>
+              {civilite ? <Text allowFontScaling={false} style={styles.prevCivilite}>{civilite} </Text> : null}
               {nameDisplay ? nameDisplay.toUpperCase() : ''}
             </Text>
           )}
-          {ageStr && <Text style={styles.prevYears}>{ageStr}</Text>}
+          {ageStr && <Text allowFontScaling={false} style={styles.prevYears}>{ageStr}</Text>}
           {!!commentaire && showCommentaire && (
             <View style={styles.prevCommentaireBlock}>
-              <Text style={styles.prevCommentaire}>{commentaire}</Text>
+              <Text allowFontScaling={false} style={styles.prevCommentaire}>{commentaire}</Text>
             </View>
           )}
         </View>
 
         <View style={styles.prevSectionDivider} />
 
-        <Text style={styles.prevSectionLabel}>{t('announcement.prayer_section')}</Text>
-        <Text style={styles.prevInfoDate}>{dateStr}  ·  {timeStr}</Text>
+        <Text allowFontScaling={false} style={styles.prevSectionLabel}>{t('announcement.prayer_section')}</Text>
+        <Text allowFontScaling={false} style={styles.prevInfoDate}>{dateStr}  ·  {timeStr}</Text>
 
         <View style={styles.prevSmallSpacer} />
 
@@ -284,21 +394,21 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
           <View style={{ flex: 1, paddingLeft: spacing.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Ionicons name="location" size={13} color={colors.primary} />
-              <Text style={styles.prevMosqueName}>{mosqueeNom || '___'}</Text>
+              <Text allowFontScaling={false} style={styles.prevMosqueName}>{mosqueeNom || '___'}</Text>
             </View>
-            {!!mosqueeAdresse && <Text style={styles.prevMosqueAddr}>{mosqueeAdresse}</Text>}
+            {!!mosqueeAdresse && <Text allowFontScaling={false} style={styles.prevMosqueAddr}>{mosqueeAdresse}</Text>}
           </View>
         </View>
 
-        {!!country && (
+        {!!countryDisplay && (
           <>
             <View style={styles.prevSmallSpacer} />
             <View style={styles.prevBurialBlock}>
               <Ionicons name="earth-outline" size={13} color={colors.primary} />
-              <Text style={styles.prevBurialLine}>
+              <Text allowFontScaling={false} style={styles.prevBurialLine}>
                 {`${burialPrefix} `}
-                <Text style={{ fontWeight: '700', color: colors.text }}>
-                  {`${country}${locationFrance ? `, ${locationFrance}` : ''}`}
+                <Text allowFontScaling={false} style={{ fontWeight: '700', color: colors.text }}>
+                  {`${countryDisplay}${locationFrance ? `, ${locationFrance}` : ''}`}
                 </Text>
               </Text>
             </View>
@@ -308,16 +418,109 @@ const AnnouncementPreview = React.forwardRef(function AnnouncementPreview({ data
 
       <View style={styles.prevDivider} />
 
-      {/* Dua */}
+      {/* Dua — sans ornement : le texte remonte d'autant. */}
       <View style={styles.prevDuaBlock}>
-        <Text style={styles.prevOrnament}>✦</Text>
-        <Text style={styles.prevDuaAr}>{arabicDua}</Text>
-        <Text style={styles.prevDuaFr}>{t('announcement.dua')}</Text>
+        <Text allowFontScaling={false} style={styles.prevDuaAr}>{arabicDua}</Text>
+        <Text allowFontScaling={false} style={styles.prevDuaFr}>{t('announcement.dua')}</Text>
       </View>
 
       {/* Footer */}
       <View style={styles.prevFooter}>
-        <Text style={styles.prevFooterText}>{t('announcement.website')}</Text>
+        <Text allowFontScaling={false} style={styles.prevFooterText}>{t('announcement.website')}</Text>
+      </View>
+    </View>
+  );
+});
+
+/**
+ * L'affiche telle qu'elle sera partagée : la carte à 398 points, centrée sur
+ * une toile juste assez large pour ne pas être rognée par les messageries.
+ *
+ * La toile n'a AUCUN fond : les marges sont transparentes, l'affiche garde ses
+ * coins détourés. C'est aussi cette vue qu'on montre à l'écran — l'utilisateur
+ * voit donc exactement ce que recevront ses contacts.
+ *
+ * `largeurAffichage` ne sert qu'au confort de l'aperçu : quand la toile dépasse
+ * l'écran, on réduit l'affichage par une transformation posée sur le PARENT.
+ * La vue capturée garde ses dimensions propres, et de toute façon la capture
+ * impose sa taille de sortie.
+ *
+ * `onHauteur` remonte la hauteur mesurée : elle dépend du contenu, et l'appelant
+ * en a besoin pour demander une capture aux bonnes proportions.
+ */
+const AfficheAPartager = React.forwardRef(function AfficheAPartager(
+  { largeurAffichage, onHauteur, ...props }, ref
+) {
+  const [hauteurCarte, setHauteurCarte] = useState(0);
+
+  // La réduction se calcule sur la TOILE et non sur la carte : c'est la toile
+  // qui doit tenir dans l'écran, et elle est plus large.
+  const largeurCible = hauteurCarte ? largeurToile(hauteurCarte) : LARGEUR_CARTE;
+  const reduction = largeurAffichage && largeurAffichage < largeurCible
+    ? largeurAffichage / largeurCible
+    : 1;
+
+  const mesurer = (e) => {
+    const h = e.nativeEvent.layout.height;
+    if (h && Math.abs(h - hauteurCarte) > 0.5) {
+      setHauteurCarte(h);
+      onHauteur?.(h);
+    }
+  };
+
+  // ON NE FORCE JAMAIS UNE DIMENSION NON MESURÉE
+  // --------------------------------------------
+  // Une version précédente posait `height: hauteurCarte * reduction` sur le
+  // conteneur. Or `hauteurCarte` vaut 0 au premier rendu, avant que `onLayout`
+  // n'ait mesuré quoi que ce soit : le conteneur s'écrasait à zéro, la carte
+  // n'était plus visible, donc jamais mesurée — et l'aperçu restait vide pour
+  // toujours. Hauteur et largeur ne sont contraintes qu'une fois connues.
+  const largeur = largeurCible;
+
+  return (
+    <View
+      style={{
+        width: largeur * reduction,
+        // `undefined` tant que la mesure n'a pas eu lieu : le conteneur prend
+        // alors la hauteur de son contenu, qui peut donc se mesurer.
+        height: hauteurCarte ? hauteurToile(hauteurCarte) * reduction : undefined,
+        alignSelf: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: largeur,
+          // TOUJOURS un tableau, même à l'échelle 1.
+          //
+          // Le passer à `undefined` quand aucune réduction n'est nécessaire
+          // faisait planter le rendu : au changement de langue, la hauteur de
+          // la carte change, donc la réduction aussi, et la propriété
+          // disparaissait d'un rendu à l'autre. React Native compare alors
+          // l'ancienne valeur à `null` et appelle `processTransform(null)`, qui
+          // fait « Cannot read property 'forEach' of null ». Une échelle de 1
+          // ne coûte rien et garde la propriété présente en permanence.
+          transform: [{ scale: reduction }],
+          // Sans cette origine, la réduction se fait depuis le centre et la
+          // carte se décale hors de son propre encombrement.
+          transformOrigin: 'top left',
+        }}
+      >
+        {/* La vue capturée : aucun fond, donc des marges transparentes —
+            sur les côtés comme en haut et en bas. */}
+        <View
+          ref={ref}
+          collapsable={false}
+          style={{
+            width: largeur,
+            paddingVertical: MARGE_VERTICALE,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View style={{ width: LARGEUR_CARTE }} onLayout={mesurer}>
+            <AnnouncementPreview {...props} />
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -347,6 +550,9 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   const [showCountryName] = useShowCountryName();
 
   const viewRef = useRef(null);
+  // La hauteur de la carte, mesurée à l.exécution : elle dépend du contenu, et
+  // la capture en a besoin pour garder les proportions.
+  const [hauteurAffiche, setHauteurAffiche] = useState(0);
 
   useEffect(() => {
     if (!form?.mosqueeLatitude || !form?.mosqueeeLongitude) return;
@@ -376,9 +582,9 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
     setCountryKnown(known);
     const presetCountry = initialValues?.country;
     if (presetCountry) {
-      setCountry(presetCountry);
+      setCountry(isoFromName(presetCountry) ?? presetCountry);
     } else if (known) {
-      detectCountryFromIP().then(c => { if (c) setCountry(c); });
+      detectCountryFromIP().then(c => { if (c) setCountry(isoFromName(c) ?? c); });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -391,7 +597,8 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   const familleNom = parseNomDefunt(rawNom).familleNom;
 
   function handleClose() {
-    onClose({ showYears, birthYear, deathYear, country, countryKnown, locationFrance, commentaire });
+    const countryFr = country?.length === 2 ? (getCountryName(country, 'fr') ?? country) : country;
+    onClose({ showYears, birthYear, deathYear, country: countryFr, countryKnown, locationFrance, commentaire });
   }
 
   const previewData = {
@@ -415,7 +622,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   async function handleShare() {
     try {
       setSharing(true);
-      const uri = await captureRef(viewRef, { format: 'png', quality: 1 });
+      const uri = await captureRef(viewRef, optionsCapture(hauteurAffiche));
       const available = await Sharing.isAvailableAsync();
       if (available) {
         await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: "Partager l'annonce" });
@@ -436,7 +643,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
         {step === 'form' && (
           <KeyboardAvoidingView
             style={styles.formSheet}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="padding"
           >
             <View style={styles.formHandle} />
             <View style={styles.formTopBar}>
@@ -527,7 +734,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
               {countryKnown && (
                 <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowCountry(true)} activeOpacity={0.7}>
                   <Ionicons name="earth-outline" size={16} color={colors.textMuted} />
-                  <Text style={[styles.formPickerText, { flex: 1 }]}>{country || t('announcement.country_placeholder')}</Text>
+                  <Text style={[styles.formPickerText, { flex: 1 }]}>{(country?.length === 2 ? (getCountryName(country, previewLang) ?? country) : country) || t('announcement.country_placeholder')}</Text>
                   <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
@@ -601,7 +808,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
                 </ScrollView>
               </View>
               <View style={{ padding: spacing.md }}>
-                <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} showCommentaire={showCommentaire} mosqueeIsoCode={mosqueeIsoCode} showCountryName={showCountryName} />
+                <AfficheAPartager ref={viewRef} largeurAffichage={windowWidth - spacing.md * 2} onHauteur={setHauteurAffiche} data={previewData} previewLang={previewLang} showCommentaire={showCommentaire} mosqueeIsoCode={mosqueeIsoCode} showCountryName={showCountryName} />
               </View>
             </ScrollView>
           </View>
@@ -611,7 +818,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
       {/* Sub-pickers (rendered outside sheets so they float above) */}
       <YearPickerModal visible={showBirth} selected={birthYear} onSelect={setBirthYear} onClose={() => setShowBirth(false)} title={t('announcement.year_birth_title')} />
       <YearPickerModal visible={showDeath} selected={deathYear} onSelect={setDeathYear} onClose={() => setShowDeath(false)} title={t('announcement.year_death_title')} />
-      <CountryPickerModal visible={showCountry} selected={country} onSelect={setCountry} onClose={() => setShowCountry(false)} />
+      <CountryPickerModal visible={showCountry} selected={country} onSelect={setCountry} onClose={() => setShowCountry(false)} lang={previewLang} />
       </SafeAreaProvider>
     </Modal>
   );
@@ -621,6 +828,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
 
 export function JanazaShareModal({ visible, onClose, janaza }) {
   const { t, i18n } = useTranslation();
+  const { width: windowWidth } = useWindowDimensions();
   const [previewLang, setPreviewLang] = useState(() => i18n.language?.split('-')[0] ?? 'fr');
   useEffect(() => { setPreviewLang(i18n.language?.split('-')[0] ?? 'fr'); }, [i18n.language]);
   const [mosqueeIsoCode, setMosqueeIsoCode] = useState(null);
@@ -635,6 +843,9 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
   const [sharing, setSharing] = useState(false);
   const [topInset, setTopInset] = useState(Platform.OS === 'ios' ? 59 : 24);
   const viewRef = useRef(null);
+  // La hauteur de la carte, mesurée à l.exécution : elle dépend du contenu, et
+  // la capture en a besoin pour garder les proportions.
+  const [hauteurAffiche, setHauteurAffiche] = useState(0);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -671,7 +882,7 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
   async function handleShare() {
     try {
       setSharing(true);
-      const uri = await captureRef(viewRef, { format: 'png', quality: 1 });
+      const uri = await captureRef(viewRef, optionsCapture(hauteurAffiche));
       const available = await Sharing.isAvailableAsync();
       if (available) {
         await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: "Partager l'annonce" });
@@ -714,7 +925,7 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
             </ScrollView>
           </View>
           <View style={{ padding: spacing.md }}>
-            <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} showCommentaire={showCommentaire} mosqueeIsoCode={mosqueeIsoCode} showCountryName={showCountryName} />
+            <AfficheAPartager ref={viewRef} largeurAffichage={windowWidth - spacing.md * 2} onHauteur={setHauteurAffiche} data={previewData} previewLang={previewLang} showCommentaire={showCommentaire} mosqueeIsoCode={mosqueeIsoCode} showCountryName={showCountryName} />
           </View>
         </ScrollView>
       </View>
@@ -726,6 +937,7 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
 
 export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValues, form, date, hour, minute }) {
   const { t, i18n } = useTranslation();
+  const { width: windowWidth } = useWindowDimensions();
   const [previewLang, setPreviewLang] = useState(() => i18n.language?.split('-')[0] ?? 'fr');
   useEffect(() => { setPreviewLang(i18n.language?.split('-')[0] ?? 'fr'); }, [i18n.language]);
   const [step, setStep] = useState('form');
@@ -742,22 +954,35 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   const [showCountry, setShowCountry] = useState(false);
   const scrollRef = useRef(null);
   const viewRef = useRef(null);
+  // La hauteur de la carte, mesurée à l.exécution : elle dépend du contenu, et
+  // la capture en a besoin pour garder les proportions.
+  const [hauteurAffiche, setHauteurAffiche] = useState(0);
   const [mosqueeIsoCode, setMosqueeIsoCode] = useState(null);
   const [showCountryName] = useShowCountryName();
   useEffect(() => {
+    const lat = form?.mosqueeLatitude;
     const lon = form?.mosqueeLongitude ?? form?.mosqueeeLongitude ?? null;
-    if (!form?.mosqueeLatitude || !lon) return;
-    Location.reverseGeocodeAsync({ latitude: form.mosqueeLatitude, longitude: lon })
-      .then(results => setMosqueeIsoCode(results?.[0]?.isoCountryCode ?? null))
-      .catch(() => {});
-  }, [form?.mosqueeLatitude, form?.mosqueeLongitude, form?.mosqueeeLongitude]);
+    if (lat && lon) {
+      Location.reverseGeocodeAsync({ latitude: lat, longitude: lon })
+        .then(results => setMosqueeIsoCode(results?.[0]?.isoCountryCode ?? null))
+        .catch(() => {});
+    } else if (form?.mosqueeAdresse) {
+      Location.geocodeAsync(form.mosqueeAdresse)
+        .then(locs => locs?.[0]
+          ? Location.reverseGeocodeAsync({ latitude: locs[0].latitude, longitude: locs[0].longitude })
+          : null)
+        .then(results => { if (results?.[0]) setMosqueeIsoCode(results[0].isoCountryCode ?? null); })
+        .catch(() => {});
+    }
+  }, [form?.mosqueeLatitude, form?.mosqueeLongitude, form?.mosqueeeLongitude, form?.mosqueeAdresse]);
   const showCommentaire = commentaireVisibleForLang(mosqueeIsoCode, previewLang);
 
   const rawNom = form?.nomAnonyme ? '' : (form?.nomDefunt ?? '');
   const familleNom = parseNomDefunt(rawNom).familleNom;
 
   function handleClose() {
-    onClose({ showYears, birthYear, deathYear, country, countryKnown, locationFrance, commentaire });
+    const countryFr = country?.length === 2 ? (getCountryName(country, 'fr') ?? country) : country;
+    onClose({ showYears, birthYear, deathYear, country: countryFr, countryKnown, locationFrance, commentaire });
   }
 
   const previewData = {
@@ -781,7 +1006,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   async function handleShare() {
     try {
       setSharing(true);
-      const uri = await captureRef(viewRef, { format: 'png', quality: 1 });
+      const uri = await captureRef(viewRef, optionsCapture(hauteurAffiche));
       const available = await Sharing.isAvailableAsync();
       if (available) {
         await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: "Partager l'annonce" });
@@ -803,10 +1028,10 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
     const known = initialValues?.countryKnown ?? true;
     setCountryKnown(known);
     if (initialValues?.country) {
-      setCountry(initialValues.country);
+      setCountry(isoFromName(initialValues.country) ?? initialValues.country);
     } else {
       setCountry('');
-      if (known) detectCountryFromIP().then(c => { if (c) setCountry(c); });
+      if (known) detectCountryFromIP().then(c => { if (c) setCountry(isoFromName(c) ?? c); });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -823,7 +1048,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
         <View style={styles.container}>
           <KeyboardAvoidingView
             style={styles.formSheet}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="padding"
             keyboardVerticalOffset={0}
           >
               <View style={styles.formHandle} />
@@ -912,27 +1137,31 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                 <TouchableOpacity style={styles.formPickerBtn} onPress={() => setShowCountry(true)} activeOpacity={0.7}>
                   <Ionicons name="earth-outline" size={16} color={colors.textMuted} />
                   <Text style={[styles.formPickerText, { flex: 1, color: country ? colors.text : colors.textMuted }]}>
-                    {country || t('announcement.country_placeholder')}
+                    {(country?.length === 2 ? (getCountryName(country, previewLang) ?? country) : country) || t('announcement.country_placeholder')}
                   </Text>
                   <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
 
-              <View style={styles.formLabelRow}>
-                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.location')}</Text>
-                <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
-              </View>
-              <View style={styles.formInputRow}>
-                <Ionicons name="location-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
-                <TextInput
-                  style={styles.formInput}
-                  value={locationFrance}
-                  onChangeText={setLocationFrance}
-                  placeholder={t('announcement.location_placeholder')}
-                  placeholderTextColor={colors.textMuted}
-                  onFocus={() => { if (Platform.OS === 'ios') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100); }}
-                />
-              </View>
+              {countryKnown && (
+                <>
+                  <View style={styles.formLabelRow}>
+                    <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.location')}</Text>
+                    <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
+                  </View>
+                  <View style={styles.formInputRow}>
+                    <Ionicons name="location-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
+                    <TextInput
+                      style={styles.formInput}
+                      value={locationFrance}
+                      onChangeText={setLocationFrance}
+                      placeholder={t('announcement.location_placeholder')}
+                      placeholderTextColor={colors.textMuted}
+                      onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150)}
+                    />
+                  </View>
+                </>
+              )}
 
               <TouchableOpacity style={[styles.formBtn, styles.formBtnOutline]} onPress={() => setStep('preview')} activeOpacity={0.8}>
                 <Ionicons name="eye-outline" size={18} color={colors.primary} />
@@ -941,7 +1170,10 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
 
               <TouchableOpacity
                 style={[styles.formBtn, { marginTop: spacing.sm }]}
-                onPress={() => onSubmit?.({ birthYear, deathYear, country: countryKnown ? country : null, locationFrance, showYears, commentaire, countryKnown })}
+                onPress={() => {
+                  const countryFr = country?.length === 2 ? (getCountryName(country, 'fr') ?? country) : country;
+                  onSubmit?.({ birthYear, deathYear, country: countryKnown ? countryFr : null, locationFrance, showYears, commentaire, countryKnown });
+                }}
                 activeOpacity={0.8}
               >
                 <Ionicons name="megaphone-outline" size={18} color={colors.white} />
@@ -985,7 +1217,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                   </ScrollView>
                 </View>
                 <View style={{ padding: spacing.md }}>
-                  <AnnouncementPreview ref={viewRef} data={previewData} previewLang={previewLang} showCommentaire={showCommentaire} mosqueeIsoCode={mosqueeIsoCode} showCountryName={showCountryName} />
+                  <AfficheAPartager ref={viewRef} largeurAffichage={windowWidth - spacing.md * 2} onHauteur={setHauteurAffiche} data={previewData} previewLang={previewLang} showCommentaire={showCommentaire} mosqueeIsoCode={mosqueeIsoCode} showCountryName={showCountryName} />
                 </View>
               </ScrollView>
             </View>
@@ -995,7 +1227,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
 
       <YearPickerModal visible={showBirth} selected={birthYear} onSelect={setBirthYear} onClose={() => setShowBirth(false)} title={t('announcement.year_birth_title')} />
       <YearPickerModal visible={showDeath} selected={deathYear} onSelect={setDeathYear} onClose={() => setShowDeath(false)} title={t('announcement.year_death_title')} />
-      <CountryPickerModal visible={showCountry} selected={country} onSelect={setCountry} onClose={() => setShowCountry(false)} />
+      <CountryPickerModal visible={showCountry} selected={country} onSelect={setCountry} onClose={() => setShowCountry(false)} lang={previewLang} />
     </Modal>
   );
 }
@@ -1098,18 +1330,24 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
-  prevHeaderIcon: { width: 38, height: 38 },
+  // Logo et titre réduits : l'en-tête prend moins de hauteur, ce qui joue aussi
+  // sur le rapport de l'image — une affiche plus courte demande moins de marges
+  // pour ne pas être rognée par les messageries.
+  prevHeaderIcon: { width: 30, height: 30, alignSelf: 'center' },
   prevHeaderCountry: { alignItems: 'center' },
   prevHeaderFlag: { fontSize: 26, lineHeight: 30 },
   prevHeaderCountryName: { fontSize: 9, color: 'rgba(255,255,255,0.85)', marginTop: 2, textAlign: 'center', letterSpacing: 0.3 },
-  prevTitle: { fontSize: 17, fontWeight: '800', color: colors.white, letterSpacing: 0.3 },
+  prevTitle: { fontSize: 14, fontWeight: '800', color: colors.white, letterSpacing: 0.3 },
   prevTitleSub: { fontSize: 10, color: 'rgba(255,255,255,0.75)', letterSpacing: 0.5, marginTop: 1 },
   prevInvocationBlock: {
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: 6,
     backgroundColor: colors.white,
   },
-  prevInvocationImg: { width: '85%', height: 70 },
+  // La calligraphie, réduite pour raccourcir le bloc.
+  // `resizeMode="contain"` est déjà posé sur l'Image : baisser la hauteur ne
+  // déforme donc rien, la largeur suit d'elle-même à l'intérieur des 85 %.
+  prevInvocationImg: { width: '85%', height: 54 },
   prevDivider: { height: 2, backgroundColor: colors.primary },
   prevBody: {
     paddingHorizontal: spacing.lg,
@@ -1119,16 +1357,20 @@ const styles = StyleSheet.create({
   prevMotif: {
     opacity: 1,
   },
+  // Espacements verticaux resserrés : c'est la hauteur de l'affiche qui décide
+  // de la largeur des marges transparentes, donc de la place qu'elle occupe
+  // dans une conversation. Chaque point gagné en hauteur en fait gagner sur
+  // les côtés.
   prevFamilyLine: {
-    fontSize: 14, color: colors.textSecondary, lineHeight: 20, marginBottom: spacing.md,
+    fontSize: 14, color: colors.textSecondary, lineHeight: 19, marginBottom: spacing.sm,
     textAlign: 'center',
   },
-  prevNameBlock: { alignItems: 'center', marginBottom: spacing.sm },
+  prevNameBlock: { alignItems: 'center', marginBottom: 4 },
   prevCivilite: { fontSize: 22, color: colors.text, fontWeight: '900' },
   prevName: { fontSize: 22, fontWeight: '900', color: colors.text, textAlign: 'center', letterSpacing: 0.5 },
   prevYears: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  prevSmallSpacer: { height: spacing.sm },
-  prevSectionDivider: { height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.md },
+  prevSmallSpacer: { height: 6 },
+  prevSectionDivider: { height: 1, backgroundColor: colors.borderLight, marginVertical: 10 },
   prevSectionLabel: {
     fontSize: 10, fontWeight: '700', color: colors.primary,
     textAlign: 'center', letterSpacing: 2, textTransform: 'uppercase',
@@ -1168,13 +1410,9 @@ const styles = StyleSheet.create({
   // Dua
   prevDuaBlock: {
     backgroundColor: colors.background,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
-  },
-  prevOrnament: {
-    fontSize: 16, color: colors.primary,
-    textAlign: 'center', marginBottom: spacing.sm,
   },
   prevDuaAr: {
     fontSize: 19, color: colors.primary, fontWeight: '700',
@@ -1189,8 +1427,12 @@ const styles = StyleSheet.create({
   // Footer
   prevFooter: {
     backgroundColor: colors.primary,
-    paddingVertical: 6,
+    // Le texte touchait le bas de la carte, d'autant que les coins arrondis
+    // mordent dessus. Une marge des deux côtés le décolle du bord.
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   prevFooterText: { fontSize: 10, color: 'rgba(255,255,255,0.7)', letterSpacing: 1.5, textTransform: 'uppercase' },
 

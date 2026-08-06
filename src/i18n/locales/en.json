@@ -90,6 +90,10 @@
     "success_message": "You can now sign in with your new password.",
     "success_button": "Sign in"
   },
+  "location": {
+    "toast_home": "Geolocated based on your home address",
+    "toast_gps": "Geolocated based on your GPS position"
+  },
   "home": {
     "title": "My Feed",
     "subtitle": "Here you'll find all janazas within your notification radius as well as those from mosques and other prayer places you've subscribed to.",
@@ -148,6 +152,7 @@
     "notif_at": "at {{time}}",
     "copy": "Copy",
     "directions": "GPS directions",
+    "voir_affiche": "View the flyer",
     "delete_prayer": "Delete this prayer",
     "close": "Close",
     "notification_disabled": "Enable notifications in Settings to use this feature.",
@@ -315,7 +320,9 @@
     "address_label": "Home address",
     "address_placeholder": "Your full address",
     "address_description": "Used to calculate distances to nearby mosques",
-    "address_invalid_title": "Address not found",
+                "address_validate": "Validate",
+"address_suggestion_hint": "You don't have to select a suggestion, your address will still be geolocated.",
+"address_invalid_title": "Address not found",
     "address_invalid_message": "Unable to locate this address. Please select a suggestion from the list or enter a valid address.",
     "radius_label": "Notification radius",
     "radius_description": "Prayer places within this radius around your home",
@@ -405,7 +412,8 @@
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
     "lang_es": "Español",
-    "lang_bm": "Bamanankan"
+    "lang_bm": "Bamanankan",
+    "lang_nl": "Flemish"
   },
   "admin": {
     "title": "Administration",
@@ -648,6 +656,7 @@
     "death_announcement": "Death announcement",
     "anonymous_announces": "We announce the passing of:",
     "family_announces_named": "The {{name}} family announces the passing of:",
+    "family_announces_named_plural": "The {{name}} families announce the passing of:",
     "family_announces_unnamed": "We sorrowfully announce the passing of:",
     "civility_male": "Mr.",
     "civility_female": "Mrs.",

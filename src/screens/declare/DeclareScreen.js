@@ -43,11 +43,12 @@ const EMPTY_FORM = {
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 }, (_, i) => i);
-const CAL_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
+import { getDateLocale } from '../../utils/dateLocale';
+import { getCountryName } from '../../utils/countryNames';
 
 function CalendarModal({ visible, selectedDate, onSelect, onClose }) {
   const { i18n } = useTranslation();
-  const dateLocale = CAL_LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
+  const dateLocale = getDateLocale(i18n.language);
   const today = new Date();
   const [viewYear, setViewYear] = useState(selectedDate?.getFullYear() ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState(selectedDate?.getMonth() ?? today.getMonth());
@@ -280,7 +281,7 @@ function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId })
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
             <TouchableWithoutFeedback>
@@ -338,6 +339,14 @@ function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId })
 
                 {/* Adresse */}
                 <Text style={{ ...typography.label, marginTop: spacing.md, marginBottom: 2 }}>{t('declare.add_lieu_address_label')}</Text>
+                {adresseSuggestions.length > 0 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginBottom: 4 }}>
+                    <Ionicons name="information-circle-outline" size={13} color={colors.warning} style={{ marginTop: 1 }} />
+                    <Text style={{ fontSize: 11, color: colors.warning, lineHeight: 15, flex: 1 }}>
+                      {t('declare.add_lieu_address_hint')}
+                    </Text>
+                  </View>
+                )}
                 <View style={inputStyle(!!adresseError)}>
                   <Ionicons name="map-outline" size={16} color={adresseError ? colors.error : colors.textMuted} />
                   <TextInput
@@ -348,28 +357,39 @@ function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId })
                     placeholderTextColor={colors.textMuted}
                     returnKeyType="done"
                     onSubmitEditing={Keyboard.dismiss}
-                    onBlur={() => setTimeout(() => setAdresseSuggestions([]), 200)}
                   />
                   {adresseLoading
                     ? <ActivityIndicator size="small" color={colors.primary} />
-                    : selectedLat != null
-                      ? <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                      : null}
+                    : adresseSuggestions.length > 0
+                      ? (
+                        <TouchableOpacity
+                          onPress={() => { setAdresseSuggestions([]); Keyboard.dismiss(); }}
+                          style={{ marginLeft: spacing.xs, backgroundColor: colors.primary, borderRadius: radius.sm, paddingHorizontal: 10, paddingVertical: 4 }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: '600', color: colors.white }}>{t('profile.address_validate')}</Text>
+                        </TouchableOpacity>
+                      )
+                      : selectedLat != null
+                        ? <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                        : !!adresse
+                          ? (
+                            <TouchableOpacity
+                              onPress={() => { setAdresse(''); setSelectedLat(null); setSelectedLon(null); setAdresseSuggestions([]); setAdresseError(''); }}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={{ marginLeft: spacing.xs }}
+                            >
+                              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                            </TouchableOpacity>
+                          )
+                          : null}
                 </View>
-                {!!adresseError
-                  ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                      <Ionicons name="alert-circle-outline" size={13} color={colors.error} />
-                      <Text style={{ color: colors.error, fontSize: 12 }}>{adresseError}</Text>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginTop: 4 }}>
-                      <Ionicons name="information-circle-outline" size={13} color={colors.warning} style={{ marginTop: 1 }} />
-                      <Text style={{ fontSize: 11, color: colors.warning, lineHeight: 15, flex: 1 }}>
-                        {t('declare.add_lieu_address_hint')}
-                      </Text>
-                    </View>
-                  )}
+                {!!adresseError && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <Ionicons name="alert-circle-outline" size={13} color={colors.error} />
+                    <Text style={{ color: colors.error, fontSize: 12 }}>{adresseError}</Text>
+                  </View>
+                )}
 
                 {/* Suggestions adresse */}
                 {adresseSuggestions.length > 0 && (
@@ -429,7 +449,7 @@ function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId })
 
 export default function DeclareScreen() {
   const { t, i18n } = useTranslation();
-  const dateLocale = CAL_LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
+  const dateLocale = getDateLocale(i18n.language);
   const fmtTime = (n) => i18n.language?.startsWith('ar')
     ? n.toLocaleString('ar-SA', { minimumIntegerDigits: 2 })
     : String(n).padStart(2, '0');
@@ -514,6 +534,7 @@ export default function DeclareScreen() {
   })();
 
   // Recherche textuelle directe en DB, sans limite de rayon
+  const scrollRef = useRef(null);
   const searchDebounceRef = useRef(null);
   const latestQueryRef = useRef('');
 
@@ -725,6 +746,8 @@ export default function DeclareScreen() {
     try {
       const mosqueeApiId = await resolveMosqueeApiId();
       const dateHeure = buildDateHeure() ?? new Date();
+      const rawPays = extraData?.country;
+      const paysEnterrement = rawPays?.length === 2 ? (getCountryName(rawPays, 'fr') ?? rawPays) : (rawPays || null);
 
       const payload = {
         mosqueeId: mosqueeApiId,
@@ -735,7 +758,7 @@ export default function DeclareScreen() {
         dateHeurePriere: dateHeure.toISOString(),
         utcOffsetMinutes: 0,
         commentaire: extraData?.commentaire || null,
-        paysEnterrement: extraData?.country || null,
+        paysEnterrement,
         villeEnterrement: extraData?.locationFrance || null,
         anneeNaissance: (extraData?.showYears && extraData?.birthYear) ? extraData.birthYear : null,
         anneeDeces: (extraData?.showYears && extraData?.deathYear) ? extraData.deathYear : null,
@@ -779,7 +802,7 @@ export default function DeclareScreen() {
           estAnonyme: form.nomAnonyme,
           commentaire: form.commentaire,
           declarantEmail: user?.email ?? '',
-          paysEnterrement: extraData?.country || null,
+          paysEnterrement,
           villeEnterrement: extraData?.locationFrance || null,
           anneeNaissance: (extraData?.showYears && extraData?.birthYear) ? extraData.birthYear : null,
           anneeDeces: (extraData?.showYears && extraData?.deathYear) ? extraData.deathYear : null,
@@ -822,8 +845,8 @@ export default function DeclareScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenHeader title={t('declare.title')} subtitle={t('declare.subtitle')} />
       <ScreenBackground>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets={true}>
 
           {error && (
             <View style={styles.errorBox}>
@@ -1041,12 +1064,12 @@ export default function DeclareScreen() {
                 <Text style={styles.fieldLabel}>{t('admin.edit_deceased_nom')}</Text>
                 <View style={[styles.inputWrapper, { marginBottom: spacing.sm }]}>
                   <Ionicons name="person-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
-                  <TextInput style={styles.inputWithIcon} placeholder={t('declare.nom_famille_placeholder')} placeholderTextColor={colors.textMuted} value={form.nomFamille} onChangeText={set('nomFamille')} />
+                  <TextInput style={styles.inputWithIcon} placeholder={t('declare.nom_famille_placeholder')} placeholderTextColor={colors.textMuted} value={form.nomFamille} onChangeText={set('nomFamille')} onFocus={() => { if (Platform.OS === 'android') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250); }} />
                 </View>
                 <Text style={styles.fieldLabel}>{t('admin.edit_deceased_prenom')}</Text>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="person-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
-                  <TextInput style={styles.inputWithIcon} placeholder={t('declare.prenom_placeholder')} placeholderTextColor={colors.textMuted} value={form.prenomDefunt} onChangeText={set('prenomDefunt')} />
+                  <TextInput style={styles.inputWithIcon} placeholder={t('declare.prenom_placeholder')} placeholderTextColor={colors.textMuted} value={form.prenomDefunt} onChangeText={set('prenomDefunt')} onFocus={() => { if (Platform.OS === 'android') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250); }} />
                 </View>
               </>
             )}

@@ -90,6 +90,10 @@
     "success_message": "Artık yeni şifrenizle giriş yapabilirsiniz.",
     "success_button": "Giriş Yap"
   },
+  "location": {
+    "toast_home": "Ev adresinize göre konumlandırıldı",
+    "toast_gps": "GPS konumunuza göre konumlandırıldı"
+  },
   "home": {
     "title": "Akışım",
     "subtitle": "Bildirim yarıçapınızdaki tüm cenazeleri ve abone olduğunuz camilerdeki cenazeleri burada bulabilirsiniz.",
@@ -146,6 +150,7 @@
     "notif_at": "saat {{time}}",
     "copy": "Kopyala",
     "directions": "GPS Yol Tarifi",
+    "voir_affiche": "Afişi görüntüle",
     "delete_prayer": "Bu namazı sil",
     "close": "Kapat",
     "notification_disabled": "Bu özelliği kullanmak için Ayarlar'dan bildirimleri etkinleştiriniz.",
@@ -313,7 +318,9 @@
     "address_label": "Ev Adresi",
     "address_placeholder": "Tam adresiniz",
     "address_description": "Yakındaki camilerin mesafelerini hesaplamak için kullanılır",
-    "address_invalid_title": "Adres bulunamadı",
+                "address_validate": "Onayla",
+"address_suggestion_hint": "Bir öneri seçmek zorunda değilsiniz, adresiniz yine de konumlandırılacaktır.",
+"address_invalid_title": "Adres bulunamadı",
     "address_invalid_message": "Bu adres konumlandırılamadı. Lütfen listeden bir öneri seçin veya geçerli bir adres girin.",
     "radius_label": "Bildirim Yarıçapı",
     "radius_description": "Bu yarıçap içindeki ev etrafındaki ibadet yerleri",
@@ -403,7 +410,8 @@
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
     "lang_es": "Español",
-    "lang_bm": "Bamanankan"
+    "lang_bm": "Bamanankan",
+    "lang_nl": "Flamanca"
   },
   "admin": {
     "title": "Yönetim",
@@ -642,6 +650,7 @@
     "death_announcement": "Vefat Duyurusu",
     "anonymous_announces": "Merhumun vefatını duyururuz:",
     "family_announces_named": "{{name}} ailesi sizlere merhumun vefatını duyurmaktan üzüntü duyar:",
+    "family_announces_named_plural": "{{name}} aileleri sizlere merhumun vefatını duyurmaktan üzüntü duyarlar:",
     "family_announces_unnamed": "Üzüntüyle vefatını duyuruyoruz:",
     "civility_male": "Merhum",
     "civility_female": "Merhume",

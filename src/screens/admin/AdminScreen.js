@@ -22,11 +22,12 @@ import DashboardTab from './DashboardTab';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 }, (_, i) => i);
-const CAL_LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
+import { getDateLocale } from '../../utils/dateLocale';
+import { getCountryName } from '../../utils/countryNames';
 
 function CalendarModal({ visible, selectedDate, onSelect, onClose }) {
   const { i18n } = useTranslation();
-  const dateLocale = CAL_LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
+  const dateLocale = getDateLocale(i18n.language);
   const today = new Date();
   const [viewYear, setViewYear] = useState(selectedDate?.getFullYear() ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState(selectedDate?.getMonth() ?? today.getMonth());
@@ -139,12 +140,117 @@ function ComboBoxModal({ visible, items, selected, onSelect, onClose, title }) {
   );
 }
 
+const TOUTES = '__toutes__';
+
+/**
+ * Choix dans une liste de libellés — distinct de ComboBoxModal, qui formate
+ * des nombres sur deux chiffres et ne convient qu'aux heures et minutes.
+ *
+ * Le champ de recherche n'est pas un ornement : les mosquées couvrent plus de
+ * deux cents villes, et faire défiler une telle liste au doigt est plus long
+ * que de taper trois lettres.
+ */
+function ListeChoixModal({ visible, items, selected, onSelect, onClose, titre, libelleTous }) {
+  const [filtre, setFiltre] = useState('');
+
+  // Le filtre repart à vide à chaque ouverture : rouvrir la liste et n'y
+  // trouver que le reliquat d'une recherche précédente donne l'impression
+  // que les données ont disparu.
+  useEffect(() => { if (visible) setFiltre(''); }, [visible]);
+
+  const q = (s) => normalize(s ?? '');
+  const visibles = filtre ? items.filter(i => q(i).includes(q(filtre))) : items;
+
+  const ligne = (valeur, libelle) => {
+    const actif = valeur === selected;
+    return (
+      <TouchableOpacity
+        style={[styles.comboItem, actif && styles.comboItemSelected]}
+        onPress={() => { onSelect(valeur); onClose(); }}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.comboItemText, actif && styles.comboItemTextSelected]} numberOfLines={1}>
+          {libelle}
+        </Text>
+        {actif && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.comboOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.comboSheet}>
+              <View style={styles.comboHandle} />
+              <Text style={styles.comboTitle}>{titre}</Text>
+              <SearchBar value={filtre} onChange={setFiltre} placeholder="Filtrer…" />
+              <FlatList
+                data={visibles}
+                keyExtractor={item => String(item)}
+                renderItem={({ item }) => ligne(item, item)}
+                ListHeaderComponent={ligne(TOUTES, libelleTous)}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: 340 }}
+                ListEmptyComponent={
+                  <Text style={styles.comboVide}>Aucun résultat pour « {filtre} »</Text>
+                }
+              />
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
+/** Bouton d'ouverture d'un ListeChoixModal, façon liste déroulante. */
+function BoutonCombo({ libelle, valeur, actif, onPress }) {
+  return (
+    <TouchableOpacity
+      style={[styles.filtreCombo, actif && styles.filtreComboActif]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.filtreComboLabel, actif && styles.filtreComboLabelActif]} numberOfLines={1}>
+        {actif ? valeur : libelle}
+      </Text>
+      <Ionicons
+        name="chevron-down"
+        size={14}
+        color={actif ? colors.primary : colors.textMuted}
+      />
+    </TouchableOpacity>
+  );
+}
+
+/**
+ * Bascule du tri par date. Deux états seulement : le plus récent d'abord, ou
+ * l'inverse. Le libellé dit l'état COURANT, pas l'action — « Plus récentes »
+ * signifie que la liste est déjà triée ainsi.
+ */
+function BoutonTri({ valeur, onChange }) {
+  const recent = valeur === 'recent';
+  return (
+    <TouchableOpacity
+      style={styles.boutonTri}
+      onPress={() => onChange(recent ? 'ancien' : 'recent')}
+      activeOpacity={0.7}
+    >
+      <Ionicons name={recent ? 'arrow-down' : 'arrow-up'} size={13} color={colors.primary} />
+      <Text style={styles.boutonTriTexte}>{recent ? 'Plus récentes' : 'Plus anciennes'}</Text>
+    </TouchableOpacity>
+  );
+}
+
 const SUPER_ADMIN_EMAIL = 'ceo@salatjanaza.org';
 
 const parseUtc = (raw) => raw ? new Date(/Z$|[+-]\d{2}:/.test(raw) ? raw : raw + 'Z') : null;
 
 export default function AdminScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.auth.user);
   const apiUser = useSelector(state => state.auth.apiUser);
@@ -186,6 +292,23 @@ export default function AdminScreen() {
   const [searchUser, setSearchUser] = useState('');
   const [roleFilter, setRoleFilter] = useState('all'); // 'all' | 'user' | 'admin'
 
+  // Filtres de lieu. Un jeu par onglet : les deux listes ne contiennent pas
+  // les mêmes mosquées, et une ville présente dans l'une peut être absente de
+  // l'autre. Les partager ferait apparaître des filtres sans effet.
+  const [villeMosque, setVilleMosque] = useState(TOUTES);
+  const [paysMosque, setPaysMosque] = useState(TOUTES);
+  const [villeDb, setVilleDb] = useState(TOUTES);
+  const [paysDb, setPaysDb] = useState(TOUTES);
+  const [comboOuvert, setComboOuvert] = useState(null); // 'villeMosque' | 'paysMosque' | 'villeDb' | 'paysDb'
+
+  // Tri par date : 'recent' (le plus récent d'abord) ou 'ancien'.
+  const [triMosque, setTriMosque] = useState('recent');
+  const [triDb, setTriDb] = useState('recent');
+  const [triUser, setTriUser] = useState('recent');
+
+  const [rattrapageLoading, setRattrapageLoading] = useState(false);
+  const [rattrapageEtat, setRattrapageEtat] = useState(null);
+
   const [genderFilter, setGenderFilter] = useState('all');
   const [addUserVisible, setAddUserVisible] = useState(false);
   const [editDecl, setEditDecl] = useState(null);
@@ -198,6 +321,9 @@ export default function AdminScreen() {
   const [declDateTo, setDeclDateTo] = useState(null);
   const [showDeclCalFrom, setShowDeclCalFrom] = useState(false);
   const [showDeclCalTo, setShowDeclCalTo] = useState(false);
+  const [searchHisto, setSearchHisto] = useState('');
+  const [historique, setHistorique] = useState([]);
+  const [histoLoading, setHistoLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -221,7 +347,20 @@ export default function AdminScreen() {
     }
   }, []);
 
+  const loadHistorique = useCallback(async () => {
+    setHistoLoading(true);
+    try {
+      const res = await apiClient.get('/api/PriereJanaza/historique');
+      setHistorique(res.data ?? []);
+    } catch {}
+    finally { setHistoLoading(false); }
+  }, []);
+
   useFocusEffect(useCallback(() => { loadData(); loadDbMosques(); }, [loadData]));
+
+  useEffect(() => {
+    if (declSubTab === 4) loadHistorique();
+  }, [declSubTab, loadHistorique]);
 
   const loadDbMosques = async () => {
     setDbLoading(true);
@@ -651,15 +790,62 @@ export default function AdminScreen() {
 
   // Filtered lists
   const q = (s) => normalize(s);
-  const filteredMosques = mosques.filter(m =>
-    !searchMosque || q(m.nom ?? '').includes(q(searchMosque)) || q(m.adresse ?? '').includes(q(searchMosque))
-  );
-  const filteredDbMosques = dbMosques.filter(m =>
-    !searchDbMosque || q(m.nom ?? '').includes(q(searchDbMosque)) || q(m.adresse ?? '').includes(q(searchDbMosque))
-  );
-  const filteredPending = pendingMosques.filter(m =>
-    !searchPending || q(m.nom ?? '').includes(q(searchPending)) || q(m.adresse ?? '').includes(q(searchPending))
-  );
+
+  /**
+   * Ville et pays viennent du géocodage inverse fait à l'enregistrement, pas
+   * d'une lecture de l'adresse : la base les porte en colonnes. Une mosquée
+   * peut n'en avoir aucun — Nominatim ne connaît pas tous les points — et
+   * elle doit alors rester visible tant qu'aucun filtre n'est posé, sans quoi
+   * elle disparaîtrait de l'administration sans explication.
+   */
+  const correspondLieu = (m, ville, pays) =>
+    (ville === TOUTES || m.ville === ville) &&
+    (pays === TOUTES || m.pays === pays);
+
+  const listerLieux = (liste, champ, pays) => {
+    const vues = new Set();
+    for (const m of liste) {
+      if (pays && pays !== TOUTES && m.pays !== pays) continue;
+      if (m[champ]) vues.add(m[champ]);
+    }
+    return [...vues].sort((a, b) => a.localeCompare(b, 'fr'));
+  };
+
+  // Les villes proposées se restreignent au pays choisi : proposer Montréal
+  // quand « France » est sélectionné offre un filtre qui ne rendra rien.
+  //
+  // L'onglet Masadjid couvre DEUX listes — les validées et celles en attente —
+  // qui partagent le même filtre. Les options doivent donc venir des deux :
+  // sinon une ville présente uniquement parmi les mosquées en attente serait
+  // introuvable dans la liste déroulante du sous-onglet qui l'affiche.
+  const toutesMosquesOnglet = [...mosques, ...pendingMosques];
+  const villesMosque = listerLieux(toutesMosquesOnglet, 'ville', paysMosque);
+  const paysMosqueOptions = listerLieux(toutesMosquesOnglet, 'pays', null);
+  const villesDb = listerLieux(dbMosques, 'ville', paysDb);
+  const paysDbOptions = listerLieux(dbMosques, 'pays', null);
+
+  // Le tri s'applique APRÈS le filtrage, sur la copie déjà produite par
+  // .filter() — trier la source réordonnerait les listes des autres onglets.
+  const parDate = (liste, champ, sens) =>
+    liste.sort((a, b) => {
+      const da = new Date(a[champ] ?? 0), db_ = new Date(b[champ] ?? 0);
+      return sens === 'recent' ? db_ - da : da - db_;
+    });
+
+  const filteredMosques = parDate(mosques.filter(m =>
+    (!searchMosque || q(m.nom ?? '').includes(q(searchMosque)) || q(m.adresse ?? '').includes(q(searchMosque)))
+    && correspondLieu(m, villeMosque, paysMosque)
+  ), 'dateCreation', triMosque);
+
+  const filteredDbMosques = parDate(dbMosques.filter(m =>
+    (!searchDbMosque || q(m.nom ?? '').includes(q(searchDbMosque)) || q(m.adresse ?? '').includes(q(searchDbMosque)))
+    && correspondLieu(m, villeDb, paysDb)
+  ), 'dateCreation', triDb);
+
+  const filteredPending = parDate(pendingMosques.filter(m =>
+    (!searchPending || q(m.nom ?? '').includes(q(searchPending)) || q(m.adresse ?? '').includes(q(searchPending)))
+    && correspondLieu(m, villeMosque, paysMosque)
+  ), 'dateCreation', triMosque);
   const allPendingSelected = filteredPending.length > 0 && selectedPendingIds.size === filteredPending.length;
   const toggleSelectAllPending = () => {
     if (allPendingSelected) setSelectedPendingIds(new Set());
@@ -685,11 +871,21 @@ export default function AdminScreen() {
     })
     .sort((a, b) => new Date(b.dateCreation ?? b.dateHeurePriere) - new Date(a.dateCreation ?? a.dateHeurePriere));
   const allDeclSelected = filteredDecl.length > 0 && selectedDeclIds.size === filteredDecl.length;
+  const histoDecl = historique.filter(h => {
+    if (!searchHisto) return true;
+    const qS = q(searchHisto);
+    return q(h.nomDefunt ?? '').includes(qS) ||
+      q(h.mosqueeNom ?? '').includes(qS) ||
+      q(h.villeEnterrement ?? '').includes(qS) ||
+      q(h.pays ?? '').includes(qS) ||
+      q(getCountryName(h.pays, 'fr') ?? '').includes(qS) ||
+      q(`${h.declarantPrenom ?? ''} ${h.declarantNom ?? ''}`).includes(qS);
+  });
   const toggleSelectAllDecl = () => {
     if (allDeclSelected) setSelectedDeclIds(new Set());
     else setSelectedDeclIds(new Set(filteredDecl.map(d => d.id)));
   };
-  const filteredUsers = users.filter(u => {
+  const filteredUsers = parDate(users.filter(u => {
     const matchSearch = !searchUser ||
       q(u.prenom ?? '').includes(q(searchUser)) ||
       q(u.nom ?? '').includes(q(searchUser)) ||
@@ -700,7 +896,7 @@ export default function AdminScreen() {
       (roleFilter === 'admin' && isAdmin) ||
       (roleFilter === 'user' && !isAdmin);
     return matchSearch && matchRole;
-  });
+  }), 'dateInscription', triUser);
 
   const filteredImportUsers = users.filter(u => {
     const isAdmin = u.email === SUPER_ADMIN_EMAIL || u._role === 'Admin';
@@ -798,9 +994,135 @@ export default function AdminScreen() {
 
   const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />;
 
+  /**
+   * Lance le remplissage de ville et pays, par lots.
+   *
+   * Nominatim impose une requête par seconde : les 480 mosquées prennent
+   * environ huit minutes, bien au-delà de ce qu'une requête HTTP supporte.
+   * On enchaîne donc des lots de soixante jusqu'à ce qu'il ne reste rien, et
+   * on rafraîchit entre chaque — la progression est visible au lieu d'être
+   * une attente aveugle.
+   */
+  /**
+   * Donne le départ du rattrapage, puis suit son avancement.
+   *
+   * POURQUOI LE TÉLÉPHONE NE FAIT PLUS LE TRAVAIL
+   * ---------------------------------------------
+   * La version précédente enchaînait les lots depuis l'application : sept
+   * cents mosquées à une requête par seconde, c'était une douzaine de minutes
+   * pendant lesquelles il fallait garder l'écran allumé, l'application au
+   * premier plan et le réseau stable. Un verrouillage, une navigation, un
+   * appel entrant, et la chaîne se brisait.
+   *
+   * Désormais le serveur travaille seul. L'application donne le départ, puis
+   * demande l'avancement toutes les cinq secondes — et peut être fermée sans
+   * rien interrompre.
+   */
+  const lancerRattrapage = async () => {
+    setRattrapageLoading(true);
+    setRattrapageEtat(null);
+    try {
+      await apiClient.post('/api/Mosquee/lieux/rattrapage');
+    } catch (e) {
+      // Le motif est nommé : « échec » sans cause laisse chercher au hasard
+      // entre un serveur pas à jour, une panne réseau et un délai dépassé.
+      const statut = e?.response?.status;
+      const cause =
+        e?.code === 'ECONNABORTED' ? 'Délai d’attente dépassé.'
+        : statut === 404 ? 'Fonction absente du serveur : l’API n’est pas encore à jour.'
+        : statut ? `Le serveur a répondu ${statut}.`
+        : 'Serveur injoignable.';
+
+      setRattrapageLoading(false);
+      Alert.alert('Localisation impossible', cause);
+    }
+  };
+
+  // Le suivi : tant qu'un rattrapage tourne, on demande l'avancement. L'effet
+  // se nettoie tout seul, donc quitter l'écran n'arrête que la surveillance —
+  // jamais le travail, qui se poursuit sur le serveur.
+  useEffect(() => {
+    if (!rattrapageLoading) return;
+
+    let vivant = true;
+    let minuteur;
+
+    const interroger = async () => {
+      try {
+        const { data } = await apiClient.get('/api/Mosquee/lieux/etat');
+        if (!vivant) return;
+        setRattrapageEtat(data);
+
+        if (data.enCours) {
+          minuteur = setTimeout(interroger, 5000);
+          return;
+        }
+
+        setRattrapageLoading(false);
+        await loadDbMosques();
+        await loadData();
+        Alert.alert(
+          'Localisation terminée',
+          `${data.traitees ?? 0} mosquée(s) localisée(s).` +
+          (data.restantes > 0
+            ? `\n\n${data.restantes} sans résultat : le service ne reconnaît pas leurs coordonnées. ` +
+              `Elles restent visibles et seront retentées au prochain lancement.`
+            : '')
+        );
+      } catch {
+        if (!vivant) return;
+        // Une interrogation ratée n'est pas un échec du traitement : le
+        // serveur continue. On réessaiera au prochain tour.
+        minuteur = setTimeout(interroger, 5000);
+      }
+    };
+
+    interroger();
+    return () => { vivant = false; clearTimeout(minuteur); };
+  }, [rattrapageLoading, loadData]);
+
+  /** Les deux listes déroulantes de lieu et la bascule de tri, sous la recherche. */
+  const barreFiltres = ({ villeSel, paysSel, cleVille, clePays, tri, setTri }) => (
+    <View style={styles.barreFiltres}>
+      <BoutonCombo
+        libelle="Toutes les villes"
+        valeur={villeSel}
+        actif={villeSel !== TOUTES}
+        onPress={() => setComboOuvert(cleVille)}
+      />
+      <BoutonCombo
+        libelle="Tous les pays"
+        valeur={paysSel}
+        actif={paysSel !== TOUTES}
+        onPress={() => setComboOuvert(clePays)}
+      />
+      <BoutonTri valeur={tri} onChange={setTri} />
+    </View>
+  );
+
+  // Une seule fenêtre pour les quatre listes déroulantes : `comboOuvert` dit
+  // laquelle est ouverte. Quatre composants montés en permanence ne feraient
+  // que quadrupler l'état pour un seul visible à la fois.
+  const comboCourant = {
+    villeMosque: { items: villesMosque, selected: villeMosque, onSelect: setVilleMosque, titre: 'Ville', tous: 'Toutes les villes' },
+    paysMosque:  { items: paysMosqueOptions, selected: paysMosque, onSelect: setPaysMosque, titre: 'Pays', tous: 'Tous les pays' },
+    villeDb:     { items: villesDb, selected: villeDb, onSelect: setVilleDb, titre: 'Ville', tous: 'Toutes les villes' },
+    paysDb:      { items: paysDbOptions, selected: paysDb, onSelect: setPaysDb, titre: 'Pays', tous: 'Tous les pays' },
+  }[comboOuvert];
+
   return (
     <SafeAreaView style={styles.container}>
       <ScreenBackground>
+
+      <ListeChoixModal
+        visible={!!comboCourant}
+        items={comboCourant?.items ?? []}
+        selected={comboCourant?.selected ?? TOUTES}
+        onSelect={v => comboCourant?.onSelect(v)}
+        onClose={() => setComboOuvert(null)}
+        titre={comboCourant?.titre ?? ''}
+        libelleTous={comboCourant?.tous ?? ''}
+      />
 
       <CalendarModal visible={showDeclCalFrom} selectedDate={declDateFrom} onSelect={d => { setDeclDateFrom(d); setShowDeclCalFrom(false); }} onClose={() => setShowDeclCalFrom(false)} />
       <CalendarModal visible={showDeclCalTo} selectedDate={declDateTo} onSelect={d => { setDeclDateTo(d); setShowDeclCalTo(false); }} onClose={() => setShowDeclCalTo(false)} />
@@ -900,8 +1222,27 @@ export default function AdminScreen() {
                   keyExtractor={item => String(item.id)}
                   contentContainerStyle={styles.list}
                   refreshControl={refreshControl}
-                  ListHeaderComponent={<SearchBar value={searchMosque} onChange={setSearchMosque} placeholder={t('admin.search_mosques')} />}
-                  ListEmptyComponent={<EmptyState label={searchMosque ? t('admin.no_results') : t('admin.no_mosques')} icon="business-outline" />}
+                  ListHeaderComponent={
+                    <View>
+                      <SearchBar value={searchMosque} onChange={setSearchMosque} placeholder={t('admin.search_mosques')} />
+                      {barreFiltres({
+                        villeSel: villeMosque, paysSel: paysMosque,
+                        cleVille: 'villeMosque', clePays: 'paysMosque',
+                        tri: triMosque, setTri: setTriMosque,
+                      })}
+                    </View>
+                  }
+                  ListEmptyComponent={
+                    // Un filtre de ville actif produit une liste vide sans
+                    // qu'aucune recherche soit saisie : dire « aucune mosquée »
+                    // laisserait croire que la base est vide.
+                    <EmptyState
+                      label={(searchMosque || villeMosque !== TOUTES || paysMosque !== TOUTES)
+                        ? t('admin.no_results')
+                        : t('admin.no_mosques')}
+                      icon="business-outline"
+                    />
+                  }
                   renderItem={({ item }) => (
                     <Row title={item.nom} subtitle={item.adresse ?? '—'} onEdit={() => setEditMosque(item)} onDelete={() => deleteMosque(item.id, item.nom)} />
                   )}
@@ -915,6 +1256,11 @@ export default function AdminScreen() {
                   ListHeaderComponent={
                     <View>
                       <SearchBar value={searchPending} onChange={setSearchPending} placeholder={t('admin.search_mosques')} />
+                      {barreFiltres({
+                        villeSel: villeMosque, paysSel: paysMosque,
+                        cleVille: 'villeMosque', clePays: 'paysMosque',
+                        tri: triMosque, setTri: setTriMosque,
+                      })}
                       {filteredPending.length > 0 && (
                         pendingSelectMode ? (
                           <View>
@@ -1010,13 +1356,49 @@ export default function AdminScreen() {
                       <Text style={styles.normBtnText}>Ajouter</Text>
                     </TouchableOpacity>
                   </View>
+                  {/* Renseigne ville et pays par géocodage inverse des
+                      coordonnées. À relancer après chaque import OSM : il ne
+                      traite que les mosquées qui n'ont pas encore de ville. */}
+                  <TouchableOpacity
+                    style={[styles.normBtn, styles.rattrapageBtn, rattrapageLoading && styles.normBtnDisabled]}
+                    onPress={lancerRattrapage}
+                    disabled={rattrapageLoading}
+                    activeOpacity={0.7}
+                  >
+                    {rattrapageLoading
+                      ? <>
+                          <ActivityIndicator size="small" color="#fff" />
+                          {/* L'avancement chiffré : sans lui, une douzaine de
+                              minutes de rotation ressemble à un blocage. */}
+                          <Text style={styles.normBtnText}>
+                            {rattrapageEtat
+                              ? `Localisation… ${rattrapageEtat.traitees ?? 0} sur ${rattrapageEtat.total ?? 0}`
+                              : 'Localisation…'}
+                          </Text>
+                        </>
+                      : <>
+                          <Ionicons name="location-outline" size={16} color="#fff" />
+                          <Text style={styles.normBtnText}>Localiser les mosquées (ville / pays)</Text>
+                        </>
+                    }
+                  </TouchableOpacity>
                   <SearchBar value={searchDbMosque} onChange={setSearchDbMosque} placeholder="Rechercher par nom ou adresse…" />
+                  {barreFiltres({
+                    villeSel: villeDb, paysSel: paysDb,
+                    cleVille: 'villeDb', clePays: 'paysDb',
+                    tri: triDb, setTri: setTriDb,
+                  })}
                 </>
               }
               ListEmptyComponent={
                 dbLoading
                   ? <ActivityIndicator color={colors.primary} style={styles.loader} />
-                  : <EmptyState label="Aucune mosquée en base" icon="business-outline" />
+                  : <EmptyState
+                      label={(searchDbMosque || villeDb !== TOUTES || paysDb !== TOUTES)
+                        ? 'Aucun résultat pour ces filtres'
+                        : 'Aucune mosquée en base'}
+                      icon="business-outline"
+                    />
               }
               renderItem={({ item }) => (
                 <View style={styles.dbMosqueRow}>
@@ -1047,7 +1429,7 @@ export default function AdminScreen() {
                   onPress={() => setDeclSubTab(0)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.subTabText, declSubTab === 0 && styles.subTabTextActive]}>{t('admin.import_decl_subtab')}</Text>
+                  <Text style={[styles.subTabText, declSubTab === 0 && styles.subTabTextActive]}>Annonces</Text>
                   <Text style={[styles.subTabCount, declSubTab === 0 && styles.subTabCountActive]}>{filteredDecl.length}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1055,7 +1437,7 @@ export default function AdminScreen() {
                   onPress={() => setDeclSubTab(1)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.subTabText, declSubTab === 1 && styles.subTabTextActive]}>{t('admin.import_tab')}</Text>
+                  <Text style={[styles.subTabText, declSubTab === 1 && styles.subTabTextActive]}>Import</Text>
                   <Text style={[styles.subTabCount, declSubTab === 1 && styles.subTabCountActive]}>{filteredImportUsers.length}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1063,7 +1445,7 @@ export default function AdminScreen() {
                   onPress={() => setDeclSubTab(2)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.subTabText, declSubTab === 2 && styles.subTabTextActive]}>{t('admin.pending')}</Text>
+                  <Text style={[styles.subTabText, declSubTab === 2 && styles.subTabTextActive]}>Attente</Text>
                   {pendingDeclarations.length > 0 && (
                     <View style={styles.pendingBadge}><Text style={styles.pendingBadgeText}>{pendingDeclarations.length}</Text></View>
                   )}
@@ -1073,8 +1455,15 @@ export default function AdminScreen() {
                   onPress={() => { setDeclSubTab(3); setImportTxtResult(null); }}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="cloud-upload-outline" size={13} color={declSubTab === 3 ? colors.primary : colors.textMuted} style={{ marginRight: 3 }} />
-                  <Text style={[styles.subTabText, declSubTab === 3 && styles.subTabTextActive]}>{t('admin.import_txt_tab')}</Text>
+                  <Text style={[styles.subTabText, declSubTab === 3 && styles.subTabTextActive]}>TXT</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.subTab, declSubTab === 4 && styles.subTabActive]}
+                  onPress={() => { setDeclSubTab(4); setSearchHisto(''); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.subTabText, declSubTab === 4 && styles.subTabTextActive]}>Historique</Text>
+                  <Text style={[styles.subTabCount, declSubTab === 4 && styles.subTabCountActive]}>{histoDecl.length}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1112,14 +1501,14 @@ export default function AdminScreen() {
                         <TouchableOpacity style={styles.declDateRangeBtn} onPress={() => setShowDeclCalFrom(true)} activeOpacity={0.7}>
                           <Ionicons name="calendar-outline" size={13} color={declDateFrom ? colors.primary : colors.textMuted} />
                           <Text style={[styles.declDateRangeBtnText, !declDateFrom && { color: colors.textMuted }]} numberOfLines={1}>
-                            {declDateFrom ? declDateFrom.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : t('admin.decl_date_from')}
+                            {declDateFrom ? declDateFrom.toLocaleDateString(getDateLocale(i18n.language), { day: '2-digit', month: '2-digit', year: 'numeric' }) : t('admin.decl_date_from')}
                           </Text>
                         </TouchableOpacity>
                         <Text style={styles.declDateRangeSep}>→</Text>
                         <TouchableOpacity style={styles.declDateRangeBtn} onPress={() => setShowDeclCalTo(true)} activeOpacity={0.7}>
                           <Ionicons name="calendar-outline" size={13} color={declDateTo ? colors.primary : colors.textMuted} />
                           <Text style={[styles.declDateRangeBtnText, !declDateTo && { color: colors.textMuted }]} numberOfLines={1}>
-                            {declDateTo ? declDateTo.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : t('admin.decl_date_to')}
+                            {declDateTo ? declDateTo.toLocaleDateString(getDateLocale(i18n.language), { day: '2-digit', month: '2-digit', year: 'numeric' }) : t('admin.decl_date_to')}
                           </Text>
                         </TouchableOpacity>
                         {(declDateFrom || declDateTo) && (
@@ -1172,8 +1561,9 @@ export default function AdminScreen() {
                     const declarantNom = declarant
                       ? `${declarant.prenom ?? ''} ${declarant.nom ?? ''}`.trim()
                       : item.utilisateurId ? `#${item.utilisateurId}` : t('admin.anonymous_user');
-                    const fmt = (raw) => parseUtc(raw)?.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) ?? null;
-                    const fmtLocal = (raw) => raw ? new Date(raw).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
+                    const _dloc = getDateLocale(i18n.language);
+                    const fmt = (raw) => parseUtc(raw)?.toLocaleDateString(_dloc, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) ?? null;
+                    const fmtLocal = (raw) => parseUtc(raw)?.toLocaleDateString(_dloc, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? null;
                     const dateDecl = fmtLocal(item.dateCreation);
                     return (
                       <Row
@@ -1266,8 +1656,9 @@ export default function AdminScreen() {
                   refreshControl={refreshControl}
                   ListEmptyComponent={<EmptyState label={t('admin.no_declarations')} icon="time-outline" />}
                   renderItem={({ item }) => {
-                    const fmt = (raw) => parseUtc(raw)?.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) ?? null;
-                    const fmtLocal = (raw) => raw ? new Date(raw).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
+                    const _dloc = getDateLocale(i18n.language);
+                    const fmt = (raw) => parseUtc(raw)?.toLocaleDateString(_dloc, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) ?? null;
+                    const fmtLocal = (raw) => parseUtc(raw)?.toLocaleDateString(_dloc, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? null;
                     return (
                       <Row
                         title={item.estAnonyme ? t('admin.edit_anonymous') : (formatNomDefunt(item.nomDefunt) || t('admin.deceased_unknown'))}
@@ -1346,6 +1737,39 @@ export default function AdminScreen() {
                   </ScrollView>
                 </KeyboardAvoidingView>
               )}
+
+              {declSubTab === 4 && (
+                <FlatList
+                  data={histoDecl}
+                  keyExtractor={item => String(item.id)}
+                  contentContainerStyle={styles.list}
+                  refreshing={histoLoading}
+                  onRefresh={loadHistorique}
+                  ListHeaderComponent={
+                    <SearchBar value={searchHisto} onChange={setSearchHisto} placeholder="Rechercher dans l'historique..." />
+                  }
+                  ListEmptyComponent={<EmptyState label="Aucun historique" icon="time-outline" />}
+                  renderItem={({ item }) => {
+                    const _dloc = getDateLocale(i18n.language);
+                    const fmtLocal = (raw) => parseUtc(raw)?.toLocaleDateString(_dloc, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? null;
+                    const dateDecl = fmtLocal(item.dateCreation);
+                    const declarantNom = `${item.declarantPrenom ?? ''} ${item.declarantNom ?? ''}`.trim() || t('admin.anonymous_user');
+                    return (
+                      <Row
+                        title={item.estAnonyme ? t('admin.edit_anonymous') : (formatNomDefunt(item.nomDefunt) || t('admin.deceased_unknown'))}
+                        subtitle={[item.mosqueeNom, item.pays?.length === 2 ? (getCountryName(item.pays, i18n.language) ?? item.pays) : item.pays].filter(Boolean).join(' · ')}
+                        extra={[dateDecl ? t('admin.declared_on', { date: dateDecl }) : null, t('admin.declared_by', { name: declarantNom })].filter(Boolean).join(' · ')}
+                        onDelete={() => confirmDelete(
+                          '/api/PriereJanaza/historique',
+                          item.id,
+                          item.estAnonyme ? t('admin.edit_anonymous') : (formatNomDefunt(item.nomDefunt) || `#${item.id}`),
+                          () => setHistorique(p => p.filter(h => h.id !== item.id))
+                        )}
+                      />
+                    );
+                  }}
+                />
+              )}
             </>
           )}
 
@@ -1382,6 +1806,11 @@ export default function AdminScreen() {
                       <Ionicons name="person-add-outline" size={16} color={colors.white} />
                       <Text style={styles.addBtnText}>{t('admin.add_user')}</Text>
                     </TouchableOpacity>
+                  </View>
+                  {/* Pas de ville ni de pays ici : un compte n'a pas de lieu.
+                      Seul le tri par date d'inscription a un sens. */}
+                  <View style={styles.barreFiltres}>
+                    <BoutonTri valeur={triUser} onChange={setTriUser} />
                   </View>
                 </View>
               }
@@ -2466,6 +2895,47 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, color: colors.text },
 
+  // Filtres de lieu et tri, sous la barre de recherche.
+  // `flexWrap` parce que trois contrôles côte à côte débordent sur les petits
+  // écrans dès qu'une ville porte un nom long comme Villeneuve-d'Ascq.
+  barreFiltres: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+    flexWrap: 'wrap', marginBottom: spacing.sm,
+  },
+  filtreCombo: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+    // Une largeur minimale et non fixe : le bouton porte tantôt « Toutes les
+    // villes », tantôt le nom choisi, et il ne doit pas sauter de taille.
+    minWidth: 118, maxWidth: 190,
+    paddingVertical: 6, paddingHorizontal: spacing.sm,
+    borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  // Un filtre actif se voit au liseré, pas au remplissage : il reste lisible
+  // et se distingue des puces de rôle, qui elles se remplissent quand on les
+  // choisit.
+  filtreComboActif: { borderColor: colors.primary, backgroundColor: colors.surface },
+  filtreComboLabel: { flex: 1, fontSize: 12, fontWeight: '600', color: colors.textMuted },
+  filtreComboLabelActif: { color: colors.primary },
+
+  boutonTri: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingVertical: 6, paddingHorizontal: spacing.sm,
+    borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  boutonTriTexte: { fontSize: 12, fontWeight: '600', color: colors.primary },
+
+  comboVide: {
+    ...typography.body, color: colors.textMuted,
+    textAlign: 'center', paddingVertical: spacing.lg,
+  },
+
+  rattrapageBtn: {
+    flexDirection: 'row', justifyContent: 'center', gap: spacing.xs,
+    backgroundColor: colors.textMuted,
+  },
+
   genderFilterRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap', marginBottom: spacing.sm },
 
   // Users header
@@ -2625,11 +3095,11 @@ const styles = StyleSheet.create({
 
   // Sub-tabs
   subTabs: { flexDirection: 'row', backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
-  subTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm },
+  subTab: { flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 6 },
   subTabActive: { borderBottomWidth: 2, borderBottomColor: colors.primary },
-  subTabText: { fontSize: 13, fontWeight: '500', color: colors.textMuted },
+  subTabText: { fontSize: 12, fontWeight: '500', color: colors.textMuted },
   subTabTextActive: { color: colors.primary, fontWeight: '600' },
-  subTabCount: { fontSize: 11, color: colors.textMuted },
+  subTabCount: { fontSize: 10, color: colors.textMuted },
   subTabCountActive: { color: colors.primary, fontWeight: '700' },
   pendingBadge: { backgroundColor: colors.error, borderRadius: 10, minWidth: 18, paddingHorizontal: 4, alignItems: 'center' },
   pendingBadgeText: { color: colors.white, fontSize: 10, fontWeight: '700' },

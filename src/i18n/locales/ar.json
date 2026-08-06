@@ -90,6 +90,10 @@
     "success_message": "يمكنك الآن تسجيل الدخول بكلمة مرورك الجديدة.",
     "success_button": "تسجيل الدخول"
   },
+  "location": {
+    "toast_home": "تم تحديد موقعك بناءً على عنوان منزلك",
+    "toast_gps": "تم تحديد موقعك بناءً على موقع GPS الخاص بك"
+  },
   "home": {
     "title": "آخر الأخبار",
     "subtitle": "هنا تجد جميع صلوات الجنازة ضمن نطاق الإشعارات الخاص بك وكذلك تلك الخاصة بالمساجد وسائر أماكن الصلاة التي اشتركت فيها.",
@@ -148,6 +152,7 @@
     "notif_at": "الساعة {{time}}",
     "copy": "نسخ",
     "directions": "الاتجاهات GPS",
+    "voir_affiche": "عرض الإعلان",
     "delete_prayer": "حذف هذه الصلاة",
     "close": "إغلاق",
     "notification_disabled": "فعّل الإشعارات في الإعدادات لاستخدام هذه الميزة.",
@@ -310,7 +315,9 @@
     "address_label": "عنوان المنزل",
     "address_placeholder": "عنوانك الكامل",
     "address_description": "يُستخدم لحساب المسافات إلى المساجد القريبة",
-    "address_invalid_title": "العنوان غير موجود",
+                "address_validate": "تأكيد",
+"address_suggestion_hint": "لست مضطرًا لاختيار اقتراح، سيتم تحديد موقع عنوانك تلقائيًا.",
+"address_invalid_title": "العنوان غير موجود",
     "address_invalid_message": "تعذّر تحديد موقع هذا العنوان. يرجى اختيار اقتراح من القائمة أو إدخال عنوان صحيح.",
     "radius_label": "نطاق الإشعارات",
     "radius_description": "أماكن الصلاة ضمن هذا النطاق حول منزلك",
@@ -400,7 +407,8 @@
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
     "lang_es": "Español",
-    "lang_bm": "Bamanankan"
+    "lang_bm": "Bamanankan",
+    "lang_nl": "الفلمنكية"
   },
   "admin": {
     "title": "الإدارة",
@@ -641,6 +649,7 @@
     "death_announcement": "إعلان وفاة",
     "anonymous_announces": "نُعلنكم بوفاة:",
     "family_announces_named": "تُعلن عائلة {{name}} بحزن عن وفاة:",
+    "family_announces_named_plural": "تُعلن عائلات {{name}} بحزن عن وفاة:",
     "family_announces_unnamed": "يؤلمنا أن نُعلنكم بوفاة :",
     "civility_male": "السيد",
     "civility_female": "السيدة",

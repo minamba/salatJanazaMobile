@@ -90,6 +90,10 @@
     "success_message": "新しいパスワードでログインできます。",
     "success_button": "ログイン"
   },
+  "location": {
+    "toast_home": "自宅の住所に基づいて位置情報を取得しました",
+    "toast_gps": "GPS位置情報に基づいて位置情報を取得しました"
+  },
   "home": {
     "title": "マイフィード",
     "subtitle": "通知範囲内のすべてのジャナーザと、登録しているモスクやその他の礼拝場所のジャナーザをここで確認できます。",
@@ -146,6 +150,7 @@
     "notif_at": "{{time}}に",
     "copy": "コピー",
     "directions": "GPS経路",
+    "voir_affiche": "お知らせを見る",
     "delete_prayer": "この礼拝を削除する",
     "close": "閉じる",
     "notification_disabled": "この機能を使用するには、設定で通知を有効にしてください。",
@@ -313,7 +318,9 @@
     "address_label": "自宅住所",
     "address_placeholder": "完全な住所",
     "address_description": "近くのモスクとの距離計算に使用されます",
-    "address_invalid_title": "住所が見つかりません",
+                "address_validate": "確認",
+"address_suggestion_hint": "候補を選択する必要はありません。入力した住所は自動的に位置情報が取得されます。",
+"address_invalid_title": "住所が見つかりません",
     "address_invalid_message": "この住所を特定できませんでした。リストから候補を選択するか、有効な住所を入力してください。",
     "radius_label": "通知範囲",
     "radius_description": "自宅周辺のこの範囲内にある礼拝場所",
@@ -403,7 +410,8 @@
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
     "lang_es": "Español",
-    "lang_bm": "Bamanankan"
+    "lang_bm": "Bamanankan",
+    "lang_nl": "フラマン語"
   },
   "admin": {
     "title": "管理",
@@ -646,6 +654,7 @@
     "death_announcement": "訃報",
     "anonymous_announces": "以下の方のご逝去をお知らせします：",
     "family_announces_named": "{{name}}家族は以下の方のご逝去をお知らせします：",
+    "family_announces_named_plural": "{{name}}のご家族はご逝去をお知らせします：",
     "family_announces_unnamed": "以下の方のご逝去をお知らせします：",
     "civility_male": "様",
     "civility_female": "様",

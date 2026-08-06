@@ -175,6 +175,7 @@ export default function SubscriptionsScreen() {
       <ScreenHeader
         title={t('subscriptions.title')}
         subtitle={`${subs.length} ${subs.length <= 1 ? t('subscriptions.mosque_singular') : t('subscriptions.mosque_plural')}`}
+        onInfo={() => Alert.alert(t('subscriptions.title'), t('subscriptions.subtitle'))}
       />
 
       <ScreenBackground>

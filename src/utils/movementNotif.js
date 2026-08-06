@@ -10,7 +10,7 @@ import i18n, { SUPPORTED_LANGUAGES } from '../i18n';
 export const MOVEMENT_TASK = 'MOVEMENT_JANAZA_TASK';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.salatjanaza.org';
-const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
+import { getDateLocale } from './dateLocale';
 const PROXIMITY_KM = 10; // 10 km
 
 function distKm(lat1, lon1, lat2, lon2) {
@@ -81,7 +81,7 @@ TaskManager.defineTask(MOVEMENT_TASK, async ({ data, error }) => {
     const notified = await getNotifiedToday();
     const savedLang = await AsyncStorage.getItem('@app_language').catch(() => null);
     const lang = savedLang && SUPPORTED_LANGUAGES.includes(savedLang) ? savedLang : 'fr';
-    const locale = LOCALE_MAP[lang] ?? 'fr-FR';
+    const locale = getDateLocale(lang);
     if (i18n.language !== lang) await i18n.changeLanguage(lang);
     let changed = false;
 

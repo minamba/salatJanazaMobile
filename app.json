@@ -9,7 +9,7 @@
       }
     },
     "icon": "./assets/icons/icon2.png",
-    "version": "1.14.0",
+    "version": "1.15.0",
     "orientation": "portrait",
     "scheme": "qabr",
     "userInterfaceStyle": "light",

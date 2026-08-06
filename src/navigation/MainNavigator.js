@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, typography } from '../utils/theme';
+import { getDateLocale } from '../utils/dateLocale';
 import HomeScreen from '../screens/home/HomeScreen';
 import MapScreen from '../screens/map/MapScreen';
 import DeclareScreen from '../screens/declare/DeclareScreen';
@@ -73,7 +74,7 @@ function GuestModal({ visible, onClose, onLogin }) {
 }
 
 function DeclareChoiceModal({ visible, onClose, onSaisir, onValidateDeclaration }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useDispatch();
   const { goTo } = useTabNavigation();
   const apiUser = useSelector(state => state.auth.apiUser);
@@ -273,7 +274,7 @@ function DeclareChoiceModal({ visible, onClose, onSaisir, onValidateDeclaration 
                         <View style={styles.importSummaryRow}>
                           <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
                           <Text style={styles.importSummaryText}>
-                            {new Date(importedDecl.dateHeurePriere).toLocaleDateString()} {importTimeUnknown ? '–:–' : `${String(new Date(importedDecl.dateHeurePriere).getUTCHours()).padStart(2,'0')}:${String(new Date(importedDecl.dateHeurePriere).getUTCMinutes()).padStart(2,'0')}`}
+                            {new Date(importedDecl.dateHeurePriere).toLocaleDateString(getDateLocale(i18n.language), { timeZone: 'UTC' })} {importTimeUnknown ? '–:–' : `${String(new Date(importedDecl.dateHeurePriere).getUTCHours()).padStart(2,'0')}:${String(new Date(importedDecl.dateHeurePriere).getUTCMinutes()).padStart(2,'0')}`}
                           </Text>
                         </View>
                       )}

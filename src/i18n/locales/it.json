@@ -90,6 +90,10 @@
     "success_message": "Ora potete accedere con la vostra nuova password.",
     "success_button": "Accedi"
   },
+  "location": {
+    "toast_home": "Geolocalizzato in base al tuo indirizzo di casa",
+    "toast_gps": "Geolocalizzato in base alla tua posizione GPS"
+  },
   "home": {
     "title": "La mia Bacheca",
     "subtitle": "Trovate qui tutte le janaza nel vostro raggio di notifica e quelle delle moschee e altri luoghi di preghiera a cui siete iscritti.",
@@ -146,6 +150,7 @@
     "notif_at": "alle {{time}}",
     "copy": "Copia",
     "directions": "Percorso GPS",
+    "voir_affiche": "Visualizza il volantino",
     "delete_prayer": "Elimina questa preghiera",
     "close": "Chiudi",
     "notification_disabled": "Attivate le notifiche nelle Impostazioni per utilizzare questa funzionalità.",
@@ -313,7 +318,9 @@
     "address_label": "Indirizzo di domicilio",
     "address_placeholder": "Il vostro indirizzo completo",
     "address_description": "Utilizzato per calcolare le distanze dalle moschee vicine",
-    "address_invalid_title": "Indirizzo non trovato",
+                "address_validate": "Conferma",
+"address_suggestion_hint": "Non devi selezionare un suggerimento, il tuo indirizzo verrà geolocalizzato comunque.",
+"address_invalid_title": "Indirizzo non trovato",
     "address_invalid_message": "Impossibile localizzare questo indirizzo. Seleziona un suggerimento dall'elenco o inserisci un indirizzo valido.",
     "radius_label": "Raggio di notifica",
     "radius_description": "Luoghi di preghiera in questo raggio attorno alla vostra abitazione",
@@ -404,6 +411,7 @@
     "lang_it": "Italiano",
     "lang_es": "Español",
     "lang_bm": "Bamanankan",
+    "lang_nl": "Fiammingo",
     "declared_on": "Dichiarato il {{date}}"
   },
   "admin": {
@@ -647,6 +655,7 @@
     "death_announcement": "Annuncio di decesso",
     "anonymous_announces": "Vi annunciamo il decesso di:",
     "family_announces_named": "La famiglia {{name}} è addolorata di annunciarvi il decesso di:",
+    "family_announces_named_plural": "Le famiglie {{name}} sono addolorate di annunciarvi il decesso di:",
     "family_announces_unnamed": "Vi annunciamo con tristezza il decesso di:",
     "civility_male": "Sig.",
     "civility_female": "Sig.ra",

@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography } from '../utils/theme';
 
-export default function ScreenHeader({ title, subtitle, icon, right }) {
+export default function ScreenHeader({ title, subtitle, icon, right, onInfo }) {
   return (
     <View style={styles.container}>
       <View style={styles.left}>
@@ -13,7 +13,14 @@ export default function ScreenHeader({ title, subtitle, icon, right }) {
           </View>
         )}
         <View>
-          <Text style={styles.title}>{title}</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>{title}</Text>
+            {onInfo && (
+              <TouchableOpacity onPress={onInfo} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}>
+                <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
       </View>
@@ -44,6 +51,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryDim,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   title: {
     fontSize: 22,

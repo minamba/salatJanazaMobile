@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Switch, Alert,
 } from 'react-native';
@@ -6,9 +7,13 @@ import ScreenBackground from '../../components/ScreenBackground';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import apiClient from '../../lib/api/apiClient';
 import { colors, spacing, radius, shadow } from '../../utils/theme';
 import { useShowCountryName } from '../../utils/preferences';
+import { getCountryName } from '../../utils/countryNames';
+import { buildReportHtml } from '../../utils/dashboardExport';
 
 const PERIODS = [
   { key: 'jour',    label: 'JOUR'    },
@@ -230,7 +235,7 @@ function RankList({ items, labelKey, countKey, color }) {
         <Text style={styles.rankCount}>{item[countKey]}</Text>
       </View>
       <View style={styles.trackBg}>
-        <View style={[styles.trackFill, { width: `${(item[countKey] / max) * 100}%`, backgroundColor: color }]} />
+        <View style={[styles.trackFill, { width: `${(item[countKey] / max) * 100}%`, backgroundColor: item._color ?? color }]} />
       </View>
     </View>
   ));
@@ -241,6 +246,22 @@ export default function DashboardTab() {
   const [period,      setPeriod]      = useState('jour');
   const [refDate,     setRefDate]     = useState(new Date());
   const [genreFilter, setGenreFilter] = useState(null);
+
+  // Reset to today on focus (tab switch after midnight)
+  useFocusEffect(useCallback(() => {
+    setRefDate(prev => {
+      const today = new Date();
+      return prev.toDateString() === today.toDateString() ? prev : today;
+    });
+  }, []));
+
+  // Reset to today exactly at midnight if screen stays open
+  useEffect(() => {
+    const now = new Date();
+    const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now;
+    const timer = setTimeout(() => setRefDate(new Date()), msUntilMidnight);
+    return () => clearTimeout(timer);
+  }, []);
   const [stats,       setStats]       = useState(null);
   const [loading,     setLoading]     = useState(false);
   const [zoomMode,    setZoomMode]    = useState(false);
@@ -309,7 +330,7 @@ export default function DashboardTab() {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      const dateStr          = refDate.toISOString().split('T')[0];
+      const dateStr          = `${refDate.getFullYear()}-${String(refDate.getMonth()+1).padStart(2,'0')}-${String(refDate.getDate()).padStart(2,'0')}`;
       const utcOffsetMinutes = -new Date().getTimezoneOffset();
       const res = await apiClient.get('/api/Dashboard/stats', {
         params: { period, date: dateStr, utcOffsetMinutes, ...(genreFilter ? { genre: genreFilter } : {}) },
@@ -335,6 +356,24 @@ export default function DashboardTab() {
     setSelectedDeclSlot(null);
     setSelectedUserSlot(null);
   }, [period, refDate, genreFilter]);
+
+  const handleExport = useCallback(async () => {
+    if (!decl) return;
+    try {
+      const html = buildReportHtml({
+        decl, period, refDate, genreFilter,
+        resolveCountry: (code) => getCountryName(code, 'fr') ?? code,
+      });
+      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Exporter le rapport',
+        UTI: 'com.adobe.pdf',
+      });
+    } catch {
+      Alert.alert('Erreur', 'Impossible de générer le rapport PDF.');
+    }
+  }, [decl, period, refDate, genreFilter]);
 
   function slotParams(index, type) {
     const d = refDate;
@@ -375,13 +414,13 @@ export default function DashboardTab() {
   const decl   = stats?.declarations;
   const users  = stats?.utilisateurs;
   const gTotal = decl
-    ? decl.byGenre.homme + decl.byGenre.femme + decl.byGenre.enfant
+    ? decl.byGenre.homme + decl.byGenre.femme + decl.byGenre.enfant + (decl.byGenre.inconnu ?? 0)
     : 0;
 
   // Cards currently visible given the loaded data
   const visibleCards = cardOrder.filter(k => {
     if (k === 'genre')   return !!decl;
-    if (k === 'pays')    return (decl?.byPays?.length ?? 0) > 0;
+    if (k === 'pays')    return (decl?.byPays?.length ?? 0) > 0 || (decl?.paysInconnu ?? 0) > 0;
     if (k === 'mosquee') return (decl?.byMosquee?.length ?? 0) > 0;
     if (k === 'global')  return stats?.globalStats != null;
     return true;
@@ -488,21 +527,38 @@ export default function DashboardTab() {
             <Text style={styles.sectionLabel}>PAR GENRE</Text>
             {moveControls}
           </View>
-          <GenreRow label="Homme"  count={decl.byGenre.homme}  total={gTotal} color="#0284C7" />
-          <GenreRow label="Femme"  count={decl.byGenre.femme}  total={gTotal} color="#EC4899" />
-          <GenreRow label="Enfant" count={decl.byGenre.enfant} total={gTotal} color="#F59E0B" />
+          <GenreRow label="Homme"   count={decl.byGenre.homme}            total={gTotal} color="#0284C7" />
+          <GenreRow label="Femme"   count={decl.byGenre.femme}            total={gTotal} color="#EC4899" />
+          <GenreRow label="Enfant"  count={decl.byGenre.enfant}           total={gTotal} color="#F59E0B" />
+          {(decl.byGenre.inconnu ?? 0) > 0 && (
+            <GenreRow label="Inconnu" count={decl.byGenre.inconnu ?? 0}   total={gTotal} color="#94A3B8" />
+          )}
         </View>
       );
 
-      case 'pays': return !(decl?.byPays?.length > 0) ? null : (
-        <View key="pays" style={[styles.card, editMode && styles.cardEditMode]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>PAR PAYS</Text>
-            {moveControls}
+      case 'pays': {
+        const paysInconnu = decl?.paysInconnu ?? 0;
+        if ((decl?.byPays?.length ?? 0) === 0 && paysInconnu === 0) return null;
+        const paysItems = Object.values(
+          (decl.byPays ?? [])
+            .map(p => ({ ...p, pays: p.pays?.length === 2 ? (getCountryName(p.pays, 'fr') ?? p.pays) : p.pays }))
+            .reduce((acc, p) => {
+              if (acc[p.pays]) acc[p.pays].count += p.count;
+              else acc[p.pays] = { ...p };
+              return acc;
+            }, {})
+        ).sort((a, b) => b.count - a.count);
+        if (paysInconnu > 0) paysItems.push({ pays: 'Inconnu', count: paysInconnu, _color: '#94A3B8' });
+        return (
+          <View key="pays" style={[styles.card, editMode && styles.cardEditMode]}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>PAR PAYS</Text>
+              {moveControls}
+            </View>
+            <RankList items={paysItems} labelKey="pays" countKey="count" color={DECL_COLOR} />
           </View>
-          <RankList items={decl.byPays} labelKey="pays" countKey="count" color={DECL_COLOR} />
-        </View>
-      );
+        );
+      }
 
       case 'mosquee': return !(decl?.byMosquee?.length > 0) ? null : (
         <View key="mosquee" style={[styles.card, editMode && styles.cardEditMode]}>
@@ -644,6 +700,16 @@ export default function DashboardTab() {
           <Text style={[styles.reorderBtnText, editMode && styles.reorderBtnTextActive]}>
             {editMode ? 'Terminer' : 'Réorganiser'}
           </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.reorderBtn}
+          onPress={handleExport}
+          activeOpacity={0.7}
+          disabled={!decl}
+        >
+          <Ionicons name="share-outline" size={14} color={decl ? colors.textMuted : colors.border} />
+          <Text style={styles.reorderBtnText}>Exporter</Text>
         </TouchableOpacity>
       </View>
 

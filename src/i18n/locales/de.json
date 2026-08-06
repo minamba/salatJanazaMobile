@@ -90,6 +90,10 @@
     "success_message": "Sie können sich jetzt mit Ihrem neuen Passwort anmelden.",
     "success_button": "Anmelden"
   },
+  "location": {
+    "toast_home": "Geolokalisiert anhand Ihrer Heimatadresse",
+    "toast_gps": "Geolokalisiert anhand Ihrer GPS-Position"
+  },
   "home": {
     "title": "Mein Feed",
     "subtitle": "Hier finden Sie alle janazas in Ihrem Benachrichtigungsbereich sowie die der Moscheen und anderen Gebetsorte, die Sie abonniert haben.",
@@ -146,6 +150,7 @@
     "notif_at": "um {{time}}",
     "copy": "Kopieren",
     "directions": "GPS-Route",
+    "voir_affiche": "Plakat anzeigen",
     "delete_prayer": "Dieses Gebet löschen",
     "close": "Schließen",
     "notification_disabled": "Aktivieren Sie die Benachrichtigungen in den Einstellungen, um diese Funktion zu nutzen.",
@@ -313,7 +318,9 @@
     "address_label": "Heimatadresse",
     "address_placeholder": "Ihre vollständige Adresse",
     "address_description": "Wird zur Berechnung der Abstände zu nahegelegenen Moscheen verwendet",
-    "address_invalid_title": "Adresse nicht gefunden",
+                "address_validate": "Bestätigen",
+"address_suggestion_hint": "Sie müssen keinen Vorschlag auswählen, Ihre Adresse wird trotzdem geolocated.",
+"address_invalid_title": "Adresse nicht gefunden",
     "address_invalid_message": "Diese Adresse konnte nicht gefunden werden. Bitte wählen Sie einen Vorschlag aus der Liste oder geben Sie eine gültige Adresse ein.",
     "radius_label": "Benachrichtigungsbereich",
     "radius_description": "Gebetsorte in diesem Umkreis um Ihr Zuhause",
@@ -404,6 +411,7 @@
     "lang_de": "Deutsch",
     "lang_es": "Español",
     "lang_bm": "Bamanankan",
+    "lang_nl": "Flämisch",
     "declared_on": "Gemeldet am {{date}}"
   },
   "admin": {
@@ -647,6 +655,7 @@
     "death_announcement": "Todesanzeige",
     "anonymous_announces": "Wir geben den Tod von Folgendem bekannt:",
     "family_announces_named": "Die Familie {{name}} gibt mit Trauer den Tod bekannt von:",
+    "family_announces_named_plural": "Die Familien {{name}} geben mit Trauer den Tod bekannt von:",
     "family_announces_unnamed": "Wir teilen Ihnen mit tiefer Trauer den Tod mit von:",
     "civility_male": "Br.",
     "civility_female": "Schw.",

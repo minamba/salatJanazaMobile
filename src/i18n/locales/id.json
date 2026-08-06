@@ -90,6 +90,10 @@
     "success_message": "Anda sekarang dapat masuk dengan kata sandi baru Anda.",
     "success_button": "Masuk"
   },
+  "location": {
+    "toast_home": "Geolokasi berdasarkan alamat rumah Anda",
+    "toast_gps": "Geolokasi berdasarkan posisi GPS Anda"
+  },
   "home": {
     "title": "Beranda Saya",
     "subtitle": "Temukan di sini semua jenazah dalam radius notifikasi Anda serta jenazah dari masjid dan tempat sholat lainnya yang Anda ikuti.",
@@ -146,6 +150,7 @@
     "notif_at": "pukul {{time}}",
     "copy": "Salin",
     "directions": "Rute GPS",
+    "voir_affiche": "Lihat pengumuman",
     "delete_prayer": "Hapus sholat ini",
     "close": "Tutup",
     "notification_disabled": "Aktifkan notifikasi di Pengaturan untuk menggunakan fitur ini.",
@@ -313,7 +318,9 @@
     "address_label": "Alamat rumah",
     "address_placeholder": "Alamat lengkap Anda",
     "address_description": "Digunakan untuk menghitung jarak masjid terdekat",
-    "address_invalid_title": "Alamat tidak ditemukan",
+                "address_validate": "Konfirmasi",
+"address_suggestion_hint": "Anda tidak harus memilih saran, alamat Anda tetap akan dilokasi.",
+"address_invalid_title": "Alamat tidak ditemukan",
     "address_invalid_message": "Tidak dapat menemukan alamat ini. Silakan pilih saran dari daftar atau masukkan alamat yang valid.",
     "radius_label": "Radius notifikasi",
     "radius_description": "Tempat sholat dalam radius ini di sekitar rumah Anda",
@@ -403,7 +410,8 @@
     "lang_de": "Deutsch",
     "lang_it": "Italiano",
     "lang_es": "Español",
-    "lang_bm": "Bamanankan"
+    "lang_bm": "Bamanankan",
+    "lang_nl": "Flemish"
   },
   "admin": {
     "title": "Administrasi",
@@ -642,6 +650,7 @@
     "death_announcement": "Pengumuman kematian",
     "anonymous_announces": "Kami mengumumkan wafatnya:",
     "family_announces_named": "Keluarga {{name}} dengan berduka cita mengumumkan wafatnya:",
+    "family_announces_named_plural": "Keluarga-keluarga {{name}} dengan berduka cita mengumumkan wafatnya:",
     "family_announces_unnamed": "Kami dengan berduka cita mengumumkan wafatnya:",
     "civility_male": "Tn.",
     "civility_female": "Ny.",

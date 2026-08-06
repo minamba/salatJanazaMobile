@@ -20,6 +20,7 @@ import { startMovementTracking, stopMovementTracking } from '../../utils/movemen
 import apiClient from '../../lib/api/apiClient';
 import { changePassword, deleteAccount, logout as authLogout } from '../../lib/auth/authService';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { JanazaShareModal } from '../declare/AnnouncementGenerator';
 import EditDeclarationModal from '../../components/EditDeclarationModal';
 import Slider from '@react-native-community/slider';
@@ -41,7 +42,7 @@ function kmToSlider(km) {
   return Math.round(((Math.log(clamped) - _LOG_MIN) / (_LOG_MAX - _LOG_MIN)) * CEO_SLIDER_MAX);
 }
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
-const LOCALE_MAP = { fr: 'fr-FR', en: 'en-US', ar: 'ar-SA', tr: 'tr-TR', ja: 'ja-JP', ko: 'ko-KR', ms: 'ms-MY', ur: 'ur-PK', id: 'id-ID', bn: 'bn-BD', ru: 'ru-RU', pt: 'pt-BR', de: 'de-DE', it: 'it-IT', es: 'es-ES' };
+import { getDateLocale } from '../../utils/dateLocale';
 
 function formatExpiryDate(dateHeure, locale, t) {
   if (!dateHeure) return null;
@@ -67,7 +68,7 @@ function SectionHeader({ icon, label }) {
 
 export default function ProfileScreen() {
   const { t, i18n } = useTranslation();
-  const locale = LOCALE_MAP[i18n.language?.split('-')[0]] ?? 'fr-FR';
+  const locale = getDateLocale(i18n.language);
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
@@ -253,10 +254,16 @@ export default function ProfileScreen() {
       rayonNotification: rayon,
       notifMouvement,
     };
+    const isFirstAddress = !apiUser.adresseDomicile && !!adresse;
     try {
       const res = await apiClient.put(`/api/utilisateur/${apiUser.id}`, updates);
       dispatch({ type: 'AUTH_API_USER_UPDATED', payload: res.data });
       await SecureStore.setItemAsync('api_user_data', JSON.stringify(res.data)).catch(() => {});
+      if (isFirstAddress) {
+        dispatch({ type: 'SET_LOCATION_MODE', payload: 'home' });
+        AsyncStorage.setItem('map_location_mode', 'home').catch(() => {});
+        apiClient.put(`/api/utilisateur/${apiUser.id}`, { modeLocalisation: 'home' }).catch(() => {});
+      }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e) {
@@ -412,6 +419,12 @@ export default function ProfileScreen() {
           {/* Adresse */}
           <Text style={styles.fieldLabel}>{t('profile.address_label')}</Text>
           <Text style={styles.fieldDesc}>{t('profile.address_description')}</Text>
+          {suggestions.length > 0 && (
+            <View style={styles.suggestionHint}>
+              <Ionicons name="information-circle-outline" size={13} color={colors.warning} style={{ marginTop: 1 }} />
+              <Text style={styles.suggestionHintText}>{t('profile.address_suggestion_hint')}</Text>
+            </View>
+          )}
           <View style={styles.autocompleteWrapper}>
             <View style={styles.inputRow}>
               <Ionicons name="home-outline" size={16} color={colors.textMuted} style={styles.inputIcon} />
@@ -426,7 +439,16 @@ export default function ProfileScreen() {
               {loadingSuggestions && (
                 <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: spacing.sm }} />
               )}
-              {!!adresse && !loadingSuggestions && (
+              {suggestions.length > 0 && !loadingSuggestions && (
+                <TouchableOpacity
+                  onPress={() => { setSuggestions([]); Keyboard.dismiss(); }}
+                  style={styles.validateBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.validateBtnText}>{t('profile.address_validate')}</Text>
+                </TouchableOpacity>
+              )}
+              {!!adresse && !loadingSuggestions && suggestions.length === 0 && (
                 <TouchableOpacity onPress={clearAdresse} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: spacing.xs }}>
                   <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
@@ -609,6 +631,7 @@ export default function ProfileScreen() {
             { code: 'en', label: t('profile.lang_en') },
             { code: 'ar', label: t('profile.lang_ar') },
             { code: 'bm', label: t('profile.lang_bm') },
+            { code: 'nl', label: t('profile.lang_nl') },
             { code: 'tr', label: t('profile.lang_tr') },
             { code: 'ja', label: t('profile.lang_ja') },
             { code: 'ko', label: t('profile.lang_ko') },
@@ -984,6 +1007,23 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   suggestionText: { ...typography.bodySmall, color: colors.text, flex: 1 },
+  suggestionHint: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 5,
+    marginTop: spacing.xs, paddingHorizontal: 2,
+  },
+  suggestionHintText: {
+    fontSize: 11, color: colors.warning, flex: 1, lineHeight: 15,
+  },
+  validateBtn: {
+    marginLeft: spacing.xs,
+    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  validateBtnText: {
+    fontSize: 12, fontWeight: '600', color: colors.white,
+  },
 
   ceoSliderWrapper: { marginBottom: spacing.lg },
   ceoSliderRow: {

@@ -20,9 +20,10 @@ import de from './locales/de.json';
 import it from './locales/it.json';
 import es from './locales/es.json';
 import bm from './locales/bm.json';
+import nl from './locales/nl.json';
 
 export const LANGUAGE_KEY = '@app_language';
-export const SUPPORTED_LANGUAGES = ['fr', 'en', 'ar', 'tr', 'ja', 'ko', 'ms', 'ur', 'id', 'bn', 'ru', 'pt', 'de', 'it', 'es', 'bm'];
+export const SUPPORTED_LANGUAGES = ['fr', 'en', 'ar', 'tr', 'ja', 'ko', 'ms', 'ur', 'id', 'bn', 'ru', 'pt', 'de', 'it', 'es', 'bm', 'nl'];
 
 const languageDetector = {
   type: 'languageDetector',
@@ -68,6 +69,7 @@ i18n
       it: { translation: it },
       es: { translation: es },
       bm: { translation: bm },
+      nl: { translation: nl },
     },
     fallbackLng: 'en',
     interpolation: { escapeValue: false },
