@@ -633,6 +633,7 @@
     "title": "Ankündigung erstellen",
     "subtitle": "Zusätzliche Informationen",
     "preview_title": "Vorschau",
+    "lang_hint": "Wählen Sie eine Flagge, um die Sprache zu ändern",
     "years_toggle": "Geburts- und Todesjahr",
     "years_toggle_description": "Deaktivieren, wenn diese Information nicht vorliegt",
     "years_toggle_off_description": "Aktivieren, wenn diese Information vorliegt",

@@ -4,6 +4,7 @@ import {
   StyleSheet, ScrollView, KeyboardAvoidingView,
   Platform, Switch, Keyboard, ActivityIndicator, Image,
   Modal, TouchableWithoutFeedback, FlatList, Alert,
+  Animated, PanResponder,
 } from 'react-native';
 import ScreenBackground from '../../components/ScreenBackground';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -33,7 +34,7 @@ const EMPTY_FORM = {
   mosqueeAdresse: '',
   mosqueeLatitude: null,
   mosqueeLongitude: null,
-  genre: 'homme',
+  genre: '',
   nomFamille: '',
   prenomDefunt: '',
   dateHeure: '',
@@ -131,13 +132,29 @@ function ComboBoxModal({ visible, items, selected, onSelect, onClose, title }) {
   const fmtN = (n) => i18n.language?.startsWith('ar')
     ? n.toLocaleString('ar-SA', { minimumIntegerDigits: 2 })
     : String(n).padStart(2, '0');
+  const translateY = useRef(new Animated.Value(600)).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) translateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(translateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(() => { translateY.setValue(600); onClose(); });
+      } else {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+  useEffect(() => { if (visible) Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start(); }, [visible]);
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.comboOverlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.comboSheet}>
-              <View style={styles.comboHandle} />
+            <Animated.View style={[styles.comboSheet, { transform: [{ translateY }] }]}>
+              <View style={{ paddingVertical: 10, alignItems: 'center' }} {...panResponder.panHandlers}>
+                <View style={styles.comboHandle} />
+              </View>
               <Text style={styles.comboTitle}>{title}</Text>
               <FlatList
                 data={items}
@@ -162,7 +179,7 @@ function ComboBoxModal({ visible, items, selected, onSelect, onClose, title }) {
                 initialScrollIndex={Math.max(0, items.indexOf(selected))}
                 getItemLayout={(_, index) => ({ length: 52, offset: 52 * index, index })}
               />
-            </View>
+            </Animated.View>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
@@ -179,6 +196,18 @@ function SectionHeader({ icon, label }) {
   );
 }
 
+function formatNominatimAddress(item) {
+  const addr = item.address ?? {};
+  const road = addr.road || addr.pedestrian || addr.footway || addr.cycleway || addr.path || addr.street;
+  const street = [addr.house_number, road].filter(Boolean).join(' ');
+  const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality;
+  const postcode = addr.postcode;
+  const cityPart = postcode && city ? `${postcode} ${city}` : (postcode ?? city);
+  const country = addr.country;
+  const parts = [street, cityPart, country].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : item.display_name;
+}
+
 function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId }) {
   const { t } = useTranslation();
   const [nom, setNom] = useState('');
@@ -192,8 +221,23 @@ function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId })
   const [adresseError, setAdresseError] = useState('');
   const adresseDebounceRef = useRef(null);
 
+  const translateY = useRef(new Animated.Value(600)).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) translateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(translateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(() => { translateY.setValue(600); onClose(); });
+      } else {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+
   useEffect(() => {
     if (visible) {
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
       setNom(initialName ?? '');
       setAdresse('');
       setAdresseSuggestions([]);
@@ -213,25 +257,30 @@ function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId })
     setAdresseLoading(true);
     adresseDebounceRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&addressdetails=1&limit=5`,
-          { headers: { 'User-Agent': 'QabrApp/1.0 (contact@myjanaza.fr)' } }
-        );
-        const data = await res.json();
-        setAdresseSuggestions(data.slice(0, 5));
+        const [nominatimRes, frRes] = await Promise.allSettled([
+          fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&addressdetails=1&limit=5`,
+            { headers: { 'User-Agent': 'QabrApp/1.0 (contact@myjanaza.fr)' } }
+          ).then(r => r.json()),
+          fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(text)}&limit=5`).then(r => r.json()),
+        ]);
+        const nominatimItems = nominatimRes.status === 'fulfilled' ? nominatimRes.value : [];
+        const frItems = frRes.status === 'fulfilled'
+          ? (frRes.value?.features ?? []).map(f => ({
+              _frLabel: f.properties.label,
+              lat: String(f.geometry.coordinates[1]),
+              lon: String(f.geometry.coordinates[0]),
+            }))
+          : [];
+        setAdresseSuggestions([...frItems, ...nominatimItems].slice(0, 5));
       } catch { setAdresseSuggestions([]); }
       finally { setAdresseLoading(false); }
     }, 400);
   }
 
   function selectAdresse(item) {
-    const addr = item.address ?? {};
-    const city = addr.city || addr.town || addr.village || addr.suburb;
-    const postcode = addr.postcode;
-    const cityPart = postcode && city ? `${postcode} ${city}` : (postcode ?? city);
-    const parts = [addr.house_number, addr.road, cityPart].filter(Boolean);
-    const formatted = parts.length > 0 ? parts.join(', ') : item.display_name?.split(',').slice(0, 3).join(',').trim();
-    setAdresse(formatted);
+    const label = item._frLabel ?? formatNominatimAddress(item);
+    setAdresse(label);
     setSelectedLat(parseFloat(item.lat));
     setSelectedLon(parseFloat(item.lon));
     setAdresseSuggestions([]);
@@ -280,21 +329,24 @@ function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId })
   });
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
             <TouchableWithoutFeedback>
-              <View style={{
+              <Animated.View style={{
                 backgroundColor: colors.surface,
                 borderTopLeftRadius: radius.xl,
                 borderTopRightRadius: radius.xl,
                 paddingTop: spacing.md,
                 paddingHorizontal: spacing.lg,
                 paddingBottom: spacing.xl + 16,
+                transform: [{ translateY }],
               }}>
                 {/* Drag handle */}
-                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.lg }} />
+                <View style={{ paddingVertical: 10, alignItems: 'center', marginBottom: spacing.sm }} {...panResponder.panHandlers}>
+                  <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
+                </View>
 
                 {/* Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
@@ -412,7 +464,7 @@ function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId })
                       >
                         <Ionicons name="location-outline" size={15} color={colors.primary} style={{ marginTop: 1 }} />
                         <Text style={{ flex: 1, fontSize: 13, color: colors.text, lineHeight: 18 }} numberOfLines={2}>
-                          {item.display_name}
+                          {item._frLabel ?? formatNominatimAddress(item)}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -437,7 +489,7 @@ function AddLieuModal({ visible, initialName, onClose, onAdded, utilisateurId })
                         <Text style={{ ...typography.button }}>{t('declare.add_lieu_submit')}</Text>
                       </>}
                 </TouchableOpacity>
-              </View>
+              </Animated.View>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
@@ -679,6 +731,10 @@ export default function DeclareScreen() {
   }
 
   function handlePublishPress() {
+    if (!form.genre) {
+      Alert.alert(t('declare.error_genre_title'), t('declare.error_genre_body'));
+      return;
+    }
     if (!form.nomAnonyme && !form.nomFamille?.trim() && !form.prenomDefunt?.trim()) {
       Alert.alert(t('declare.error_name_title'), t('declare.error_name_body'));
       return;
@@ -1242,7 +1298,7 @@ export default function DeclareScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F7F5' },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.xxl },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.xxl, flexGrow: 1 },
   title: { ...typography.h2, marginBottom: spacing.xs },
   subtitle: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.xl },
 

@@ -47,6 +47,8 @@ export const typography = {
   button: { fontSize: 15, fontWeight: '600', color: colors.white },
 };
 
+export const TABLET_MAX_WIDTH = 720;
+
 export const shadow = {
   sm: {
     shadowColor: '#1A3320',

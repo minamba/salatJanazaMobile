@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Switch, Alert,
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Switch, Alert, TextInput,
+  Keyboard, Platform,
 } from 'react-native';
 import ScreenBackground from '../../components/ScreenBackground';
 import { Ionicons } from '@expo/vector-icons';
@@ -278,7 +279,24 @@ export default function DashboardTab() {
   const dispatch = useDispatch();
   const janazasCount   = useSelector(s => s.janazas?.list?.length ?? 0);
   const donationButtonVisible = useSelector(s => s.features?.donationButtonVisible ?? true);
+  const infoMessage = useSelector(s => s.features?.infoMessage ?? null);
+  const [infoText, setInfoText] = useState(infoMessage?.message ?? '');
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [kbHeight, setKbHeight] = useState(0);
+  const scrollRef = useRef(null);
   const [showCountryName, setShowCountryName] = useShowCountryName();
+
+  useEffect(() => {
+    if (infoMessage?.message != null) setInfoText(infoMessage.message);
+  }, [infoMessage?.message]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, e => setKbHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener(hideEvent, () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const prevJanazasRef = useRef(janazasCount);
 
   const toggleDonationButton = useCallback(async (value) => {
@@ -296,6 +314,33 @@ export default function DashboardTab() {
       setSavingFeature(false);
     }
   }, [dispatch]);
+
+  const toggleInfoActive = useCallback(async (value) => {
+    const next = { ...(infoMessage ?? {}), active: value, message: infoText };
+    dispatch({ type: 'FEATURES_LOADED', payload: { infoMessage: next } });
+    setSavingInfo(true);
+    try {
+      const res = await apiClient.put('/api/features/info-message', { active: value, message: infoText });
+      dispatch({ type: 'FEATURES_LOADED', payload: { infoMessage: res.data.infoMessage } });
+    } catch (e) {
+      dispatch({ type: 'FEATURES_LOADED', payload: { infoMessage: { ...(infoMessage ?? {}), active: !value } } });
+      Alert.alert('Erreur', `Impossible de sauvegarder (${e?.response?.status ?? 'réseau'})`);
+    } finally {
+      setSavingInfo(false);
+    }
+  }, [dispatch, infoMessage, infoText]);
+
+  const saveInfoText = useCallback(async () => {
+    setSavingInfo(true);
+    try {
+      const res = await apiClient.put('/api/features/info-message', { active: infoMessage?.active ?? false, message: infoText });
+      dispatch({ type: 'FEATURES_LOADED', payload: { infoMessage: res.data.infoMessage } });
+    } catch (e) {
+      Alert.alert('Erreur', `Impossible de sauvegarder (${e?.response?.status ?? 'réseau'})`);
+    } finally {
+      setSavingInfo(false);
+    }
+  }, [dispatch, infoMessage, infoText]);
 
   // Load saved card order on mount
   useEffect(() => {
@@ -611,7 +656,13 @@ export default function DashboardTab() {
 
   return (
     <ScreenBackground>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      ref={scrollRef}
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: kbHeight > 0 ? kbHeight + 16 : 48 }]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
 
       {/* ── Period selector ─────────────────────────── */}
       <View style={styles.periodRow}>
@@ -756,6 +807,47 @@ export default function DashboardTab() {
             thumbColor={showCountryName ? colors.primary : colors.textMuted}
           />
         </View>
+
+        {/* ── Message d'information ── */}
+        <View style={[styles.featureRow, styles.featureRowBorder]}>
+          <View style={styles.featureRowLeft}>
+            <Ionicons name="megaphone-outline" size={18} color={colors.primary} style={{ marginRight: spacing.sm }} />
+            <View>
+              <Text style={styles.featureRowLabel}>Message d'information</Text>
+              <Text style={styles.featureRowSub}>Bandeau visible dans tous les onglets</Text>
+            </View>
+          </View>
+          {savingInfo ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Switch
+              value={infoMessage?.active ?? false}
+              onValueChange={toggleInfoActive}
+              trackColor={{ false: colors.border, true: colors.primary + '60' }}
+              thumbColor={infoMessage?.active ? colors.primary : colors.textMuted}
+            />
+          )}
+        </View>
+        <View style={styles.infoMessageBox}>
+          <TextInput
+            style={styles.infoMessageInput}
+            value={infoText}
+            onChangeText={setInfoText}
+            placeholder="Saisir le message à afficher aux utilisateurs..."
+            placeholderTextColor={colors.textMuted}
+            multiline
+            maxLength={250}
+            textAlignVertical="top"
+            onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150)}
+          />
+          <TouchableOpacity
+            style={[styles.infoSaveBtn, savingInfo && { opacity: 0.5 }]}
+            onPress={saveInfoText}
+            disabled={savingInfo}
+          >
+            <Text style={styles.infoSaveBtnText}>Enregistrer</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
     </ScrollView>
@@ -765,7 +857,7 @@ export default function DashboardTab() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
-  content:   { padding: spacing.md, paddingBottom: 48 },
+  content:   { padding: spacing.md },
 
   // Period selector
   periodRow:        { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.sm, padding: 3, marginBottom: spacing.md, ...shadow.sm },
@@ -865,7 +957,19 @@ const styles = StyleSheet.create({
   featureCard:      { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md, ...shadow.sm },
   featureCardTitle: { fontSize: 10, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginBottom: spacing.sm },
   featureRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  featureRowBorder: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: spacing.sm, paddingTop: spacing.sm },
   featureRowLeft:   { flexDirection: 'row', alignItems: 'center', flex: 1 },
   featureRowLabel:  { fontSize: 14, fontWeight: '600', color: colors.text },
   featureRowSub:    { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+
+  // Info message editor
+  infoMessageBox:   { marginTop: spacing.sm, gap: spacing.sm },
+  infoMessageInput: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: spacing.sm,
+    fontSize: 13, color: colors.text, minHeight: 72,
+    backgroundColor: colors.background,
+  },
+  infoSaveBtn:      { backgroundColor: colors.primary, borderRadius: radius.sm, paddingVertical: 9, alignItems: 'center' },
+  infoSaveBtnText:  { fontSize: 13, fontWeight: '700', color: '#fff' },
 });

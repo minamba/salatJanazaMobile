@@ -9,7 +9,7 @@
       }
     },
     "icon": "./assets/icons/icon2.png",
-    "version": "1.15.0",
+    "version": "1.18.0",
     "orientation": "portrait",
     "scheme": "qabr",
     "userInterfaceStyle": "light",
@@ -20,7 +20,7 @@
       "backgroundColor": "#FFFFFF"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "fr.myjanaza.qabr",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Qabr utilise votre position pour trouver les mosquées proches et vous envoyer des notifications de prière.",

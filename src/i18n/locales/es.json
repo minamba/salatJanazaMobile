@@ -633,6 +633,7 @@
     "title": "Generar el anuncio",
     "subtitle": "Información adicional",
     "preview_title": "Vista previa",
+    "lang_hint": "Seleccione una bandera para cambiar el idioma del folleto",
     "years_toggle": "Años de nacimiento y fallecimiento",
     "years_toggle_description": "Desactivar si no se dispone de esta información",
     "years_toggle_off_description": "Activar si se dispone de esta información",

@@ -2,9 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography } from '../utils/theme';
+import InfoBanner from './InfoBanner';
 
 export default function ScreenHeader({ title, subtitle, icon, right, onInfo }) {
   return (
+    <View>
     <View style={styles.container}>
       <View style={styles.left}>
         {icon && (
@@ -25,6 +27,8 @@ export default function ScreenHeader({ title, subtitle, icon, right, onInfo }) {
         </View>
       </View>
       {right ? <View>{right}</View> : null}
+    </View>
+    <InfoBanner />
     </View>
   );
 }

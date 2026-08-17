@@ -632,6 +632,7 @@
     "title": "お知らせを生成する",
     "subtitle": "追加情報",
     "preview_title": "プレビュー",
+    "lang_hint": "チラシの言語を変更するには旗を選択してください",
     "years_toggle": "生年と没年",
     "years_toggle_description": "この情報がない場合は無効にしてください",
     "years_toggle_off_description": "この情報がある場合は有効にしてください",

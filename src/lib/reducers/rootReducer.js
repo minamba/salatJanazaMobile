@@ -269,7 +269,7 @@ function uiReducer(state = { openProfileHistorique: false, locationMode: 'gps' }
   }
 }
 
-function featuresReducer(state = { donationButtonVisible: true }, action) {
+function featuresReducer(state = { donationButtonVisible: true, infoMessage: null }, action) {
   switch (action.type) {
     case 'FEATURES_LOADED':
       return { ...state, ...action.payload };

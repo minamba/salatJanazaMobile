@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback,
   FlatList, TextInput, ScrollView, ActivityIndicator, Image, ImageBackground, Switch,
   KeyboardAvoidingView, Platform, useWindowDimensions, StatusBar, Keyboard,
+  Animated, PanResponder,
 } from 'react-native';
 import { SafeAreaView, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
@@ -60,8 +61,23 @@ function CountryPickerModal({ visible, selected, onSelect, onClose, lang }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
 
+  const translateY = useRef(new Animated.Value(600)).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) translateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(translateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(() => { translateY.setValue(600); onClose(); });
+      } else {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+
   useEffect(() => {
     if (!visible) setSearch('');
+    else Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
   }, [visible]);
 
   const allCountries = getCountriesForLang(lang ?? 'fr');
@@ -71,14 +87,16 @@ function CountryPickerModal({ visible, selected, onSelect, onClose, lang }) {
     : allCountries;
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <View style={styles.cpOverlay}>
           <TouchableWithoutFeedback onPress={onClose}>
             <View style={StyleSheet.absoluteFillObject} />
           </TouchableWithoutFeedback>
-          <View style={styles.cpSheet}>
-            <View style={styles.cpHandle} />
+          <Animated.View style={[styles.cpSheet, { transform: [{ translateY }] }]}>
+            <View style={{ paddingVertical: 10, alignItems: 'center' }} {...panResponder.panHandlers}>
+              <View style={styles.cpHandle} />
+            </View>
             <Text style={styles.cpTitle}>{t('announcement.country_picker_title')}</Text>
             <View style={styles.cpSearchRow}>
               <Ionicons name="search-outline" size={16} color={colors.textMuted} />
@@ -117,7 +135,7 @@ function CountryPickerModal({ visible, selected, onSelect, onClose, lang }) {
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
             />
-          </View>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -128,13 +146,29 @@ function CountryPickerModal({ visible, selected, onSelect, onClose, lang }) {
 
 function YearPickerModal({ visible, selected, onSelect, onClose, title }) {
   const initIdx = Math.max(0, YEARS.indexOf(selected));
+  const translateY = useRef(new Animated.Value(600)).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) translateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(translateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(() => { translateY.setValue(600); onClose(); });
+      } else {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+  useEffect(() => { if (visible) Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start(); }, [visible]);
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.ypOverlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.ypSheet}>
-              <View style={styles.ypHandle} />
+            <Animated.View style={[styles.ypSheet, { transform: [{ translateY }] }]}>
+              <View style={{ paddingVertical: 10, alignItems: 'center' }} {...panResponder.panHandlers}>
+                <View style={styles.ypHandle} />
+              </View>
               <Text style={styles.ypTitle}>{title}</Text>
               <FlatList
                 data={YEARS}
@@ -157,7 +191,7 @@ function YearPickerModal({ visible, selected, onSelect, onClose, title }) {
                 initialScrollIndex={initIdx}
                 getItemLayout={(_, idx) => ({ length: 52, offset: 52 * idx, index: idx })}
               />
-            </View>
+            </Animated.View>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
@@ -238,7 +272,7 @@ const RATIO_MINIMUM = 4 / 5;
 // sur l'en-tête et sur le pied de page. Ces points ne se voient pas — ils sont
 // transparents — mais ils garantissent que rien du dessin ne soit jamais au
 // contact du bord.
-const MARGE_VERTICALE = 14;
+const MARGE_VERTICALE = 0;
 
 // Le sous-titre « Annonce de décès » sous le nom du service, dans l'en-tête.
 // Masqué à l'essai : un seul mot à changer pour le rétablir.
@@ -260,16 +294,11 @@ const largeurToile = (hauteurCarte) =>
   Math.max(LARGEUR_CARTE, Math.round(hauteurToile(hauteurCarte) * RATIO_MINIMUM));
 
 const optionsCapture = (hauteurCarte) => {
-  // Pas encore mesurée : on n'impose rien plutôt que de demander une hauteur
-  // de zéro, qui produirait une image vide. La capture retombe alors sur la
-  // taille naturelle — moins régulière d'un appareil à l'autre, mais une
-  // affiche correcte vaut mieux qu'un carré blanc.
   if (!hauteurCarte) return { format: 'png', quality: 1 };
-
   return {
     format: 'png',
     quality: 1,
-    width: Math.round(largeurToile(hauteurCarte) * DENSITE_EXPORT),
+    width: Math.round(LARGEUR_CARTE * DENSITE_EXPORT),
     height: Math.round(hauteurToile(hauteurCarte) * DENSITE_EXPORT),
   };
 };
@@ -453,9 +482,7 @@ const AfficheAPartager = React.forwardRef(function AfficheAPartager(
 ) {
   const [hauteurCarte, setHauteurCarte] = useState(0);
 
-  // La réduction se calcule sur la TOILE et non sur la carte : c'est la toile
-  // qui doit tenir dans l'écran, et elle est plus large.
-  const largeurCible = hauteurCarte ? largeurToile(hauteurCarte) : LARGEUR_CARTE;
+  const largeurCible = LARGEUR_CARTE;
   const reduction = largeurAffichage && largeurAffichage < largeurCible
     ? largeurAffichage / largeurCible
     : 1;
@@ -505,8 +532,7 @@ const AfficheAPartager = React.forwardRef(function AfficheAPartager(
           transformOrigin: 'top left',
         }}
       >
-        {/* La vue capturée : aucun fond, donc des marges transparentes —
-            sur les côtés comme en haut et en bas. */}
+        {/* La vue capturée : transparent explicite — sans ça Android remplit en noir. */}
         <View
           ref={ref}
           collapsable={false}
@@ -515,6 +541,7 @@ const AfficheAPartager = React.forwardRef(function AfficheAPartager(
             paddingVertical: MARGE_VERTICALE,
             alignItems: 'center',
             justifyContent: 'center',
+            backgroundColor: 'transparent',
           }}
         >
           <View style={{ width: LARGEUR_CARTE }} onLayout={mesurer}>
@@ -530,7 +557,8 @@ const AfficheAPartager = React.forwardRef(function AfficheAPartager(
 
 export default function AnnouncementGeneratorModal({ visible, onClose, onDataChange, onPublish, publishLabel, form, date, hour, minute, initialValues }) {
   const { t, i18n } = useTranslation();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState('form');
   const [previewLang, setPreviewLang] = useState(() => i18n.language?.split('-')[0] ?? 'fr');
   useEffect(() => { setPreviewLang(i18n.language?.split('-')[0] ?? 'fr'); }, [i18n.language]);
@@ -550,6 +578,8 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   const [showCountryName] = useShowCountryName();
 
   const viewRef = useRef(null);
+  const scrollRef = useRef(null);
+  const commentaireY = useRef(0);
   // La hauteur de la carte, mesurée à l.exécution : elle dépend du contenu, et
   // la capture en a besoin pour garder les proportions.
   const [hauteurAffiche, setHauteurAffiche] = useState(0);
@@ -569,6 +599,16 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
     const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
     return () => { show.remove(); hide.remove(); };
   }, []);
+
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'ios') return;
+    const show = Keyboard.addListener('keyboardWillShow', (e) => {
+      setKbHeight(e.endCoordinates.height);
+      setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, commentaireY.current - 20), animated: true }), 300);
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, [visible]);
 
   // Initialize state once on mount (remount via key= when item changes)
   useEffect(() => {
@@ -591,6 +631,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   // Reset to form step when closing (not state — state persists across open/close)
   useEffect(() => {
     if (!visible) setStep('form');
+    else Animated.spring(formTranslateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
   }, [visible]);
 
   const rawNom = form?.nomAnonyme ? '' : (form?.nomDefunt ?? '');
@@ -600,6 +641,22 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
     const countryFr = country?.length === 2 ? (getCountryName(country, 'fr') ?? country) : country;
     onClose({ showYears, birthYear, deathYear, country: countryFr, countryKnown, locationFrance, commentaire });
   }
+  const handleCloseRef = useRef(handleClose);
+  handleCloseRef.current = handleClose;
+
+  const formTranslateY = useRef(new Animated.Value(600)).current;
+  const formPanResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) formTranslateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(formTranslateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(() => { formTranslateY.setValue(600); handleCloseRef.current(); });
+      } else {
+        Animated.spring(formTranslateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
 
   const previewData = {
     familleNom,
@@ -635,17 +692,20 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
   }
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={handleClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={handleClose}>
       <SafeAreaProvider>
       <SafeAreaView style={[styles.container, step === 'preview' && { justifyContent: 'flex-start' }]} edges={['top', 'bottom']}>
 
         {/* ── Step 1 : Form ── */}
         {step === 'form' && (
+          <Animated.View style={{ transform: [{ translateY: formTranslateY }], marginBottom: -insets.bottom }}>
           <KeyboardAvoidingView
-            style={styles.formSheet}
-            behavior="padding"
+            style={[styles.formSheet, { maxHeight: windowHeight * 0.88, paddingBottom: (spacing.xxl ?? 48) + insets.bottom }]}
+            behavior={Platform.OS === 'ios' ? undefined : 'padding'}
           >
-            <View style={styles.formHandle} />
+            <View style={{ paddingVertical: 12, alignItems: 'center' }} {...formPanResponder.panHandlers}>
+              <View style={styles.formHandle} />
+            </View>
             <View style={styles.formTopBar}>
               <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close" size={22} color={colors.text} />
@@ -655,7 +715,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
             </View>
             <Text style={styles.formSubtitle}>{t('announcement.subtitle')}</Text>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? kbHeight + spacing.xl : spacing.xl }}>
+            <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: kbHeight > 0 ? kbHeight + spacing.xl : spacing.xl }}>
               {/* Toggle années */}
               <View style={styles.toggleRow}>
                 <View style={{ flex: 1 }}>
@@ -698,21 +758,23 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
               )}
 
               {/* Informations supplémentaires */}
-              <View style={styles.formLabelRow}>
-                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('declare.info_section')}</Text>
-                <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
-              </View>
-              <View style={[styles.formInputRow, { alignItems: 'flex-start', paddingTop: spacing.sm }]}>
-                <Ionicons name="chatbubble-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm, marginTop: 2 }} />
-                <TextInput
-                  style={[styles.formInput, { minHeight: 80, textAlignVertical: 'top' }]}
-                  placeholder={t('declare.info_placeholder')}
-                  placeholderTextColor={colors.textMuted}
-                  value={commentaire}
-                  onChangeText={setCommentaire}
-                  multiline
-                  numberOfLines={3}
-                />
+              <View onLayout={(e) => { commentaireY.current = e.nativeEvent.layout.y; }}>
+                <View style={styles.formLabelRow}>
+                  <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('declare.info_section')}</Text>
+                  <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
+                </View>
+                <View style={[styles.formInputRow, { alignItems: 'flex-start', paddingTop: spacing.sm }]}>
+                  <Ionicons name="chatbubble-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm, marginTop: 2 }} />
+                  <TextInput
+                    style={[styles.formInput, { minHeight: 80, textAlignVertical: 'top' }]}
+                    placeholder={t('declare.info_placeholder')}
+                    placeholderTextColor={colors.textMuted}
+                    value={commentaire}
+                    onChangeText={setCommentaire}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
               </View>
 
               {/* Pays */}
@@ -740,20 +802,24 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
               )}
 
               {/* Lieu */}
-              <View style={styles.formLabelRow}>
-                <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.location')}</Text>
-                <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
-              </View>
-              <View style={styles.formInputRow}>
-                <Ionicons name="location-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
-                <TextInput
-                  style={styles.formInput}
-                  placeholder={t('announcement.location_placeholder')}
-                  placeholderTextColor={colors.textMuted}
-                  value={locationFrance}
-                  onChangeText={setLocationFrance}
-                />
-              </View>
+              {countryKnown && (
+                <>
+                  <View style={styles.formLabelRow}>
+                    <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('announcement.location')}</Text>
+                    <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
+                  </View>
+                  <View style={styles.formInputRow}>
+                    <Ionicons name="location-outline" size={16} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder={t('announcement.location_placeholder')}
+                      placeholderTextColor={colors.textMuted}
+                      value={locationFrance}
+                      onChangeText={setLocationFrance}
+                    />
+                  </View>
+                </>
+              )}
 
               <TouchableOpacity style={[styles.formBtn, styles.formBtnOutline]} onPress={() => {
                 onDataChange?.({ birthYear, deathYear, country: countryKnown ? country : null, locationFrance, showYears, commentaire, countryKnown });
@@ -775,6 +841,7 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
               )}
             </ScrollView>
           </KeyboardAvoidingView>
+          </Animated.View>
         )}
 
         {/* ── Step 2 : Preview ── */}
@@ -799,6 +866,9 @@ export default function AnnouncementGeneratorModal({ visible, onClose, onDataCha
             </View>
             <ScrollView style={{ flex: 1 }} stickyHeaderIndices={[0]}>
               <View style={styles.langBar}>
+                <View style={styles.langHint}>
+                  <Text style={styles.langHintText}>{t('announcement.lang_hint')}</Text>
+                </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 44 }} contentContainerStyle={{ paddingHorizontal: spacing.sm, alignItems: 'center', height: 44 }}>
                   {PREVIEW_LANGS.map(({ code, flag }) => (
                     <TouchableOpacity key={code} onPress={() => setPreviewLang(code)} style={[styles.langBtn, previewLang === code && styles.langBtnActive]} hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}>
@@ -916,6 +986,9 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
         </View>
         <ScrollView style={{ flex: 1 }} stickyHeaderIndices={[0]}>
           <View style={styles.langBar}>
+            <View style={styles.langHint}>
+              <Text style={styles.langHintText}>{t('announcement.lang_hint')}</Text>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 44 }} contentContainerStyle={{ paddingHorizontal: spacing.sm, alignItems: 'center', height: 44 }}>
               {PREVIEW_LANGS.map(({ code, flag }) => (
                 <TouchableOpacity key={code} onPress={() => setPreviewLang(code)} style={[styles.langBtn, previewLang === code && styles.langBtnActive]} hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}>
@@ -937,7 +1010,8 @@ export function JanazaShareModal({ visible, onClose, janaza }) {
 
 export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValues, form, date, hour, minute }) {
   const { t, i18n } = useTranslation();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [previewLang, setPreviewLang] = useState(() => i18n.language?.split('-')[0] ?? 'fr');
   useEffect(() => { setPreviewLang(i18n.language?.split('-')[0] ?? 'fr'); }, [i18n.language]);
   const [step, setStep] = useState('form');
@@ -954,6 +1028,8 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
   const [showCountry, setShowCountry] = useState(false);
   const scrollRef = useRef(null);
   const viewRef = useRef(null);
+  const commentaireY = useRef(0);
+  const [kbHeight, setKbHeight] = useState(0);
   // La hauteur de la carte, mesurée à l.exécution : elle dépend du contenu, et
   // la capture en a besoin pour garder les proportions.
   const [hauteurAffiche, setHauteurAffiche] = useState(0);
@@ -1035,23 +1111,56 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleCloseRef = useRef(handleClose);
+  handleCloseRef.current = handleClose;
+
+  const formTranslateY = useRef(new Animated.Value(600)).current;
+  const formPanResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) formTranslateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(formTranslateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(() => { formTranslateY.setValue(600); handleCloseRef.current(); });
+      } else {
+        Animated.spring(formTranslateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'ios') return;
+    const show = Keyboard.addListener('keyboardWillShow', (e) => {
+      setKbHeight(e.endCoordinates.height);
+      setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, commentaireY.current - 20), animated: true }), 300);
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, [visible]);
+
   // Return to form step on open (not state — state persists across open/close)
   useEffect(() => {
-    if (visible) setStep('form');
+    if (visible) {
+      setStep('form');
+      Animated.spring(formTranslateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
+    }
   }, [visible]);
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={step === 'preview' ? () => setStep('form') : handleClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={step === 'preview' ? () => setStep('form') : handleClose}>
 
       {/* ── Step 1 : Formulaire ── */}
       {step === 'form' && (
         <View style={styles.container}>
+          <Animated.View style={{ transform: [{ translateY: formTranslateY }] }}>
           <KeyboardAvoidingView
-            style={styles.formSheet}
-            behavior="padding"
+            style={[styles.formSheet, { maxHeight: windowHeight * 0.88, paddingBottom: (spacing.xxl ?? 48) + insets.bottom }]}
+            behavior={Platform.OS === 'ios' ? undefined : 'height'}
             keyboardVerticalOffset={0}
           >
+              <View style={{ paddingVertical: 12, alignItems: 'center' }} {...formPanResponder.panHandlers}>
               <View style={styles.formHandle} />
+            </View>
               <View style={styles.formTopBar}>
                 <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="close" size={22} color={colors.text} />
@@ -1060,7 +1169,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                 <View style={{ width: 22 }} />
               </View>
 
-              <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.xl }}>
+              <ScrollView ref={scrollRef} style={{ maxHeight: windowHeight * 0.88 - 80 - (spacing.xxl ?? 48) - insets.bottom }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Platform.OS === 'ios' && kbHeight > 0 ? kbHeight + spacing.xl : spacing.xl }}>
               <View style={styles.toggleRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.toggleLabel}>{t('announcement.years_toggle')}</Text>
@@ -1101,6 +1210,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                 </>
               )}
 
+              <View onLayout={(e) => { commentaireY.current = e.nativeEvent.layout.y; }}>
               <View style={styles.formLabelRow}>
                 <Text style={[styles.formLabel, { marginTop: 0, marginBottom: 0 }]}>{t('declare.info_section')}</Text>
                 <Text style={styles.formLabelOptional}>{t('announcement.optional')}</Text>
@@ -1116,6 +1226,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
                   multiline
                   numberOfLines={3}
                 />
+              </View>
               </View>
 
               <View style={styles.toggleRow}>
@@ -1181,6 +1292,7 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
               </TouchableOpacity>
               </ScrollView>
           </KeyboardAvoidingView>
+        </Animated.View>
         </View>
       )}
 
@@ -1208,6 +1320,9 @@ export function ComplementaryInfoModal({ visible, onClose, onSubmit, initialValu
               </View>
               <ScrollView style={{ flex: 1 }} stickyHeaderIndices={[0]}>
                 <View style={styles.langBar}>
+                  <View style={styles.langHint}>
+                    <Text style={styles.langHintText}>{t('announcement.lang_hint')}</Text>
+                  </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 44 }} contentContainerStyle={{ paddingHorizontal: spacing.sm, alignItems: 'center', height: 44 }}>
                     {PREVIEW_LANGS.map(({ code, flag }) => (
                       <TouchableOpacity key={code} onPress={() => setPreviewLang(code)} style={[styles.langBtn, previewLang === code && styles.langBtnActive]} hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}>
@@ -1314,7 +1429,6 @@ const styles = StyleSheet.create({
   // ── Announcement Preview card ──
   preview: {
     backgroundColor: colors.white,
-    borderRadius: radius.lg,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1327,7 +1441,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
   // Logo et titre réduits : l'en-tête prend moins de hauteur, ce qui joue aussi
@@ -1427,9 +1542,8 @@ const styles = StyleSheet.create({
   // Footer
   prevFooter: {
     backgroundColor: colors.primary,
-    // Le texte touchait le bas de la carte, d'autant que les coins arrondis
-    // mordent dessus. Une marge des deux côtés le décolle du bord.
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 14,
     paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1481,10 +1595,19 @@ const styles = StyleSheet.create({
 
   // ── Language selector bar ──
   langBar: {
-    height: 44,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.surface,
+  },
+  langHint: {
+    paddingHorizontal: spacing.md,
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
+  langHintText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    textAlign: 'center',
   },
   langBtn: {
     paddingHorizontal: 6,

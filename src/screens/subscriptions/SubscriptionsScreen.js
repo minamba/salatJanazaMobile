@@ -12,7 +12,8 @@ const MOSQUE_ICON_IMG = require('../../../assets/icons/mosquee_icon.png');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography, shadow } from '../../utils/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, radius, typography, shadow, TABLET_MAX_WIDTH } from '../../utils/theme';
 import apiClient from '../../lib/api/apiClient';
 import { useTranslation } from 'react-i18next';
 import { MosqueDetailModal } from '../map/MapScreen';
@@ -49,6 +50,7 @@ function SubscriptionCard({ item, onUnsubscribe, onToggleNotif, onPress }) {
         </TouchableOpacity>
       </View>
 
+      <LinearGradient colors={['transparent', colors.primaryLight, 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 1.5, marginBottom: spacing.sm }} />
       <TouchableOpacity
         style={[styles.notifBtn, item.notifActive && styles.notifBtnActive]}
         onPress={() => onToggleNotif(item.id)}
@@ -257,13 +259,13 @@ export default function SubscriptionsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F7F5' },
-  list: { padding: spacing.lg, gap: spacing.md },
+  list: { padding: spacing.lg, gap: spacing.md, maxWidth: TABLET_MAX_WIDTH, alignSelf: 'center', width: '100%' },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2.5,
+    borderColor: '#C8C8C8',
     ...shadow.sm,
   },
   cardTop: {

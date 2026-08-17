@@ -633,6 +633,7 @@
     "title": "Genera l'annuncio",
     "subtitle": "Informazioni aggiuntive",
     "preview_title": "Anteprima",
+    "lang_hint": "Seleziona una bandiera per cambiare la lingua del volantino",
     "years_toggle": "Anni di nascita e di morte",
     "years_toggle_description": "Disattivare se non si dispone di questa informazione",
     "years_toggle_off_description": "Attivare se si dispone di questa informazione",

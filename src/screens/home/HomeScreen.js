@@ -8,7 +8,7 @@ import {
   View, Text, FlatList, TouchableOpacity, Alert, ActivityIndicator,
   StyleSheet, RefreshControl, Modal, Linking, Platform,
   TouchableWithoutFeedback, Image, AppState, Animated, TextInput,
-  KeyboardAvoidingView, ScrollView, Dimensions,
+  KeyboardAvoidingView, ScrollView, Dimensions, PanResponder,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
@@ -19,6 +19,7 @@ const GENRE_IMAGES = {
   enfant: require('../../../assets/icons/enfant.png'),
 };
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import InfoBanner from '../../components/InfoBanner';
 
 const SHEET_H = Dimensions.get('window').height * 0.88;
 import { useSelector, useDispatch } from 'react-redux';
@@ -289,6 +290,20 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
   const [reminder, setReminder] = useState(null);
   const [reminders, setReminders] = useState({});
   const [shareItem, setShareItem] = useState(null);
+  const [addressExpanded, setAddressExpanded] = useState(false);
+  const chevronAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(chevronAnim, { toValue: 4, duration: 350, useNativeDriver: true }),
+        Animated.timing(chevronAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
+        Animated.delay(1500),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [chevronAnim]);
 
   useEffect(() => {
     const refreshReminders = () => {
@@ -454,39 +469,56 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
     <View style={styles.card}>
       {/* Mosque header */}
       <View style={styles.cardBandeau}>
-        <View style={{ flex: 1, marginRight: spacing.sm }}>
-          <Text style={styles.mosquee} numberOfLines={1}>{capitalizeFirst(group.mosquee)}</Text>
-          <Text style={styles.adresse} numberOfLines={1}>{group.adresse}</Text>
-        </View>
-        {d != null && (
-          <View style={styles.distPill}>
-            <Ionicons name="location-outline" size={11} color="#C97070" />
-            <Text style={styles.distText}>{fmtDist(d)} {t('home.km_suffix')}</Text>
+        <TouchableOpacity
+          style={{ flex: 1, marginRight: spacing.sm }}
+          onPress={() => setAddressExpanded(v => !v)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.mosquee} numberOfLines={addressExpanded ? undefined : 1}>{capitalizeFirst(group.mosquee)}</Text>
+          <Text style={styles.adresse} numberOfLines={addressExpanded ? undefined : 1}>{group.adresse}</Text>
+        </TouchableOpacity>
+        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+          <View style={styles.countPill}>
+            <Ionicons name="people-outline" size={11} color={colors.primary} />
+            <Text style={styles.countText}>
+              {fmtNum(group.janazas.length)} {group.janazas.length > 1 ? t('home.prayer_plural') : t('home.prayer_singular')}
+            </Text>
           </View>
-        )}
+          {d != null && (
+            <View style={styles.distPill}>
+              <Ionicons name="location-outline" size={11} color="#C97070" />
+              <Text style={styles.distText}>{fmtDist(d)} {t('home.km_suffix')}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.dividerRow}>
+        <LinearGradient
+          colors={['transparent', colors.primaryLight]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ flex: 1, height: 1.5 }}
+        />
+        <View style={styles.dividerDot} />
+        <LinearGradient
+          colors={[colors.primaryLight, 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ flex: 1, height: 1.5 }}
+        />
       </View>
 
       {/* Date label */}
-      <View style={styles.dateLabelRow}>
-        <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
-        {allSameDay ? (
-          <>
-            <Text style={styles.dateLabel}>{formatDate(earliest.dateHeure, locale, t)}</Text>
-            <Text style={styles.janazaCountLabel}>
-              · {fmtNum(group.janazas.length)} {group.janazas.length > 1 ? t('home.prayer_plural') : t('home.prayer_singular')}
-            </Text>
-          </>
-        ) : (
-          <Text style={styles.janazaCountLabel}>
-            {fmtNum(group.janazas.length)} {t('home.prayer_plural')}
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.divider} />
+      {allSameDay && (
+        <View style={styles.dateLabelRow}>
+          <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
+          <Text style={styles.dateLabel}>{formatDate(earliest.dateHeure, locale, t)}</Text>
+        </View>
+      )}
 
       {/* Janaza rows — grouped by date when multi-day */}
-      {dateGroups.map((dateGroup) => (
+      {dateGroups.map((dateGroup, gi) => (
         <View key={dateGroup.label}>
           {!allSameDay && (
             <View style={styles.dateSubHeaderRow}>
@@ -504,7 +536,7 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
             return (
               <TouchableOpacity
                 key={item.id}
-                style={[styles.janazaRow, i > 0 && styles.janazaRowBorder]}
+                style={styles.janazaRow}
                 onPress={() => onPressJanaza(item)}
                 activeOpacity={0.65}
               >
@@ -520,7 +552,9 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
                   <View style={styles.janazaInfo}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                       <Text style={[styles.janazaNom, { flexShrink: 1 }]} numberOfLines={1}>{nom}</Text>
-                      <Ionicons name="chevron-forward" size={13} color={colors.primary} />
+                      <Animated.View style={{ transform: [{ translateX: chevronAnim }] }}>
+                        <Ionicons name="chevron-forward" size={13} color={colors.primary} />
+                      </Animated.View>
                     </View>
                   </View>
                   <TouchableOpacity
@@ -625,6 +659,37 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
     || currentUserRole === 'admin' || currentUserRole === 'superadmin';
   const d = distKm(coords, item);
 
+  const translateY = useRef(new Animated.Value(600)).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+      onPanResponderMove: (_, { dy }) => {
+        if (dy > 0) translateY.setValue(dy);
+      },
+      onPanResponderRelease: (_, { dy, vy }) => {
+        if (dy > 80 || vy > 0.8) {
+          Animated.timing(translateY, {
+            toValue: 700,
+            duration: 220,
+            useNativeDriver: true,
+          }).start(onClose);
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 80,
+            friction: 10,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  useEffect(() => {
+    Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
+  }, []);
+
   async function copyAddress() {
     await Clipboard.setStringAsync(item.adresse);
   }
@@ -640,14 +705,14 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
   }
 
   return (
-    <Modal transparent animationType="slide" visible onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={styles.modalBackdrop} />
         </TouchableWithoutFeedback>
 
-        <View style={styles.modalSheet}>
-          <View style={styles.modalBandeau}>
+        <Animated.View style={[styles.modalSheet, { transform: [{ translateY }] }]}>
+          <View style={styles.modalBandeau} {...panResponder.panHandlers}>
             <View style={styles.modalHandleWhite} />
             <View style={styles.modalBandeauContent}>
               <Text style={styles.modalMosquee} numberOfLines={2}>{capitalizeFirst(item.mosquee)}</Text>
@@ -742,7 +807,7 @@ export function DetailModal({ item, coords, apiUserId, currentUserRole, onClose,
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
             <Text style={styles.closeBtnText}>{t('home.close')}</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
       <JanazaShareModal visible={showAffiche} janaza={item} onClose={() => setShowAffiche(false)} />
     </Modal>
@@ -786,11 +851,41 @@ export default function HomeScreen() {
     } catch {}
   }
 
-  // Feature flags (public, pas besoin d'auth)
+  // Feature flags — WebSocket temps réel (push serveur à chaque changement admin)
   useEffect(() => {
-    apiClient.get('/api/features')
-      .then(res => dispatch({ type: 'FEATURES_LOADED', payload: { donationButtonVisible: res.data.donationButtonVisible } }))
-      .catch(() => {});
+    const applyFeatures = (data) => dispatch({ type: 'FEATURES_LOADED', payload: {
+      donationButtonVisible: data.donationButtonVisible,
+      infoMessage: data.infoMessage ?? null,
+    }});
+
+    // Fetch initial de secours (si WS pas encore connecté)
+    apiClient.get('/api/features').then(r => applyFeatures(r.data)).catch(() => {});
+
+    const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? 'https://api.salatjanaza.org')
+      .replace(/^https/, 'wss').replace(/^http/, 'ws');
+    const wsUrl = `${baseUrl}/api/features/ws`;
+
+    let ws;
+    let reconnectTimer;
+    let unmounted = false;
+
+    const connect = () => {
+      if (unmounted) return;
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (e) => { try { applyFeatures(JSON.parse(e.data)); } catch {} };
+      ws.onerror   = () => {};
+      ws.onclose   = () => {
+        if (!unmounted) reconnectTimer = setTimeout(connect, 5000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      unmounted = true;
+      clearTimeout(reconnectTimer);
+      ws?.close();
+    };
   }, []);
 
   // Charger les abonnements au montage pour que isSubscribed soit correct
@@ -967,6 +1062,20 @@ export default function HomeScreen() {
   const [filGenre, setFilGenre]       = useState(null);
   const [filOpen, setFilOpen]         = useState(false);
   const [donationVisible, setDonationVisible]   = useState(false);
+  const donationTranslateY = useRef(new Animated.Value(600)).current;
+  const donationPanResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) donationTranslateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(donationTranslateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(() => { donationTranslateY.setValue(600); setDonationVisible(false); });
+      } else {
+        Animated.spring(donationTranslateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+  useEffect(() => { if (donationVisible) Animated.spring(donationTranslateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start(); }, [donationVisible]);
   const [donationAmount, setDonationAmount]     = useState(null);
   const [donationCustom, setDonationCustom]     = useState('');
   const [donationLoading, setDonationLoading]   = useState(false);
@@ -1074,6 +1183,8 @@ export default function HomeScreen() {
           </View>
         ); })()}
       </View>
+
+      <InfoBanner />
 
       {showAll ? (
         <View style={[styles.radiusStrip, styles.radiusStripWorld]}>
@@ -1231,7 +1342,7 @@ export default function HomeScreen() {
       <Modal
         visible={donationVisible}
         transparent
-        animationType="slide"
+        animationType="none"
         onRequestClose={() => setDonationVisible(false)}
       >
         <View style={styles.donationOverlay}>
@@ -1239,6 +1350,7 @@ export default function HomeScreen() {
             <View style={StyleSheet.absoluteFillObject} />
           </TouchableWithoutFeedback>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Animated.View style={{ transform: [{ translateY: donationTranslateY }] }}>
           <ScrollView
             bounces={false}
             showsVerticalScrollIndicator={false}
@@ -1246,7 +1358,9 @@ export default function HomeScreen() {
             contentContainerStyle={[styles.donationSheet, { minHeight: SHEET_H, paddingBottom: insetBottom + spacing.xxl }]}
             style={{ maxHeight: SHEET_H }}
           >
-          <View style={styles.donationHandleBar} />
+          <View style={{ paddingVertical: 12, alignItems: 'center' }} {...donationPanResponder.panHandlers}>
+            <View style={styles.donationHandleBar} />
+          </View>
           <TouchableOpacity style={styles.donationCloseBtn} onPress={() => setDonationVisible(false)}>
             <Ionicons name="close" size={22} color={colors.textMuted} />
           </TouchableOpacity>
@@ -1328,6 +1442,7 @@ export default function HomeScreen() {
             <Text style={styles.donationBackText}>{t('home.support_back')}</Text>
           </TouchableOpacity>
           </ScrollView>
+          </Animated.View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -1440,8 +1555,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2.5,
+    borderColor: '#C8C8C8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
@@ -1451,10 +1566,13 @@ const styles = StyleSheet.create({
   cardBandeau: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
+    backgroundColor: '#EFF4F0',
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    overflow: 'hidden',
   },
   cardBandeauAccent: {
     width: 3,
@@ -1464,7 +1582,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   mosquee: { ...typography.h3, marginBottom: 2, color: colors.text, fontSize: 17, fontWeight: '800', letterSpacing: 0.1 },
-  adresse: { ...typography.bodySmall, color: colors.text },
+  adresse: { ...typography.bodySmall, color: colors.textSecondary },
   distPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1474,42 +1592,79 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#C97070',
   },
   distText: { fontSize: 11, color: '#C97070', fontWeight: '600' },
+  countPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.surface,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  countText: { fontSize: 11, color: colors.primary, fontWeight: '700' },
 
   dateLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
   },
   dateLabel: { ...typography.caption, color: colors.text, fontWeight: '700' },
   janazaCountLabel: { ...typography.caption, color: colors.primary, fontWeight: '600' },
 
   divider: { height: 1, backgroundColor: colors.borderLight, marginHorizontal: spacing.md },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dividerDot: {
+    width: 5,
+    height: 5,
+    borderRadius: radius.full,
+    backgroundColor: colors.primaryLight,
+    marginHorizontal: 6,
+  },
   dateSubHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    backgroundColor: colors.surfaceElevated,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: 2,
+    paddingBottom: spacing.xs,
   },
-  dateSubHeader: { ...typography.caption, color: colors.textSecondary, fontWeight: '600', textTransform: 'uppercase', fontSize: 11 },
+  dateSubHeader: { ...typography.caption, color: colors.primary, fontWeight: '800', textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.5 },
 
   // ── Janaza rows ──
   janazaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.sm + 2,
+    marginHorizontal: spacing.sm,
+    marginTop: 5,
+    marginBottom: 5,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
-  janazaRowBorder: { borderTopWidth: 1, borderTopColor: colors.borderLight },
+  janazaRowBorder: {},
+  dateGroupSeparator: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: 2,
+  },
   janazaLeftCol: { alignItems: 'center', gap: spacing.xs },
   janazaTimePill: {
     backgroundColor: colors.primaryDim,
@@ -1518,13 +1673,17 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     minWidth: 52,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.textMuted,
   },
   janazaTime: { fontSize: 13, fontWeight: '700', color: colors.primary },
   janazaAvatarCircle: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: 'rgba(92, 128, 98, 0.28)',
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: '#CCCCCC',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1558,9 +1717,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.surface,
     borderBottomLeftRadius: radius.md,
     borderBottomRightRadius: radius.md,
   },

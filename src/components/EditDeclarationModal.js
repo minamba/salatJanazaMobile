@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView,
   TextInput, Switch, Alert, FlatList, ActivityIndicator,
   TouchableWithoutFeedback, KeyboardAvoidingView, Platform,
+  Animated, PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -96,13 +97,29 @@ export function ComboBoxModal({ visible, items, selected, onSelect, onClose, tit
   const fmtN = (n) => i18n.language?.startsWith('ar')
     ? n.toLocaleString('ar-SA', { minimumIntegerDigits: 2 })
     : String(n).padStart(2, '0');
+  const translateY = useRef(new Animated.Value(600)).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) translateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(translateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(() => { translateY.setValue(600); onClose(); });
+      } else {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+  useEffect(() => { if (visible) Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start(); }, [visible]);
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.comboOverlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.comboSheet}>
-              <View style={styles.comboHandle} />
+            <Animated.View style={[styles.comboSheet, { transform: [{ translateY }] }]}>
+              <View style={{ paddingVertical: 10, alignItems: 'center' }} {...panResponder.panHandlers}>
+                <View style={styles.comboHandle} />
+              </View>
               <Text style={styles.comboTitle}>{title}</Text>
               <FlatList
                 data={items}
@@ -127,7 +144,7 @@ export function ComboBoxModal({ visible, items, selected, onSelect, onClose, tit
                 initialScrollIndex={Math.max(0, items.indexOf(selected))}
                 getItemLayout={(_, index) => ({ length: 52, offset: 52 * index, index })}
               />
-            </View>
+            </Animated.View>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
@@ -568,7 +585,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   modalTitle: { ...typography.h3 },
-  modalScroll: { padding: spacing.md, gap: spacing.md },
+  modalScroll: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.md },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm },
   modalField: { gap: spacing.xs },
   modalLabel: { ...typography.label, fontSize: 12 },

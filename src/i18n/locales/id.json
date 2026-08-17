@@ -628,6 +628,7 @@
     "title": "Buat pengumuman",
     "subtitle": "Informasi tambahan",
     "preview_title": "Pratinjau",
+    "lang_hint": "Pilih bendera untuk mengubah bahasa selebaran",
     "years_toggle": "Tahun lahir dan meninggal",
     "years_toggle_description": "Nonaktifkan jika Anda tidak memiliki informasi ini",
     "years_toggle_off_description": "Aktifkan jika Anda memiliki informasi ini",

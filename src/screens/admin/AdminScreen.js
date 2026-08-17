@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, RefreshControl, TextInput,
   Modal, ScrollView, KeyboardAvoidingView, Platform, Switch, TouchableWithoutFeedback,
+  Animated, PanResponder,
 } from 'react-native';
 import ScreenBackground from '../../components/ScreenBackground';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -101,13 +102,29 @@ function ComboBoxModal({ visible, items, selected, onSelect, onClose, title }) {
   const fmtN = (n) => i18n.language?.startsWith('ar')
     ? n.toLocaleString('ar-SA', { minimumIntegerDigits: 2 })
     : String(n).padStart(2, '0');
+  const translateY = useRef(new Animated.Value(600)).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) translateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(translateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(() => { translateY.setValue(600); onClose(); });
+      } else {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+  useEffect(() => { if (visible) Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start(); }, [visible]);
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.comboOverlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.comboSheet}>
-              <View style={styles.comboHandle} />
+            <Animated.View style={[styles.comboSheet, { transform: [{ translateY }] }]}>
+              <View style={{ paddingVertical: 10, alignItems: 'center' }} {...panResponder.panHandlers}>
+                <View style={styles.comboHandle} />
+              </View>
               <Text style={styles.comboTitle}>{title}</Text>
               <FlatList
                 data={items}
@@ -132,7 +149,7 @@ function ComboBoxModal({ visible, items, selected, onSelect, onClose, title }) {
                 initialScrollIndex={Math.max(0, items.indexOf(selected))}
                 getItemLayout={(_, index) => ({ length: 52, offset: 52 * index, index })}
               />
-            </View>
+            </Animated.View>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
@@ -153,10 +170,24 @@ const TOUTES = '__toutes__';
 function ListeChoixModal({ visible, items, selected, onSelect, onClose, titre, libelleTous }) {
   const [filtre, setFiltre] = useState('');
 
+  const translateY = useRef(new Animated.Value(600)).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) translateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(translateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(() => { translateY.setValue(600); onClose(); });
+      } else {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+
   // Le filtre repart à vide à chaque ouverture : rouvrir la liste et n'y
   // trouver que le reliquat d'une recherche précédente donne l'impression
   // que les données ont disparu.
-  useEffect(() => { if (visible) setFiltre(''); }, [visible]);
+  useEffect(() => { if (visible) { setFiltre(''); Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start(); } }, [visible]);
 
   const q = (s) => normalize(s ?? '');
   const visibles = filtre ? items.filter(i => q(i).includes(q(filtre))) : items;
@@ -178,12 +209,14 @@ function ListeChoixModal({ visible, items, selected, onSelect, onClose, titre, l
   };
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.comboOverlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.comboSheet}>
-              <View style={styles.comboHandle} />
+            <Animated.View style={[styles.comboSheet, { transform: [{ translateY }] }]}>
+              <View style={{ paddingVertical: 10, alignItems: 'center' }} {...panResponder.panHandlers}>
+                <View style={styles.comboHandle} />
+              </View>
               <Text style={styles.comboTitle}>{titre}</Text>
               <SearchBar value={filtre} onChange={setFiltre} placeholder="Filtrer…" />
               <FlatList
@@ -198,7 +231,7 @@ function ListeChoixModal({ visible, items, selected, onSelect, onClose, titre, l
                   <Text style={styles.comboVide}>Aucun résultat pour « {filtre} »</Text>
                 }
               />
-            </View>
+            </Animated.View>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>

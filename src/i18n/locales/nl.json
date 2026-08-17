@@ -632,6 +632,7 @@
     "title": "Aankondiging genereren",
     "subtitle": "Aanvullende informatie",
     "preview_title": "Voorbeeld",
+    "lang_hint": "Selecteer een vlag om de taal van de flyer te wijzigen",
     "years_toggle": "Geboorte- en overlijdensjaar",
     "years_toggle_description": "Uitschakelen als u deze informatie niet heeft",
     "years_toggle_off_description": "Inschakelen als u deze informatie heeft",

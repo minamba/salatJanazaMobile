@@ -11,7 +11,7 @@ import ScreenHeader from '../../components/ScreenHeader';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography, shadow } from '../../utils/theme';
+import { colors, spacing, radius, typography, shadow, TABLET_MAX_WIDTH } from '../../utils/theme';
 import { formatNomDefunt } from '../../utils/text';
 import * as Location from 'expo-location';
 
@@ -168,15 +168,55 @@ export default function ProfileScreen() {
     debounceRef.current = setTimeout(() => fetchSuggestions(text), 500);
   }
 
+  function formatNominatimAddress(item) {
+    if (item._frLabel) return item._frLabel;
+    const a = item.address || {};
+    const parts = [];
+    if (a.house_number && a.road) parts.push(`${a.house_number} ${a.road}`);
+    else if (a.road) parts.push(a.road);
+    else if (a.pedestrian) parts.push(a.pedestrian);
+    const city = a.city || a.town || a.village || a.municipality;
+    if (a.postcode && city) parts.push(`${a.postcode} ${city}`);
+    else if (city) parts.push(city);
+    else if (a.postcode) parts.push(a.postcode);
+    if (a.country) parts.push(a.country);
+    return parts.join(', ') || item.display_name;
+  }
+
   async function fetchSuggestions(query) {
     setLoadingSuggestions(true);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`,
-        { headers: { 'User-Agent': 'QabrApp/1.0' } }
-      );
-      const data = await res.json();
-      setSuggestions(data);
+      const [nominatimRes, frRes] = await Promise.allSettled([
+        fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`,
+          { headers: { 'User-Agent': 'QabrApp/1.0' } }
+        ).then(r => r.json()),
+        fetch(
+          `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=3`
+        ).then(r => r.json()),
+      ]);
+
+      const nominatim = nominatimRes.status === 'fulfilled' ? nominatimRes.value : [];
+      const frFeatures = frRes.status === 'fulfilled' ? (frRes.value?.features ?? []) : [];
+
+      // Convertit les résultats français au même format que Nominatim
+      const frFormatted = frFeatures.map(f => ({
+        place_id: `fr_${f.properties.id}`,
+        lat: String(f.geometry.coordinates[1]),
+        lon: String(f.geometry.coordinates[0]),
+        _frLabel: f.properties.label,
+        address: {
+          house_number: f.properties.housenumber,
+          road: f.properties.street,
+          postcode: f.properties.postcode,
+          city: f.properties.city,
+          country: 'France',
+        },
+      }));
+
+      // Les résultats français en premier, puis Nominatim (sans doublons grossiers)
+      const merged = [...frFormatted, ...nominatim].slice(0, 5);
+      setSuggestions(merged);
     } catch {
       setSuggestions([]);
     } finally {
@@ -185,7 +225,7 @@ export default function ProfileScreen() {
   }
 
   function selectSuggestion(item) {
-    setAdresse(item.display_name);
+    setAdresse(formatNominatimAddress(item));
     setSelectedCoords({ lat: parseFloat(item.lat), lon: parseFloat(item.lon) });
     setSuggestions([]);
     Keyboard.dismiss();
@@ -466,7 +506,7 @@ export default function ProfileScreen() {
                   >
                     <Ionicons name="location-outline" size={14} color={colors.textMuted} />
                     <Text style={styles.suggestionText} numberOfLines={2}>
-                      {item.display_name}
+                      {formatNominatimAddress(item)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -918,7 +958,7 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F7F5' },
-  content: { paddingBottom: spacing.xxl },
+  content: { paddingBottom: spacing.xxl, maxWidth: TABLET_MAX_WIDTH, alignSelf: 'center', width: '100%' },
 
   avatarSection: { alignItems: 'center', paddingVertical: spacing.xl },
   avatar: {

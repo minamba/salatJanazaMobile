@@ -6,7 +6,7 @@ import ScreenBackground from '../../components/ScreenBackground';
 import ScreenHeader from '../../components/ScreenHeader';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography } from '../../utils/theme';
+import { colors, spacing, radius, typography, TABLET_MAX_WIDTH } from '../../utils/theme';
 import { useTranslation } from 'react-i18next';
 
 export default function PriereScreen() {
@@ -246,6 +246,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.md,
     paddingBottom: spacing.xl,
+    maxWidth: TABLET_MAX_WIDTH,
+    alignSelf: 'center',
+    width: '100%',
   },
 
   // Header

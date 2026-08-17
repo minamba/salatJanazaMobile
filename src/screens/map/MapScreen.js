@@ -3,13 +3,14 @@ import { capitalizeFirst, formatNomDefunt } from '../../utils/text';
 import EditDeclarationModal from '../../components/EditDeclarationModal';
 import ScreenBackground from '../../components/ScreenBackground';
 import ScreenHeader from '../../components/ScreenHeader';
+import InfoBanner from '../../components/InfoBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, ActivityIndicator, Modal,
   TouchableWithoutFeedback, ScrollView, RefreshControl,
   Linking, Platform, TextInput, KeyboardAvoidingView, Keyboard, Image,
-  Animated, Alert,
+  Animated, Alert, PanResponder,
 } from 'react-native';
 
 const MOSQUE_PIN_IMG = require('../../../assets/icons/mosquee.png');
@@ -27,6 +28,7 @@ import * as Location from 'expo-location';
 import * as Clipboard from 'expo-clipboard';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, radius, typography, shadow } from '../../utils/theme';
 import { normalize, fetchNearbyMosques, enrichAddresses } from '../../utils/mosqueSearch';
 import apiClient from '../../lib/api/apiClient';
@@ -193,6 +195,24 @@ export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, o
   const dateLocale = getDateLocale(i18n.language);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
+  const translateY = useRef(new Animated.Value(600)).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) translateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(translateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(onClose);
+      } else {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+
+  useEffect(() => {
+    Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
+  }, []);
+
   function formatDateLabel(date) {
     const today = new Date();
     const tomorrow = new Date(today);
@@ -235,28 +255,35 @@ export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, o
   }
 
   return (
-    <Modal transparent animationType="slide" visible onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={styles.modalBackdrop} />
         </TouchableWithoutFeedback>
-        <View style={styles.modalSheet}>
-          <View style={styles.modalHandle} />
+        <Animated.View style={[styles.modalSheet, { transform: [{ translateY }] }]}>
+          <View {...panResponder.panHandlers}>
+            <View style={styles.modalHandle} />
 
-          <View style={styles.modalMosqueHeader}>
-            <View style={styles.modalMosqueIcon}>
-              <Image source={MOSQUE_ICON_IMG} style={styles.modalMosqueIconImg} resizeMode="contain" />
+            <View style={styles.modalMosqueHeader}>
+              <View style={styles.modalMosqueIcon}>
+                <Image source={MOSQUE_ICON_IMG} style={styles.modalMosqueIconImg} resizeMode="contain" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalMosqueName}>{capitalizeFirst(mosque.nom)}</Text>
+                {!!mosque.adresse && (
+                  <Text style={styles.modalMosqueAddress}>{mosque.adresse}</Text>
+                )}
+                {distKm != null && (
+                  <Text style={styles.modalMosqueDist}>
+                    📍 {distKm.toFixed(1)} km
+                  </Text>
+                )}
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.modalMosqueName}>{capitalizeFirst(mosque.nom)}</Text>
-              {!!mosque.adresse && (
-                <Text style={styles.modalMosqueAddress}>{mosque.adresse}</Text>
-              )}
-              {distKm != null && (
-                <Text style={styles.modalMosqueDist}>
-                  📍 {distKm.toFixed(1)} km
-                </Text>
-              )}
+            <View style={styles.modalHeaderDivider}>
+              <LinearGradient colors={['transparent', colors.primaryLight]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, height: 1.5 }} />
+              <View style={styles.modalHeaderDividerDot} />
+              <LinearGradient colors={[colors.primaryLight, 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, height: 1.5 }} />
             </View>
           </View>
 
@@ -293,7 +320,7 @@ export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, o
             </TouchableOpacity>
           )}
 
-          <View style={styles.modalDivider} />
+          <LinearGradient colors={['transparent', colors.primaryLight, 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 1.5, marginVertical: spacing.md }} />
 
           {sortedJanazas.length === 0 ? (
             <View style={styles.emptyJanazaBox}>
@@ -378,10 +405,11 @@ export function MosqueDetailModal({ mosque, distKm, janazas, onClose, onShare, o
             </ScrollView>
           )}
 
+          <LinearGradient colors={['transparent', colors.primaryLight, 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 1.5, marginTop: spacing.sm }} />
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
             <Text style={styles.closeBtnText}>{t('map.close')}</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -493,10 +521,13 @@ function formatNom(raw, lang) {
   return text;
 }
 
-function hasValidPrefix(text, lang) {
-  // Les restrictions de préfixe s'appliquent uniquement en français
-  const baseLang = lang?.toLowerCase().split('-')[0];
-  if (baseLang !== 'fr') return true;
+function hasValidPrefix(text, lang, countryCode) {
+  // Si le pays est connu via IP → on s'y fie (un Sénégalais avec tel en FR n'est pas concerné)
+  // Si inconnu (offline, erreur) → fallback sur la locale du téléphone (fr / fr-FR)
+  const isInFrance = countryCode != null
+    ? countryCode === 'FR'
+    : (lang?.toLowerCase() === 'fr' || lang?.toLowerCase().startsWith('fr-fr'));
+  if (!isInFrance) return true;
 
   const norm = normalizeAccents(text.trim());
   return (
@@ -513,10 +544,23 @@ function hasValidPrefix(text, lang) {
   );
 }
 
+function formatNominatimAddress(item) {
+  const addr = item.address ?? {};
+  const road = addr.road || addr.pedestrian || addr.footway || addr.cycleway || addr.path || addr.street;
+  const street = [addr.house_number, road].filter(Boolean).join(' ');
+  const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality;
+  const postcode = addr.postcode;
+  const cityPart = postcode && city ? `${postcode} ${city}` : (postcode ?? city);
+  const country = addr.country;
+  const parts = [street, cityPart, country].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : item.display_name;
+}
+
 function AddMosqueModal({ onAdd, onClose }) {
   const { t, i18n } = useTranslation();
   const [nom, setNom] = useState('');
   const [adresse, setAdresse] = useState('');
+  const [userCountry, setUserCountry] = useState(null); // null = inconnu (pas encore résolu)
   const [coords, setCoords] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSugg, setLoadingSugg] = useState(false);
@@ -525,6 +569,31 @@ function AddMosqueModal({ onAdd, onClose }) {
   const [nomError, setNomError] = useState('');
   const [adresseError, setAdresseError] = useState('');
   const debounceRef = useRef(null);
+
+  const translateY = useRef(new Animated.Value(600)).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, { dy }) => dy > 5,
+    onPanResponderMove: (_, { dy }) => { if (dy > 0) translateY.setValue(dy); },
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy > 80 || vy > 0.8) {
+        Animated.timing(translateY, { toValue: 700, duration: 220, useNativeDriver: true }).start(onClose);
+      } else {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+      }
+    },
+  })).current;
+
+  useEffect(() => {
+    Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
+  }, []);
+
+  useEffect(() => {
+    fetch('https://ip-api.com/json?fields=countryCode')
+      .then(r => r.json())
+      .then(d => { if (d.countryCode) setUserCountry(d.countryCode); })
+      .catch(() => {}); // fallback silencieux → locale du téléphone utilisée
+  }, []);
 
   async function handleGeolocate() {
     setLocating(true);
@@ -537,12 +606,12 @@ function AddMosqueModal({ onAdd, onClose }) {
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const { latitude, longitude } = pos.coords;
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
         { headers: { 'User-Agent': 'QabrApp/1.0' } },
       );
       const data = await res.json();
-      if (data?.display_name) {
-        setAdresse(data.display_name);
+      if (data?.address || data?.display_name) {
+        setAdresse(formatNominatimAddress(data));
         setCoords({ lat: latitude, lon: longitude });
         setSuggestions([]);
         setAdresseError('');
@@ -566,21 +635,35 @@ function AddMosqueModal({ onAdd, onClose }) {
   async function fetchSugg(query) {
     setLoadingSugg(true);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5`,
-        { headers: { 'User-Agent': 'QabrApp/1.0' } }
-      );
-      setSuggestions(await res.json());
+      const [nominatimRes, frRes] = await Promise.allSettled([
+        fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5`,
+          { headers: { 'User-Agent': 'QabrApp/1.0' } }
+        ).then(r => r.json()),
+        fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`).then(r => r.json()),
+      ]);
+      const nominatimItems = nominatimRes.status === 'fulfilled' ? nominatimRes.value : [];
+      const frItems = frRes.status === 'fulfilled'
+        ? (frRes.value?.features ?? []).map(f => ({
+            _frLabel: f.properties.label,
+            lat: String(f.geometry.coordinates[1]),
+            lon: String(f.geometry.coordinates[0]),
+          }))
+        : [];
+      setSuggestions([...frItems, ...nominatimItems].slice(0, 5));
     } catch { setSuggestions([]); }
     finally { setLoadingSugg(false); }
   }
 
   function selectSuggestion(item) {
-    setAdresse(item.display_name);
+    const label = item._frLabel ?? formatNominatimAddress(item);
+    setAdresse(label);
     setCoords({ lat: parseFloat(item.lat), lon: parseFloat(item.lon) });
     setSuggestions([]);
     setAdresseError('');
-    Keyboard.dismiss();
+    // Defer dismiss to avoid Android touch-event freeze (Keyboard.dismiss inside
+    // onPress of a TouchableOpacity inside a keyboardShouldPersistTaps ScrollView)
+    setTimeout(() => Keyboard.dismiss(), 0);
   }
 
   async function handleAdd() {
@@ -588,7 +671,7 @@ function AddMosqueModal({ onAdd, onClose }) {
 
     // Validate + format nom
     const formatted = formatNom(nom, i18n.language);
-    if (!formatted || !hasValidPrefix(formatted, i18n.language)) {
+    if (!formatted || !hasValidPrefix(formatted, i18n.language, userCountry)) {
       setNomError(t('map.add_name_error'));
       hasError = true;
     } else {
@@ -693,21 +776,23 @@ function AddMosqueModal({ onAdd, onClose }) {
   }
 
   return (
-    <Modal transparent animationType="slide" visible onRequestClose={onClose}>
+    <Modal transparent animationType="none" visible onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
       >
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={{ flex: 1 }} />
         </TouchableWithoutFeedback>
-        <View style={[styles.addModalSheet, { maxHeight: '90%' }]}>
+        <Animated.View style={[styles.addModalSheet, { maxHeight: '90%' }, { transform: [{ translateY }] }]}>
+          <View style={{ paddingVertical: 12, alignItems: 'center' }} {...panResponder.panHandlers}>
+            <View style={styles.modalHandle} />
+          </View>
           <ScrollView
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             bounces={false}
           >
-            <View style={styles.modalHandle} />
             <Text style={styles.addModalTitle}>{t('map.add_title')}</Text>
             <Text style={styles.addModalSubtitle}>{t('map.add_subtitle')}</Text>
             <Text style={styles.addFieldLabel}>{t('map.add_name_label')}</Text>
@@ -776,10 +861,10 @@ function AddMosqueModal({ onAdd, onClose }) {
               {adresseError ? <Text style={styles.fieldError}>{adresseError}</Text> : null}
               {suggestions.length > 0 && (
                 <View style={styles.suggestionsList}>
-                  {suggestions.map((item) => (
-                    <TouchableOpacity key={item.place_id} style={styles.suggestionItem} onPress={() => selectSuggestion(item)} activeOpacity={0.7}>
+                  {suggestions.map((item, idx) => (
+                    <TouchableOpacity key={item.place_id ?? idx} style={styles.suggestionItem} onPress={() => selectSuggestion(item)} activeOpacity={0.7}>
                       <Ionicons name="location-outline" size={13} color={colors.textMuted} />
-                      <Text style={styles.suggestionText} numberOfLines={2}>{item.display_name}</Text>
+                      <Text style={styles.suggestionText} numberOfLines={2}>{item._frLabel ?? formatNominatimAddress(item)}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -800,7 +885,7 @@ function AddMosqueModal({ onAdd, onClose }) {
               <Text style={styles.closeBtnText}>{t('map.add_cancel')}</Text>
             </TouchableOpacity>
           </ScrollView>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -1380,6 +1465,8 @@ export default function MapScreen() {
         </View>
       </View>
 
+      <InfoBanner />
+
       {osmError && (
         <View style={styles.errorBanner}>
           <Ionicons name="wifi-outline" size={14} color={colors.warning} />
@@ -1698,7 +1785,7 @@ const styles = StyleSheet.create({
   pinLabel: { fontSize: 11, fontWeight: '700', color: colors.text, maxWidth: 120, textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginTop: 4, overflow: 'hidden' },
 
   list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
-  mosqueCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.border, ...shadow.sm },
+  mosqueCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, borderWidth: 2.5, borderColor: '#C8C8C8', ...shadow.sm },
   mosqueInfo: { flex: 1, marginRight: spacing.sm },
   mosqueNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 3 },
   mosqueName: { ...typography.body, fontWeight: '700', flex: 1 },
@@ -1724,8 +1811,10 @@ const styles = StyleSheet.create({
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay },
   modalSheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: spacing.xxl, borderTopWidth: 1, borderColor: colors.border, ...shadow.md },
   modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.lg },
-  modalMosqueHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, marginBottom: spacing.md },
-  modalMosqueIcon: { width: 64, height: 64, borderRadius: radius.md, backgroundColor: colors.primaryDim, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  modalMosqueHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, marginBottom: 0, backgroundColor: '#F2F2F2', borderRadius: radius.md, padding: spacing.sm, borderWidth: 1, borderColor: '#DCDCDC' },
+  modalHeaderDivider: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  modalHeaderDividerDot: { width: 5, height: 5, borderRadius: 9999, backgroundColor: colors.primaryLight, marginHorizontal: 6 },
+  modalMosqueIcon: { width: 64, height: 64, borderRadius: radius.md, backgroundColor: '#EFF4F0', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.primary, overflow: 'hidden' },
   modalMosqueIconImg: { width: 64, height: 64 },
   modalMosqueName: { ...typography.h3, marginBottom: 3 },
   modalMosqueAddress: { ...typography.bodySmall, marginBottom: 3 },
@@ -1741,23 +1830,36 @@ const styles = StyleSheet.create({
   subscribeModalBtnText: { ...typography.button, color: colors.primary },
   subscribeModalBtnTextActive: { color: colors.textMuted },
   modalDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
-  modalSectionTitle: { ...typography.label, color: colors.primary, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.8 },
-  janazaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm + 2, gap: spacing.sm },
-  janazaRowBorder: { borderTopWidth: 1, borderTopColor: colors.borderLight },
+  modalSectionTitle: { ...typography.label, color: colors.primary, fontWeight: '800', marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.8 },
+  janazaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.sm + 2,
+    gap: spacing.sm,
+    marginHorizontal: spacing.sm,
+    marginTop: 5,
+    marginBottom: 5,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  janazaRowBorder: {},
   deleteConfirmRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs + 2, paddingHorizontal: spacing.xs, marginBottom: spacing.xs },
   deleteConfirmCancelBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
   deleteConfirmCancelText: { ...typography.caption, color: colors.textMuted, fontWeight: '600' },
   deleteConfirmDeleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, borderRadius: radius.sm, backgroundColor: colors.error },
   deleteConfirmDeleteText: { ...typography.caption, color: colors.white, fontWeight: '700' },
-  janazaTimeBox: { backgroundColor: colors.primaryDim, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minWidth: 56, alignItems: 'center' },
+  janazaTimeBox: { backgroundColor: colors.primaryDim, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, minWidth: 56, alignItems: 'center', borderWidth: 1, borderColor: colors.textMuted },
   janazaTime: { ...typography.label, color: colors.primary, fontSize: 14 },
-  janazaAvatarCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(92, 128, 98, 0.28)', alignItems: 'center', justifyContent: 'center' },
+  janazaAvatarCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: '#CCCCCC', alignItems: 'center', justifyContent: 'center' },
   janazaGenreImg: { width: 42, height: 42 },
   janazaNom: { ...typography.body, fontWeight: '600' },
   emptyJanazaBox: { alignItems: 'center', paddingVertical: spacing.lg },
   emptyJanazaEmoji: { fontSize: 36, marginBottom: spacing.sm },
   emptyJanazaText: { ...typography.body, color: colors.textSecondary },
-  closeBtn: { paddingVertical: spacing.md, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.borderLight, marginTop: spacing.sm },
+  closeBtn: { paddingVertical: spacing.md, alignItems: 'center' },
   closeBtnText: { ...typography.body, color: colors.textMuted },
 
   // Add mosque modal
