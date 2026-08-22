@@ -9,7 +9,7 @@
       }
     },
     "icon": "./assets/icons/icon2.png",
-    "version": "1.18.0",
+    "version": "1.19.0",
     "orientation": "portrait",
     "scheme": "qabr",
     "userInterfaceStyle": "light",
@@ -56,6 +56,7 @@
         "backgroundColor": "#F4FAF5"
       },
       "package": "fr.myjanaza.qabr",
+      "softInputMode": "adjustNothing",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

@@ -85,7 +85,7 @@ export default function ProfileScreen() {
       refreshAllData(dispatch, apiUser.id);
     }, [apiUser?.id, dispatch])
   );
-  const showRadiusSlider = isCeo || user?.role === 'Admin';
+  const showRadiusSlider = isCeo || user?.role === 'admin';
 
   const [showHistorique, setShowHistorique] = useState(false);
   const [selectedJanaza, setSelectedJanaza] = useState(null);
@@ -580,7 +580,7 @@ export default function ProfileScreen() {
                   }
                   startMovementTracking();
                   Alert.alert(
-                    '⚡',
+                    t('profile.movement_title'),
                     t('profile.movement_battery'),
                     [{ text: 'OK', style: 'default' }],
                   );
@@ -589,6 +589,20 @@ export default function ProfileScreen() {
                 }
                 setNotifMouvement(v);
                 setSaveSuccess(false);
+                // Sauvegarde immédiate sur l'API pour que refreshAllData ne revienne pas à l'ancienne valeur
+                try {
+                  const res = await apiClient.put(`/api/utilisateur/${apiUser.id}`, {
+                    adresseDomicile: apiUser.adresseDomicile,
+                    latitudeDomicile: apiUser.latitudeDomicile,
+                    longitudeDomicile: apiUser.longitudeDomicile,
+                    rayonNotification: apiUser.rayonNotification ?? 5,
+                    notifMouvement: v,
+                  });
+                  dispatch({ type: 'AUTH_API_USER_UPDATED', payload: res.data });
+                  await SecureStore.setItemAsync('api_user_data', JSON.stringify(res.data)).catch(() => {});
+                } catch {
+                  dispatch({ type: 'AUTH_API_USER_UPDATED', payload: { ...apiUser, notifMouvement: v } });
+                }
               }}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.white}

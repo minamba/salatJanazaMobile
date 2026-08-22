@@ -8,7 +8,7 @@ import {
   View, Text, FlatList, TouchableOpacity, Alert, ActivityIndicator,
   StyleSheet, RefreshControl, Modal, Linking, Platform,
   TouchableWithoutFeedback, Image, AppState, Animated, TextInput,
-  KeyboardAvoidingView, ScrollView, Dimensions, PanResponder,
+  KeyboardAvoidingView, ScrollView, Dimensions, PanResponder, DeviceEventEmitter,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
@@ -37,6 +37,7 @@ import ScreenBackground from '../../components/ScreenBackground';
 import ScreenHeader from '../../components/ScreenHeader';
 import { JanazaShareModal } from '../declare/AnnouncementGenerator';
 import { useLocationToast, LocationToast } from '../../components/LocationToast';
+import JanazaCommentsModal from '../../components/JanazaCommentsModal';
 
 function ModeToggle({ value, onToggle }) {
   const anim = useRef(new Animated.Value(value === 'home' ? 1 : 0)).current;
@@ -290,8 +291,36 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
   const [reminder, setReminder] = useState(null);
   const [reminders, setReminders] = useState({});
   const [shareItem, setShareItem] = useState(null);
+  const [commentItem, setCommentItem] = useState(null);
+  const [commentCounts, setCommentCounts] = useState({});
   const [addressExpanded, setAddressExpanded] = useState(false);
   const chevronAnim = useRef(new Animated.Value(0)).current;
+  // Ref pour éviter les closures périmées dans le listener DeviceEventEmitter
+  const commentItemRef = useRef(null);
+  useEffect(() => { commentItemRef.current = commentItem; }, [commentItem]);
+
+  useEffect(() => {
+    const ids = group.janazas.map(j => j.id).join(',');
+    if (!ids) return;
+    apiClient.get(`/api/prierejanaza/commentaires/counts?ids=${ids}`)
+      .then(res => { if (res.data) setCommentCounts(res.data); })
+      .catch(() => {});
+  }, [group.janazas]);
+
+  // Mises à jour temps réel : quand le modal n'est pas ouvert, on ajuste le compteur local
+  useEffect(() => {
+    const janazaIds = new Set(group.janazas.map(j => j.id));
+    const sub = DeviceEventEmitter.addListener('comment_visibility', ({ commentId, priereJanazaId, estCache }) => {
+      if (!janazaIds.has(priereJanazaId)) return;
+      // Si le modal est ouvert sur cette janaza, c'est lui qui gère le compteur via onCountChange
+      if (commentItemRef.current?.id === priereJanazaId) return;
+      setCommentCounts(prev => {
+        const curr = prev[String(priereJanazaId)] ?? 0;
+        return { ...prev, [String(priereJanazaId)]: Math.max(0, curr + (estCache ? -1 : 1)) };
+      });
+    });
+    return () => sub.remove();
+  }, [group.janazas]);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -540,6 +569,8 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
                 onPress={() => onPressJanaza(item)}
                 activeOpacity={0.65}
               >
+                {/* Ligne principale */}
+                <View style={styles.janazaMainRow}>
                   <View style={styles.janazaLeftCol}>
                     <StatusBadge statut={computeStatut(item)} />
                     <View style={styles.janazaTimePill}>
@@ -601,11 +632,39 @@ function MosqueCard({ group, coords, onPressJanaza, currentUserId, currentUserRo
                   ) : (
                     <Ionicons name="chevron-forward" size={15} color={colors.border} />
                   )}
+                </View>
+
+                {/* Footer — bouton commentaire en bas à droite */}
+                <View style={styles.janazaFooterRow}>
+                  {(() => {
+                    const count = commentCounts[String(item.id)] ?? 0;
+                    const hasComments = count > 0;
+                    return (
+                      <TouchableOpacity
+                        style={[styles.commentBtn, !hasComments && styles.commentBtnEmpty]}
+                        onPress={(e) => { e.stopPropagation(); setCommentItem(item); }}
+                        hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
+                        activeOpacity={0.65}
+                      >
+                        <Ionicons name={hasComments ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={14} color={hasComments ? '#fff' : colors.primary} />
+                        <Text style={[styles.commentCount, !hasComments && styles.commentCountEmpty]}>{count}</Text>
+                      </TouchableOpacity>
+                    );
+                  })()}
+                </View>
               </TouchableOpacity>
             );
           })}
         </View>
       ))}
+
+      <JanazaCommentsModal
+        visible={commentItem !== null}
+        janazaId={commentItem?.id}
+        janazaNom={commentItem ? (commentItem.estAnonyme ? t('home.anonymous') : formatNomDefunt(commentItem.nomDefunt)) : null}
+        onClose={() => setCommentItem(null)}
+        onCountChange={(id, count) => setCommentCounts(prev => ({ ...prev, [String(id)]: count }))}
+      />
 
       <JanazaShareModal
         visible={shareItem !== null}
@@ -828,6 +887,8 @@ export default function HomeScreen() {
   const subscriptions = useSelector((state) => state.mosques.subscriptions);
   const locationMode = useSelector((state) => state.ui.locationMode);
   const donationButtonVisible = useSelector((state) => state.features.donationButtonVisible);
+  const notifMouvement = useSelector((state) => state.auth.apiUser?.notifMouvement ?? false);
+  const [movementJanazaIds, setMovementJanazaIds] = useState(new Set());
   const [selected, setSelected] = useState(null);
   const [editDecl, setEditDecl] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -842,6 +903,23 @@ export default function HomeScreen() {
     else setHomeCoords(null);
   }, [apiUser?.latitudeDomicile, apiUser?.longitudeDomicile]);
 
+  // En mode mouvement : charge les IDs des janazas détectées sur le trajet
+  useEffect(() => {
+    if (!notifMouvement) { setMovementJanazaIds(new Set()); return; }
+    async function loadMovementIds() {
+      try {
+        const raw = await AsyncStorage.getItem('movement_notified');
+        if (!raw) { setMovementJanazaIds(new Set()); return; }
+        const { date, ids } = JSON.parse(raw);
+        if (date !== new Date().toDateString()) { setMovementJanazaIds(new Set()); return; }
+        setMovementJanazaIds(new Set(ids.map(String)));
+      } catch { setMovementJanazaIds(new Set()); }
+    }
+    loadMovementIds();
+    const interval = setInterval(loadMovementIds, 30_000);
+    return () => clearInterval(interval);
+  }, [notifMouvement]);
+
   async function refreshGps() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -850,6 +928,30 @@ export default function HomeScreen() {
       setGpsCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
     } catch {}
   }
+
+  // WebSocket temps réel — visibilité des commentaires
+  useEffect(() => {
+    const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? 'https://api.salatjanaza.org')
+      .replace(/^https/, 'wss').replace(/^http/, 'ws');
+    const wsUrl = `${baseUrl}/ws/comments`;
+    let ws;
+    let reconnectTimer;
+    let unmounted = false;
+    const connect = () => {
+      if (unmounted) return;
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'comment_visibility') DeviceEventEmitter.emit('comment_visibility', msg);
+        } catch {}
+      };
+      ws.onerror = () => {};
+      ws.onclose = () => { if (!unmounted) reconnectTimer = setTimeout(connect, 5000); };
+    };
+    connect();
+    return () => { unmounted = true; clearTimeout(reconnectTimer); ws?.close(); };
+  }, []);
 
   // Feature flags — WebSocket temps réel (push serveur à chaque changement admin)
   useEffect(() => {
@@ -990,12 +1092,19 @@ export default function HomeScreen() {
   const groups = useMemo(() => {
     const rayon = apiUser?.rayonNotification ?? 5;
 
-    const filtered = (!showAll && activeCoords)
-      ? items.filter((item) => {
-          if (subscribedMosqueeIds.has(String(item.mosqueeId))) return true;
-          return haversineKm(activeCoords.latitude, activeCoords.longitude, item.latitude, item.longitude) <= rayon;
-        })
-      : items;
+    let filtered;
+    if (!showAll && notifMouvement && movementJanazaIds.size > 0) {
+      filtered = items.filter((item) => movementJanazaIds.has(String(item.id)));
+    } else if (!showAll && notifMouvement) {
+      filtered = [];
+    } else if (!showAll && activeCoords) {
+      filtered = items.filter((item) => {
+        if (subscribedMosqueeIds.has(String(item.mosqueeId))) return true;
+        return haversineKm(activeCoords.latitude, activeCoords.longitude, item.latitude, item.longitude) <= rayon;
+      });
+    } else {
+      filtered = items;
+    }
 
 
     const map = {};
@@ -1022,7 +1131,7 @@ export default function HomeScreen() {
         }
         return a.janazas[0].dateHeure - b.janazas[0].dateHeure;
       });
-  }, [items, apiUser?.rayonNotification, activeCoords, subscribedMosqueeIds]);
+  }, [items, apiUser?.rayonNotification, activeCoords, subscribedMosqueeIds, notifMouvement, movementJanazaIds]);
 
   async function onRefresh() {
     setRefreshing(true);
@@ -1185,6 +1294,13 @@ export default function HomeScreen() {
       </View>
 
       <InfoBanner />
+
+      {notifMouvement && !showAll && (
+        <View style={styles.movementBanner}>
+          <Ionicons name="car-outline" size={15} color={colors.accent} />
+          <Text style={styles.movementBannerText}>{t('profile.movement_mode_banner')}</Text>
+        </View>
+      )}
 
       {showAll ? (
         <View style={[styles.radiusStrip, styles.radiusStripWorld]}>
@@ -1490,6 +1606,22 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 
+  movementBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    backgroundColor: colors.accent + '12',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.accent + '33',
+  },
+  movementBannerText: {
+    ...typography.bodySmall,
+    color: colors.accent,
+    flex: 1,
+    lineHeight: 17,
+  },
   radiusStrip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1644,18 +1776,28 @@ const styles = StyleSheet.create({
 
   // ── Janaza rows ──
   janazaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    flexDirection: 'column',
     paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.sm + 2,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
     marginHorizontal: spacing.sm,
-    marginTop: 5,
-    marginBottom: 5,
+    marginTop: 3,
+    marginBottom: 3,
     backgroundColor: '#F5F5F5',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.borderLight,
+  },
+  janazaMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  janazaFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingTop: 2,
+    marginTop: 2,
   },
   janazaRowBorder: {},
   dateGroupSeparator: {
@@ -1665,7 +1807,29 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     marginBottom: 2,
   },
-  janazaLeftCol: { alignItems: 'center', gap: spacing.xs },
+  janazaLeftCol: { alignItems: 'center', gap: spacing.xs, minWidth: 52 },
+  commentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  commentBtnEmpty: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  commentCount: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  commentCountEmpty: {
+    color: colors.primary,
+  },
   janazaTimePill: {
     backgroundColor: colors.primaryDim,
     borderRadius: radius.sm,

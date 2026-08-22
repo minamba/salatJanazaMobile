@@ -278,6 +278,210 @@ function BoutonTri({ valeur, onChange }) {
   );
 }
 
+function AdminCommentairesTab() {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState({});
+  const [search, setSearch] = useState('');
+
+  useEffect(() => { loadComments(); }, []);
+
+  async function loadComments() {
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/api/prierejanaza/commentaires/all');
+      setComments(res.data ?? []);
+    } catch {
+      Alert.alert('Erreur', 'Impossible de charger les commentaires.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete(comment) {
+    Alert.alert('Supprimer', 'Supprimer ce commentaire définitivement ?', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer', style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.delete(`/api/prierejanaza/${comment.priereJanazaId}/commentaires/${comment.id}`);
+            setComments(p => p.filter(c => c.id !== comment.id));
+          } catch { Alert.alert('Erreur', 'Suppression impossible.'); }
+        },
+      },
+    ]);
+  }
+
+  async function handleToggle(comment) {
+    try {
+      const res = await apiClient.patch(`/api/prierejanaza/${comment.priereJanazaId}/commentaires/${comment.id}/visibility`);
+      setComments(p => p.map(c => c.id === comment.id ? { ...c, estCache: res.data.estCache } : c));
+    } catch { Alert.alert('Erreur', 'Modification impossible.'); }
+  }
+
+  const filtered = comments.filter(c => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      c.auteurNom?.toLowerCase().includes(q) ||
+      c.nomDefunt?.toLowerCase().includes(q) ||
+      c.contenu?.toLowerCase().includes(q)
+    );
+  });
+
+  if (loading) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator color={colors.primary} />
+    </View>
+  );
+
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
+        <TextInput
+          style={adminComStyles.searchInput}
+          placeholder="Rechercher (défunt, auteur, contenu)…"
+          placeholderTextColor={colors.textMuted}
+          value={search}
+          onChangeText={setSearch}
+        />
+        <Text style={adminComStyles.count}>{filtered.length} commentaire{filtered.length !== 1 ? 's' : ''}</Text>
+      </View>
+      <FlatList
+        data={filtered}
+        keyExtractor={c => String(c.id)}
+        refreshing={loading}
+        onRefresh={loadComments}
+        contentContainerStyle={{ paddingHorizontal: spacing.md, paddingBottom: spacing.xl }}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+        renderItem={({ item: c }) => {
+          const isOpen = !!expanded[c.id];
+          return (
+            <TouchableOpacity
+              style={[adminComStyles.card, c.estCache && adminComStyles.cardHidden]}
+              onPress={() => setExpanded(p => ({ ...p, [c.id]: !p[c.id] }))}
+              activeOpacity={0.85}
+            >
+              <View style={adminComStyles.cardTop}>
+                <View style={{ flex: 1 }}>
+                  <Text style={adminComStyles.defunt} numberOfLines={1}>
+                    {c.estAnonyme ? 'Anonyme' : (c.nomDefunt || 'Défunt inconnu')}
+                  </Text>
+                  <View style={adminComStyles.metaRow}>
+                    <Ionicons name="person-outline" size={11} color={colors.textMuted} />
+                    <Text style={adminComStyles.meta}>{c.auteurNom || 'Anonyme'}</Text>
+                    <Text style={adminComStyles.metaSep}>·</Text>
+                    <Text style={adminComStyles.meta}>
+                      {new Date(c.dateCreation).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </Text>
+                    {c.estCache && (
+                      <>
+                        <Text style={adminComStyles.metaSep}>·</Text>
+                        <Ionicons name="eye-off-outline" size={11} color={colors.warning} />
+                        <Text style={[adminComStyles.meta, { color: colors.warning }]}>Caché</Text>
+                      </>
+                    )}
+                  </View>
+                </View>
+                <View style={adminComStyles.actions}>
+                  <TouchableOpacity onPress={() => handleToggle(c)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons
+                      name={c.estCache ? 'eye-outline' : 'eye-off-outline'}
+                      size={18}
+                      color={colors.warning}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleDelete(c)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="trash-outline" size={18} color={colors.error ?? '#dc2626'} />
+                  </TouchableOpacity>
+                  <Ionicons
+                    name={isOpen ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={colors.textMuted}
+                  />
+                </View>
+              </View>
+              {isOpen && (
+                <Text style={adminComStyles.content}>{c.contenu}</Text>
+              )}
+            </TouchableOpacity>
+          );
+        }}
+      />
+    </View>
+  );
+}
+
+const adminComStyles = StyleSheet.create({
+  searchInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    height: 36,
+    fontSize: 13,
+    color: colors.text,
+    backgroundColor: colors.surfaceElevated,
+    marginBottom: 4,
+  },
+  count: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    padding: spacing.md,
+  },
+  cardHidden: {
+    borderColor: colors.warning,
+    opacity: 0.75,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  defunt: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+    flexWrap: 'wrap',
+  },
+  meta: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  metaSep: {
+    fontSize: 11,
+    color: colors.border,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flexShrink: 0,
+  },
+  content: {
+    marginTop: spacing.sm,
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    paddingTop: spacing.sm,
+  },
+});
+
 const SUPER_ADMIN_EMAIL = 'ceo@salatjanaza.org';
 
 const parseUtc = (raw) => raw ? new Date(/Z$|[+-]\d{2}:/.test(raw) ? raw : raw + 'Z') : null;
@@ -1498,6 +1702,13 @@ export default function AdminScreen() {
                   <Text style={[styles.subTabText, declSubTab === 4 && styles.subTabTextActive]}>Historique</Text>
                   <Text style={[styles.subTabCount, declSubTab === 4 && styles.subTabCountActive]}>{histoDecl.length}</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.subTab, declSubTab === 5 && styles.subTabActive]}
+                  onPress={() => setDeclSubTab(5)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.subTabText, declSubTab === 5 && styles.subTabTextActive]}>Coms</Text>
+                </TouchableOpacity>
               </View>
 
               {declSubTab === 0 && (
@@ -1803,6 +2014,8 @@ export default function AdminScreen() {
                   }}
                 />
               )}
+
+              {declSubTab === 5 && <AdminCommentairesTab />}
             </>
           )}
 
@@ -1866,6 +2079,7 @@ export default function AdminScreen() {
 
           {/* DASHBOARD */}
           {tab === 4 && <DashboardTab />}
+
         </>
       )}
 

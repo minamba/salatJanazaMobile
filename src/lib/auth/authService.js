@@ -40,16 +40,14 @@ function parseJwtPayload(token) {
 
 function buildUser(claims) {
   const roleRaw = claims.role;
-  const role = Array.isArray(roleRaw)
-    ? roleRaw[0] ?? null
-    : roleRaw ?? null;
+  const roleStr = Array.isArray(roleRaw) ? roleRaw[0] ?? null : roleRaw ?? null;
   return {
     id: claims.sub,
     email: claims.email,
     name: claims.name ?? claims.email ?? '',
     prenom: claims.prenom ?? '',
     nom: claims.nom ?? '',
-    role,
+    role: roleStr?.toLowerCase() ?? null,
   };
 }
 
@@ -75,8 +73,9 @@ export async function loadPersistedAuth() {
       SecureStore.getItemAsync('access_token'),
     ]);
     if (!userJson || !token) return null;
+    const user = JSON.parse(userJson);
     return {
-      user: JSON.parse(userJson),
+      user: { ...user, role: user?.role?.toLowerCase() ?? null },
       apiUser: apiUserJson ? JSON.parse(apiUserJson) : null,
       token,
     };

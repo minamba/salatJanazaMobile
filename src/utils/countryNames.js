@@ -256,7 +256,7 @@ const COUNTRY_LANG = {
 export function commentaireVisibleForLang(mosqueeIsoCode, userLang) {
   if (!mosqueeIsoCode) return true;
   const langs = COUNTRY_LANG[mosqueeIsoCode.toUpperCase()];
-  if (!langs) return true;
-  const lang = (userLang ?? 'fr').split('-')[0];
+  const lang = (userLang ?? 'en').split('-')[0];
+  if (!langs) return lang === 'en';
   return langs.includes(lang);
 }
